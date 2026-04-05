@@ -45,8 +45,6 @@ export default function SplashScreen() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@400;600;700&display=swap');
-        
         @keyframes fadeInSplash {
           from {
             opacity: 0;
@@ -57,7 +55,7 @@ export default function SplashScreen() {
         }
 
         .splash-fade-in {
-          animation: fadeInSplash 1.5s ease-in forwards;
+          animation: fadeInSplash 3s ease-in forwards;
         }
 
         @keyframes spin {

@@ -8,7 +8,7 @@ import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signUp } = useAuth();
+  const { signup } = useAuth();
 
   const membershipType = searchParams.get('type') || 'member';
 
@@ -59,7 +59,7 @@ function SignUpContent() {
       }
 
       // Call signup function with membership type
-      await signUp(email, password, membershipType);
+      await signup(email, password, membershipType);
 
       // Successful signup - redirect to role selection
       router.push('/role-selection');

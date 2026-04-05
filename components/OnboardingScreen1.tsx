@@ -32,6 +32,7 @@ export default function OnboardingScreen1() {
 
         .glass-effect {
           background: rgba(250, 250, 250, 0.95);
+          -webkit-backdrop-filter: blur(20px);
           backdrop-filter: blur(20px);
           border: 1px solid rgba(255, 255, 255, 0.3);
         }

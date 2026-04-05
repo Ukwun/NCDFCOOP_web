@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 
 export default function OnboardingScreen3() {
   const router = useRouter();
+  const { completeOnboarding } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setIsVisible(true);
@@ -41,6 +44,7 @@ export default function OnboardingScreen3() {
 
         .glass-effect {
           background: rgba(250, 250, 250, 0.95);
+          -webkit-backdrop-filter: blur(20px);
           backdrop-filter: blur(20px);
           border: 1px solid rgba(255, 255, 255, 0.3);
         }
@@ -166,7 +170,17 @@ export default function OnboardingScreen3() {
               Back
             </button>
             <button
-              onClick={() => router.push('/welcome')}
+              onClick={async () => {
+                setIsLoading(true);
+                try {
+                  await completeOnboarding();
+                  router.push('/role-selection');
+                } catch (error) {
+                  console.error('Failed to complete onboarding:', error);
+                  setIsLoading(false);
+                }
+              }}
+              disabled={isLoading}
               style={{
                 flex: 1,
                 padding: `${AppSpacing.md} ${AppSpacing.lg}`,
@@ -175,19 +189,24 @@ export default function OnboardingScreen3() {
                 border: 'none',
                 borderRadius: '8px',
                 ...AppTextStyles.labelLarge,
-                cursor: 'pointer',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.7 : 1,
                 transition: 'all 300ms ease-out',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = AppColors.primaryDark;
-                e.currentTarget.style.transform = 'translateY(-2px)';
+                if (!isLoading) {
+                  e.currentTarget.style.backgroundColor = AppColors.primaryDark;
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = AppColors.primary;
-                e.currentTarget.style.transform = 'translateY(0)';
+                if (!isLoading) {
+                  e.currentTarget.style.backgroundColor = AppColors.primary;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
               }}
             >
-              Get Started
+              {isLoading ? 'Loading...' : 'Get Started'}
             </button>
           </div>
         </div>

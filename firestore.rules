@@ -12,19 +12,19 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'admin';
     }
     
     function isSeller() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'franchise');
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'seller' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'franchise');
     }
     
     function isMember() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'member' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'buyer');
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'member' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'buyer');
     }
     
     function isOwner(uid) {
@@ -44,8 +44,10 @@ service cloud.firestore {
       
       // Create: Only during registration
       allow create: if isOwner(userId) && 
-        request.resource.data.keys().hasAll(['email', 'name', 'role', 'createdAt']) &&
-        request.resource.data.role in ['member', 'seller', 'buyer', 'franchise'];
+        request.resource.data.keys().hasAll(['email', 'name', 'createdAt']) &&
+        (request.resource.data.selectedRole in ['member', 'seller', 'buyer', 'franchise', 'admin'] ||
+         (request.resource.data.roles.size() > 0 && 
+          request.resource.data.roles[0] in ['member', 'seller', 'buyer', 'franchise', 'admin']));
       
       // Update: Only own profile
       allow update: if isOwner(userId) &&
@@ -63,15 +65,14 @@ service cloud.firestore {
       // Read: Own member data or admin
       allow read: if isOwner(memberId) || isAdmin();
       
-      // Create: Only own member record
+      // Create: Only own member record during signup
       allow create: if isOwner(memberId) && 
         request.resource.data.userId == request.auth.uid &&
-        request.resource.data.keys().hasAll(['userId', 'savingsBalance', 'loyaltyPoints', 'tier']);
+        request.resource.data.keys().hasAll(['userId', 'memberSince']);
       
-      // Update: Only own member data, certain fields only
+      // Update: Only own member data
       allow update: if isOwner(memberId) &&
-        request.resource.data.userId == resource.data.userId && // userId immutable
-        request.resource.data.keys() == resource.data.keys(); // No new fields
+        request.resource.data.userId == resource.data.userId; // userId immutable
       
       // Delete: Never (admins should deactivate instead)
       allow delete: if false;

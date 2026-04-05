@@ -13,7 +13,7 @@ export default function Home() {
   useEffect(() => {
     if (loading) return;
 
-    // Small delay to allow splash to show for minimum 2 seconds
+    // Small delay to allow splash to show for minimum 3 seconds
     const redirectTimer = setTimeout(() => {
       if (!user) {
         // Not authenticated, go to welcome
@@ -28,7 +28,7 @@ export default function Home() {
         // All set, go to home
         router.push('/home');
       }
-    }, 2000);
+    }, 3000);
 
     return () => clearTimeout(redirectTimer);
   }, [user, loading, onboardingCompleted, roleSelectionComplete, router]);

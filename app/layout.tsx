@@ -20,6 +20,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#1A472A" />
         <link rel="icon" href="/images/logo/NCDFCOOPLOGO.png" type="image/png" />
         <link rel="shortcut icon" href="/images/logo/NCDFCOOPLOGO.png" type="image/png" />
+        <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="bg-gray-50 dark:bg-gray-900">
         <AuthProvider>

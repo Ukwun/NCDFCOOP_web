@@ -1,23 +1,18 @@
 'use client';
 
-import { FormEvent, Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { FormEvent, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 
-function SignUpContent() {
+export default function SignInScreen() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { signUp } = useAuth();
-
-  const membershipType = searchParams.get('type') || 'member';
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,9 +22,9 @@ function SignUpContent() {
     setIsLoading(true);
 
     try {
-      // Validation
-      if (!email || !password || !confirmPassword) {
-        setError('Please fill in all fields');
+      // Basic validation
+      if (!email || !password) {
+        setError('Please enter email and password');
         setIsLoading(false);
         return;
       }
@@ -46,25 +41,13 @@ function SignUpContent() {
         return;
       }
 
-      if (password !== confirmPassword) {
-        setError('Passwords do not match');
-        setIsLoading(false);
-        return;
-      }
+      // Call login function
+      await login(email, password);
 
-      if (!agreeToTerms) {
-        setError('Please agree to the terms and conditions');
-        setIsLoading(false);
-        return;
-      }
-
-      // Call signup function with membership type
-      await signUp(email, password, membershipType);
-
-      // Successful signup - redirect to role selection
-      router.push('/role-selection');
+      // Successful login - redirect to home or onboarding
+      router.push('/home');
     } catch (err: any) {
-      setError(err.message || 'Failed to create account. Please try again.');
+      setError(err.message || 'Failed to sign in. Please check your credentials.');
       setIsLoading(false);
     }
   };
@@ -91,24 +74,15 @@ function SignUpContent() {
               marginBottom: AppSpacing.md,
             }}
           >
-            Create Account
+            Sign In
           </div>
           <div
             style={{
               ...AppTextStyles.bodyMedium,
               color: AppColors.textSecondary,
-              marginBottom: AppSpacing.md,
             }}
           >
-            Join NCDFCOOP as a{' '}
-            <span
-              style={{
-                fontWeight: 600,
-                color: AppColors.primary,
-              }}
-            >
-              {membershipType.charAt(0).toUpperCase() + membershipType.slice(1)}
-            </span>
+            Welcome back to NCDFCOOP
           </div>
         </div>
 
@@ -215,132 +189,57 @@ function SignUpContent() {
             </div>
           </div>
 
-          {/* Confirm Password Field */}
+          {/* Remember Me & Forgot Password */}
           <div
             style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
               marginBottom: AppSpacing.lg,
             }}
           >
             <label
               style={{
-                display: 'block',
-                marginBottom: AppSpacing.sm,
-                ...AppTextStyles.labelLarge,
-                color: AppColors.textPrimary,
-              }}
-            >
-              Confirm Password
-            </label>
-            <div
-              style={{
-                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
+                ...AppTextStyles.bodySmall,
+                color: AppColors.textSecondary,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
               }}
             >
               <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
                 disabled={isLoading}
                 style={{
-                  width: '100%',
-                  padding: `${AppSpacing.md} ${AppSpacing.lg}`,
-                  paddingRight: '40px',
-                  border: `1px solid ${error ? AppColors.error : AppColors.border}`,
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  backgroundColor: AppColors.surface,
-                  color: AppColors.textPrimary,
-                  opacity: isLoading ? 0.6 : 1,
-                  cursor: isLoading ? 'not-allowed' : 'auto',
-                  transition: 'all 300ms ease-out',
-                  boxSizing: 'border-box',
+                  marginRight: AppSpacing.sm,
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  width: '18px',
+                  height: '18px',
+                  accentColor: AppColors.primary,
                 }}
               />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                disabled={isLoading}
-                style={{
-                  position: 'absolute',
-                  right: AppSpacing.lg,
-                  background: 'none',
-                  border: 'none',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  color: AppColors.textSecondary,
-                  padding: 0,
-                }}
-              >
-                {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
-              </button>
-            </div>
-          </div>
-
-          {/* Terms & Conditions */}
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              ...AppTextStyles.bodySmall,
-              color: AppColors.textSecondary,
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              marginBottom: AppSpacing.lg,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={agreeToTerms}
-              onChange={(e) => setAgreeToTerms(e.target.checked)}
+              Remember me
+            </label>
+            <button
+              type="button"
+              onClick={() => router.push('/forgot-password')}
               disabled={isLoading}
               style={{
-                marginRight: AppSpacing.sm,
-                marginTop: '2px',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                ...AppTextStyles.bodySmall,
+                color: AppColors.primary,
                 cursor: isLoading ? 'not-allowed' : 'pointer',
-                width: '18px',
-                height: '18px',
-                accentColor: AppColors.primary,
-                flexShrink: 0,
+                textDecoration: 'none',
+                opacity: isLoading ? 0.6 : 1,
               }}
-            />
-            <span>
-              I agree to the{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  /* Handle terms link */
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  color: AppColors.primary,
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                }}
-              >
-                Terms & Conditions
-              </button>
-              {' and '}
-              <button
-                type="button"
-                onClick={() => {
-                  /* Handle privacy link */
-                }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  color: AppColors.primary,
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                }}
-              >
-                Privacy Policy
-              </button>
-            </span>
-          </label>
+            >
+              Forgot password?
+            </button>
+          </div>
 
           {/* Error Message */}
           {error && (
@@ -359,14 +258,14 @@ function SignUpContent() {
             </div>
           )}
 
-          {/* Sign Up Button */}
+          {/* Sign In Button */}
           <button
             type="submit"
             disabled={isLoading}
             style={{
               width: '100%',
               padding: `${AppSpacing.md} ${AppSpacing.lg}`,
-              backgroundColor: isLoading ? AppColors.textDisabled : AppColors.primary,
+              backgroundColor: isLoading ? AppColors.disabled : AppColors.primary,
               color: AppColors.surface,
               border: 'none',
               borderRadius: '8px',
@@ -387,11 +286,11 @@ function SignUpContent() {
               }
             }}
           >
-            {isLoading ? 'Creating account...' : 'Create Account'}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        {/* Sign In Link */}
+        {/* Sign Up Link */}
         <div className="text-center">
           <span
             style={{
@@ -400,10 +299,10 @@ function SignUpContent() {
               marginRight: AppSpacing.sm,
             }}
           >
-            Already have an account?
+            Don&apos;t have an account?
           </span>
           <button
-            onClick={() => router.push('/signin')}
+            onClick={() => router.push('/welcome')}
             disabled={isLoading}
             style={{
               background: 'none',
@@ -416,18 +315,10 @@ function SignUpContent() {
               opacity: isLoading ? 0.6 : 1,
             }}
           >
-            Sign in
+            Create account
           </button>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function SignUpScreen() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <SignUpContent />
-    </Suspense>
   );
 }

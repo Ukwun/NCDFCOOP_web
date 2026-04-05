@@ -10,25 +10,39 @@ import {
   sendPasswordResetEmail,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { COLLECTIONS, USER_ROLES, MEMBER_TIERS } from '@/lib/constants/database';
 
 export interface AuthUser extends User {
-  role?: string;
+  roles?: string[];
+  selectedRole?: string;
   memberTier?: string;
   isNewUser?: boolean;
+  onboardingCompleted?: boolean;
+  roleSelectionComplete?: boolean;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   error: string | null;
+  onboardingCompleted: boolean;
+  roleSelectionComplete: boolean;
+  currentRole: string | null;
+  
+  // Auth methods
   logout: () => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
+  
+  // Workflow methods
+  completeOnboarding: () => Promise<void>;
+  selectRole: (role: string) => Promise<void>;
+  switchRole: (role: string) => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,24 +51,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [roleSelectionComplete, setRoleSelectionComplete] = useState(false);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
 
-  // Listen for auth state changes
+  // Listen for auth state changes and restore user data
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (currentUser) {
-          // Get user role and member data
+          // Get user document
           const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, currentUser.uid));
-          const memberDoc = await getDoc(doc(db, COLLECTIONS.MEMBERS, currentUser.uid));
-
-          const authUser: AuthUser = currentUser as AuthUser;
-          authUser.role = userDoc.data()?.role || USER_ROLES.MEMBER;
-          authUser.memberTier = memberDoc.data()?.tier || MEMBER_TIERS.BRONZE;
-
-          setUser(authUser);
-          setError(null);
+          const userData = userDoc.data();
+          
+          if (userData) {
+            const authUser: AuthUser = {
+              ...currentUser,
+              roles: userData.roles || [USER_ROLES.MEMBER],
+              selectedRole: userData.selectedRole || USER_ROLES.MEMBER,
+              roleSelectionComplete: userData.roleSelectionComplete || false,
+              onboardingCompleted: userData.onboardingCompleted || false,
+              memberTier: userData.memberTier || MEMBER_TIERS.BRONZE,
+            };
+            
+            setUser(authUser);
+            setCurrentRole(authUser.selectedRole || USER_ROLES.MEMBER);
+            setRoleSelectionComplete(authUser.roleSelectionComplete || false);
+            setOnboardingCompleted(authUser.onboardingCompleted || false);
+            setError(null);
+          } else {
+            // New user - create document
+            const newAuthUser: AuthUser = {
+              ...currentUser,
+              roles: [USER_ROLES.MEMBER],
+              selectedRole: USER_ROLES.MEMBER,
+              roleSelectionComplete: false,
+              onboardingCompleted: false,
+              memberTier: MEMBER_TIERS.BRONZE,
+              isNewUser: true,
+            };
+            setUser(newAuthUser);
+            setCurrentRole(USER_ROLES.MEMBER);
+            setRoleSelectionComplete(false);
+            setOnboardingCompleted(false);
+          }
         } else {
           setUser(null);
+          setCurrentRole(null);
+          setRoleSelectionComplete(false);
+          setOnboardingCompleted(false);
         }
       } catch (err) {
         console.error('Auth state change error:', err);
@@ -67,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, membershipType?: string, name?: string) => {
     try {
       setError(null);
 
@@ -77,15 +122,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Update profile
       await updateProfile(userCredential.user, {
-        displayName: name,
+        displayName: name || email.split('@')[0],
       });
 
-      // Create user document
+      // Determine the membership type (from parameter or default)
+      const selectedMembership = membershipType || USER_ROLES.MEMBER;
+
+      // Create user document with new workflow fields
       await setDoc(doc(db, COLLECTIONS.USERS, uid), {
         id: uid,
         email,
-        name,
-        role: USER_ROLES.MEMBER,
+        name: name || email.split('@')[0],
+        roles: [selectedMembership],
+        selectedRole: selectedMembership,
+        membershipType: selectedMembership,
+        roleSelectionComplete: false, // User needs to select role
+        onboardingCompleted: false, // User needs to complete onboarding
+        memberTier: MEMBER_TIERS.BRONZE,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         profilePicture: '',
@@ -108,7 +161,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         kycStatus: 'pending',
       });
 
-      setUser(userCredential.user as AuthUser);
+      const newAuthUser: AuthUser = {
+        ...userCredential.user,
+        roles: [selectedMembership],
+        selectedRole: selectedMembership,
+        roleSelectionComplete: false,
+        onboardingCompleted: false,
+        memberTier: MEMBER_TIERS.BRONZE,
+        isNewUser: true,
+      };
+      
+      setUser(newAuthUser);
+      setCurrentRole(selectedMembership);
+      setRoleSelectionComplete(false);
+      setOnboardingCompleted(false);
     } catch (err: any) {
       const errorMessage = err.code === 'auth/email-already-in-use'
         ? 'This email is already registered'
@@ -139,6 +205,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       await signOut(auth);
       setUser(null);
+      setCurrentRole(null);
+      setRoleSelectionComplete(false);
+      setOnboardingCompleted(false);
     } catch (err: any) {
       setError(err.message || 'Failed to logout');
       throw err;
@@ -175,10 +244,121 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           { merge: true }
         );
 
-        setUser(auth.currentUser as AuthUser);
+        setUser({
+          ...auth.currentUser,
+          ...user,
+        } as AuthUser);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to update profile');
+      throw err;
+    }
+  };
+
+  // Complete onboarding flow
+  const completeOnboarding = async () => {
+    try {
+      setError(null);
+      if (auth.currentUser) {
+        await setDoc(
+          doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
+          {
+            onboardingCompleted: true,
+            updatedAt: Timestamp.now(),
+          },
+          { merge: true }
+        );
+        setOnboardingCompleted(true);
+        if (user) {
+          setUser({ ...user, onboardingCompleted: true });
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to complete onboarding');
+      throw err;
+    }
+  };
+
+  // Select primary role (after onboarding, before home)
+  const selectRole = async (role: string) => {
+    try {
+      setError(null);
+      if (auth.currentUser) {
+        await setDoc(
+          doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
+          {
+            selectedRole: role,
+            roleSelectionComplete: true,
+            updatedAt: Timestamp.now(),
+          },
+          { merge: true }
+        );
+        setCurrentRole(role);
+        setRoleSelectionComplete(true);
+        if (user) {
+          setUser({
+            ...user,
+            selectedRole: role,
+            roleSelectionComplete: true,
+          });
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to select role');
+      throw err;
+    }
+  };
+
+  // Switch to a different role
+  const switchRole = async (role: string) => {
+    try {
+      setError(null);
+      if (auth.currentUser && user?.roles?.includes(role)) {
+        await setDoc(
+          doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
+          {
+            selectedRole: role,
+            updatedAt: Timestamp.now(),
+          },
+          { merge: true }
+        );
+        setCurrentRole(role);
+        if (user) {
+          setUser({ ...user, selectedRole: role });
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to switch role');
+      throw err;
+    }
+  };
+
+  // Refresh user data from database
+  const refreshUserData = async () => {
+    try {
+      setError(null);
+      if (auth.currentUser) {
+        const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid));
+        const userData = userDoc.data();
+        
+        if (userData) {
+          const authUser: AuthUser = {
+            ...auth.currentUser,
+            roles: userData.roles || [USER_ROLES.MEMBER],
+            selectedRole: userData.selectedRole || USER_ROLES.MEMBER,
+            roleSelectionComplete: userData.roleSelectionComplete || false,
+            onboardingCompleted: userData.onboardingCompleted || false,
+            memberTier: userData.memberTier || MEMBER_TIERS.BRONZE,
+          };
+          
+          setUser(authUser);
+          setCurrentRole(authUser.selectedRole || USER_ROLES.MEMBER);
+          setRoleSelectionComplete(authUser.roleSelectionComplete || false);
+          setOnboardingCompleted(authUser.onboardingCompleted || false);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to refresh user data');
       throw err;
     }
   };
@@ -189,11 +369,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         error,
+        onboardingCompleted,
+        roleSelectionComplete,
+        currentRole,
         logout,
         signup,
         login,
         resetPassword,
         updateUserProfile,
+        completeOnboarding,
+        selectRole,
+        switchRole,
+        refreshUserData,
       }}
     >
       {children}

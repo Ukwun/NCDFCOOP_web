@@ -22,7 +22,7 @@ export default function Logo({ size = 'medium', href = '/', className = '' }: Lo
     <div className={`flex items-center gap-2 ${className}`}>
       <div className="relative" style={{ width: sizeConfig.width, height: sizeConfig.height }}>
         <Image
-          src="/images/logo/ncdfcoop-logo.png"
+          src="/images/logo/NCDFCOOPLOGO.png"
           alt="NCDFCOOP"
           fill
           className="object-contain"

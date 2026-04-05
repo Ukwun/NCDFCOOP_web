@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { AuthProvider } from '@/lib/auth/authContext';
-import Navigation from '@/components/Navigation';
+import EnhancedNavigation from '@/components/EnhancedNavigation';
 import './globals.css';
 
 export default function RootLayout({
@@ -17,12 +17,14 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>NCDFCOOP Commerce - Website Version</title>
         <meta name="description" content="NCDFCOOP Commerce Platform - Member-Focused E-Commerce" />
-        <meta name="theme-color" content="#2563eb" />
+        <meta name="theme-color" content="#1A472A" />
+        <link rel="icon" href="/images/logo/NCDFCOOPLOGO.png" type="image/png" />
+        <link rel="shortcut icon" href="/images/logo/NCDFCOOPLOGO.png" type="image/png" />
       </head>
       <body className="bg-gray-50 dark:bg-gray-900">
         <AuthProvider>
-          <Navigation />
-          <div className="flex-1 pb-24 md:pb-0">
+          <EnhancedNavigation />
+          <div className="flex-1">
             {children}
           </div>
         </AuthProvider>

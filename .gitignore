@@ -1,0 +1,8 @@
+// Placeholder for .gitignore
+node_modules/
+.next/
+out/
+.env.local
+.env.*.local
+*.log
+.DS_Store

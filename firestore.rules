@@ -1,0 +1,253 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isSeller() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seller' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'franchise');
+    }
+    
+    function isMember() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'member' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'buyer');
+    }
+    
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+    
+    function isDocOwner(uid) {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // USERS COLLECTION - User profiles
+    // ============================================
+    match /users/{userId} {
+      // Read own profile or admin can read all
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Create: Only during registration
+      allow create: if isOwner(userId) && 
+        request.resource.data.keys().hasAll(['email', 'name', 'role', 'createdAt']) &&
+        request.resource.data.role in ['member', 'seller', 'buyer', 'franchise'];
+      
+      // Update: Only own profile
+      allow update: if isOwner(userId) &&
+        request.resource.data.email == resource.data.email && // Email is immutable
+        request.resource.data.createdAt == resource.data.createdAt; // Creation date is immutable
+      
+      // Delete: Never
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // MEMBERS COLLECTION - Member financial data
+    // ============================================
+    match /members/{memberId} {
+      // Read: Own member data or admin
+      allow read: if isOwner(memberId) || isAdmin();
+      
+      // Create: Only own member record
+      allow create: if isOwner(memberId) && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'savingsBalance', 'loyaltyPoints', 'tier']);
+      
+      // Update: Only own member data, certain fields only
+      allow update: if isOwner(memberId) &&
+        request.resource.data.userId == resource.data.userId && // userId immutable
+        request.resource.data.keys() == resource.data.keys(); // No new fields
+      
+      // Delete: Never (admins should deactivate instead)
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // PRODUCTS COLLECTION - Product catalog
+    // ============================================
+    match /products/{productId} {
+      // Read: Everyone can browse products
+      allow read: if true;
+      
+      // Create: Only sellers/franchisees
+      allow create: if isSeller() &&
+        request.resource.data.sellerId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['name', 'price', 'description', 'category', 'stock']);
+      
+      // Update: Only product owner or admin
+      allow update: if (isDocOwner(request.resource.data.sellerId) || isAdmin()) &&
+        request.resource.data.sellerId == resource.data.sellerId && // Seller cannot be changed
+        request.resource.data.createdAt == resource.data.createdAt; // Creation date immutable
+      
+      // Delete: Only product owner or admin
+      allow delete: if (isDocOwner(request.resource.data.sellerId) || isAdmin());
+    }
+    
+    // ============================================
+    // ORDERS COLLECTION - Purchase history
+    // ============================================
+    match /orders/{orderId} {
+      // Read: Own orders or admin or seller (for their products)
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Create: Only authenticated users
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'items', 'totalAmount', 'status']);
+      
+      // Update: User can update status, seller can view
+      allow update: if (isOwner(resource.data.userId) || isAdmin()) &&
+        request.resource.data.userId == resource.data.userId && // userId immutable
+        request.resource.data.items == resource.data.items; // Items immutable
+      
+      // Delete: Only admin
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // TRANSACTIONS COLLECTION - Financial transactions
+    // ============================================
+    match /transactions/{transactionId} {
+      // Read: Own transactions or admin
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Create: Only authenticated (typically backend)
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.type in ['deposit', 'withdrawal', 'purchase', 'refund'] &&
+        request.resource.data.keys().hasAll(['userId', 'type', 'amount', 'status']);
+      
+      // Update: Only admin (for status updates)
+      allow update: if isAdmin() &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.amount == resource.data.amount; // Amount immutable
+      
+      // Delete: Never
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // MESSAGES COLLECTION - User messages/communications
+    // ============================================
+    match /messages/{messageId} {
+      // Read: User is sender or recipient, or admin
+      allow read: if isAuthenticated() &&
+        (resource.data.senderId == request.auth.uid || resource.data.recipientId == request.auth.uid) ||
+        isAdmin();
+      
+      // Create: Only authenticated users, must be sender
+      allow create: if isAuthenticated() &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['senderId', 'recipientId', 'content', 'createdAt']);
+      
+      // Update: Only sender can update (mark as read by recipient in separate read_receipts)
+      allow update: if isOwner(resource.data.senderId) &&
+        request.resource.data.content == resource.data.content; // Content immutable
+      
+      // Delete: Only sender or admin
+      allow delete: if isOwner(resource.data.senderId) || isAdmin();
+    }
+    
+    // ============================================
+    // OFFERS COLLECTION - Promotional offers/deals
+    // ============================================
+    match /offers/{offerId} {
+      // Read: Everyone can see active offers
+      allow read: if resource.data.status == 'active' || isAdmin();
+      
+      // Create: Only admin or franchise owners
+      allow create: if isAdmin() &&
+        request.resource.data.keys().hasAll(['title', 'description', 'discount', 'status']);
+      
+      // Update: Only admin
+      allow update: if isAdmin() &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      
+      // Delete: Only admin
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // LOYALTY_POINTS COLLECTION - Member rewards
+    // ============================================
+    match /loyalty_points/{loyaltyId} {
+      // Read: Own loyalty record or admin
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Create: Only system/backend (authenticated context)
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'points', 'reason', 'transactionId']);
+      
+      // Update: Only admin (to correct balances)
+      allow update: if isAdmin() &&
+        request.resource.data.userId == resource.data.userId;
+      
+      // Delete: Never
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // CONVERSATIONS COLLECTION - Message threads
+    // ============================================
+    match /conversations/{conversationId} {
+      // Read: Participants or admin
+      allow read: if isAuthenticated() &&
+        (request.auth.uid in resource.data.participants || isAdmin());
+      
+      // Create: Participants must exist in array
+      allow create: if isAuthenticated() &&
+        request.auth.uid in request.resource.data.participants &&
+        request.resource.data.keys().hasAll(['participants', 'createdAt', 'lastMessage']);
+      
+      // Update: Participants can update
+      allow update: if isAuthenticated() &&
+        request.auth.uid in resource.data.participants &&
+        request.resource.data.participants == resource.data.participants; // Participants immutable
+      
+      // Delete: Admin only
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // ACTIVITY_LOG COLLECTION - User activity tracking
+    // ============================================
+    match /activity_log/{logId} {
+      // Read: Own activities or admin
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Create: Own activities
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'action', 'createdAt']);
+      
+      // Update: Never (immutable logs)
+      allow update: if false;
+      
+      // Delete: Admin only
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // DEFAULT DENY - Deny everything else
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

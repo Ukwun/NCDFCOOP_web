@@ -1,3 +1,6 @@
+// 🚨 Error Tracking & Performance Monitoring
+const { withSentryConfig } = require('@sentry/nextjs');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -92,4 +95,29 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+/**
+ * Wrap Next.js config with Sentry
+ * This enables:
+ * - Server-side error tracking
+ * - Performance monitoring
+ * - Session replay (on supported plans)
+ */
+module.exports = withSentryConfig(
+  nextConfig,
+  {
+    // Sentry build options
+    org: process.env.SENTRY_ORG || '8-gigabytes',
+    project: process.env.SENTRY_PROJECT || 'javascript-nextjs',
+    
+    // Automatically set release version
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    
+    // Sentry CLI options
+    sentry: {
+      hideSourceMaps: true,
+      tunnelRoute: '/monitoring',
+      widenClientFileUpload: true,
+      autoSessionTracking: true,
+    },
+  }
+);

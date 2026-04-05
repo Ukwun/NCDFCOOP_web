@@ -3,13 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import HomeScreen from './HomeScreen';
-import OfferScreen from './OfferScreen';
-import MessageScreen from './MessageScreen';
-import CartScreen from './CartScreen';
-import MyNCDFCOOPScreen from './MyNCDFCOOPScreen';
-import LoginScreen from './LoginScreen';
-import SignupScreen from './SignupScreen';
+import { lazyRouteComponents, preloadRoute, trackCodeSplittingMetrics } from '@/lib/optimization/lazyRoutes';
+import { LazyLoginScreen, LazySignupScreen } from '@/lib/optimization/lazyRoutes';
 
 export default function Navigation() {
   const { user, loading, logout } = useAuth();
@@ -32,10 +27,10 @@ export default function Navigation() {
   // Show login screen if not authenticated
   if (!user) {
     return showSignup ? (
-      <SignupScreen/>
+      <LazySignupScreen/>
     ) : (
       <div onClick={() => setShowSignup(false)}>
-        <LoginScreen />
+        <LazyLoginScreen />
         <div className="fixed bottom-4 left-4 right-4 text-center text-sm text-gray-600 dark:text-gray-400">
           Don't have an account?{' '}
           <button
@@ -58,19 +53,40 @@ export default function Navigation() {
   ];
 
   const renderScreen = () => {
-    switch (activeTab) {
-      case 'home':
-        return <HomeScreen />;
-      case 'offer':
-        return <OfferScreen />;
-      case 'message':
-        return <MessageScreen />;
-      case 'cart':
-        return <CartScreen />;
-      case 'profile':
-        return <MyNCDFCOOPScreen />;
-      default:
-        return <HomeScreen />;
+    const routes = {
+      home: 'home',
+      offer: 'offer',
+      message: 'message',
+      cart: 'cart',
+      profile: 'profile',
+    } as const;
+
+    const routeKey = activeTab as keyof typeof routes;
+    const Component = lazyRouteComponents[routeKey] || lazyRouteComponents.home;
+    
+    return <Component />;
+  };
+
+  // Track code splitting metrics
+  useState(() => {
+    if (typeof window !== 'undefined') {
+      trackCodeSplittingMetrics();
+    }
+  });
+
+  // Preload routes on hover (optimization)
+  const handleTabHover = (tabId: string) => {
+    const routes: Record<string, 'home' | 'offer' | 'message' | 'cart' | 'profile'> = {
+      home: 'home',
+      offer: 'offer',
+      message: 'message',
+      cart: 'cart',
+      profile: 'profile',
+    };
+    
+    const route = routes[tabId];
+    if (route) {
+      preloadRoute(route);
     }
   };
 
@@ -109,11 +125,13 @@ export default function Navigation() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              onMouseEnter={() => handleTabHover(tab.id)}
               className={`flex-1 md:flex-none md:h-16 md:px-4 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 md:gap-3 py-2 md:py-0 transition-colors ${
                 activeTab === tab.id
                   ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 md:bg-blue-50 dark:md:bg-blue-950'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
+              title={`Week 2: Lazy-loaded ${tab.label} (preloads on hover)`}
             >
               <span className="text-xl md:text-lg">{tab.icon}</span>
               <span className="text-xs md:text-sm font-medium">{tab.label}</span>

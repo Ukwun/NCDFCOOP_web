@@ -11,14 +11,34 @@ import dynamic from 'next/dynamic';
 import React from 'react';
 
 // Fallback component shown while loading
-const LoadingFallback = () => (
-  <div className="flex items-center justify-center h-screen">
-    <div className="text-center">
-      <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
-      <p className="mt-4 text-gray-600 dark:text-gray-400">Loading screen...</p>
-    </div>
-  </div>
-);
+function LoadingFallback(): JSX.Element {
+  const divStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100vh',
+  };
+
+  const spinnerStyle = {
+    display: 'inline-block',
+    animation: 'spin 1s linear infinite',
+    borderRadius: '50%',
+    height: '48px',
+    width: '48px',
+    borderBottom: '2px solid #2563eb',
+  };
+
+  return React.createElement(
+    'div',
+    { style: divStyle },
+    React.createElement(
+      'div',
+      { style: { textAlign: 'center' as const } },
+      React.createElement('div', { style: spinnerStyle }),
+      React.createElement('p', { style: { marginTop: '16px', color: '#4b5563' } }, 'Loading screen...')
+    )
+  );
+}
 
 /**
  * Lazy-loaded route components

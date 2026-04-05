@@ -42,7 +42,7 @@ export default function EnhancedNavigation() {
         { id: 'offers', label: 'Offers', icon: '🎁', href: '/offers' },
         { id: 'cart', label: 'Cart', icon: '🛒', href: '/cart' },
       ],
-      [USER_ROLES.WHOLESALE_BUYER]: [
+      [USER_ROLES.INSTITUTIONAL_BUYER]: [
         { id: 'catalog', label: 'Catalog', icon: '📦', href: '/catalog' },
         { id: 'orders', label: 'Orders', icon: '📋', href: '/orders' },
       ],

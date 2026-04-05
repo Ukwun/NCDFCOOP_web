@@ -25,7 +25,7 @@ export default function HomePage() {
     switch (currentRole) {
       case USER_ROLES.MEMBER:
         return <MemberHomeScreen />;
-      case USER_ROLES.WHOLESALE_BUYER:
+      case USER_ROLES.INSTITUTIONAL_BUYER:
         return <WholesaleBuyerHomeScreen />;
       case USER_ROLES.SELLER:
         return <SellerDashboardHomeScreen />;

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { lazyRouteComponents, preloadRoute, trackCodeSplittingMetrics } from '@/lib/optimization/lazyRoutes';
 import { LazyLoginScreen, LazySignupScreen } from '@/lib/optimization/lazyRoutes';
+import Logo from '@/components/Logo';
 
 export default function Navigation() {
   const { user, loading, logout } = useAuth();
@@ -107,9 +108,9 @@ export default function Navigation() {
 
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:top-0 md:bottom-auto md:right-auto md:w-48 md:border-t-0 md:border-r md:h-screen md:flex md:flex-col">
-        {/* Top header for desktop */}
+      {/* Top header for desktop */}
         <div className="hidden md:flex items-center justify-between h-16 border-b border-gray-200 dark:border-gray-700 px-4">
-          <h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">NCDFCOOP</h1>
+          <Logo size="small" />
           <button
             onClick={() => setShowLogoutDialog(true)}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth/authContext';
 import { validateSignupData } from '@/lib/validation/inputValidation';
 import { trackActivity } from '@/lib/analytics/activityTracker';
+import Logo from '@/components/Logo';
 
 export default function SignupScreen() {
   const { signup, error: authError } = useAuth();
@@ -59,7 +60,9 @@ export default function SignupScreen() {
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 dark:from-gray-900 dark:to-gray-800 py-8">
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">NCDFCOOP</h1>
+          <div className="flex justify-center mb-4">
+            <Logo size="medium" />
+          </div>
           <p className="text-gray-600 dark:text-gray-400">Create Account</p>
         </div>
 

@@ -19,21 +19,7 @@ import {
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS, ORDER_STATUS } from '@/lib/constants/database';
 import { clearCart } from '@/lib/services/cartService';
-
-export interface Order {
-  id: string;
-  userId: string;
-  items: any[];
-  totalAmount: number;
-  status: string;
-  paymentStatus: string;
-  shippingAddress: string;
-  paymentMethod: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  estimatedDelivery?: Timestamp;
-  trackingNumber?: string;
-}
+import { Order } from '@/lib/types/product';
 
 /**
  * Create order from cart

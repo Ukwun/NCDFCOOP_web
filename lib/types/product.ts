@@ -9,12 +9,12 @@ export interface Product {
   category: string;
   subcategory?: string;
   images: string[];
-  thumbnail: string;
+  thumbnail?: string;
   stock: number;
   sellerId: string;
-  sellerName: string;
-  rating: number;
-  reviews: number;
+  sellerName?: string;
+  rating?: number;
+  reviews?: number;
   minOrder?: number;
   maxOrder?: number;
   unit?: string; // e.g., "kg", "per piece", "per carton"
@@ -24,10 +24,10 @@ export interface Product {
     width: number;
     height: number;
   };
-  tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  isActive: boolean;
+  tags?: string[];
+  createdAt?: Date | Timestamp;
+  updatedAt?: Date | Timestamp;
+  isActive?: boolean;
   isFeatured?: boolean;
   discount?: number; // percentage
   wholesalePrice?: number;
@@ -114,9 +114,13 @@ export interface Review {
 }
 
 export interface CartItem {
+  id?: string; // userId_productId
+  userId?: string;
   productId: string;
+  productName?: string;
   quantity: number;
   price: number;
+  image?: string;
   addedAt: Date;
   productData?: Product; // Optional full product data
 }
@@ -136,21 +140,18 @@ export interface Order {
   id: string;
   userId: string;
   items: OrderItem[];
+  totalAmount: number; // Total order amount including tax and shipping
   status: OrderStatus;
-  subtotal: number;
-  tax: number;
-  shipping: number;
-  total: number;
-  paymentMethod: 'paystack' | 'bank_transfer' | 'cash_on_delivery';
   paymentStatus: PaymentStatus;
+  paymentMethod: 'paystack' | 'bank_transfer' | 'cash_on_delivery';
+  shippingAddress: string; // JSON string of Address
+  billingAddress?: string; // JSON string of Address
   paymentReference?: string;
-  shippingAddress: Address;
-  billingAddress: Address;
-  deliveryDate?: Date;
   trackingNumber?: string;
   notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | Timestamp;
+  updatedAt: Date | Timestamp;
+  estimatedDelivery?: Date | Timestamp;
 }
 
 export interface OrderItem {
@@ -158,7 +159,8 @@ export interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
-  subtotal: number;
+  subtotal?: number;
+  productImage?: string; // Optional product image URL
 }
 
 export type OrderStatus = 

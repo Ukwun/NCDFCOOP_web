@@ -61,7 +61,7 @@ export default function ProductDetailPage() {
 
     try {
       setIsAdding(true);
-      await addToCart(user.uid, product, quantity);
+      await addToCart(user.uid, product.id, product.name, product.price, product.images[0], quantity);
       alert(`${product.name} added to cart!`);
       setQuantity(1);
     } catch (err) {

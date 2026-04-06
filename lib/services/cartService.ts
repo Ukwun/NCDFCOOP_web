@@ -6,25 +6,7 @@
 import { doc, setDoc, updateDoc, deleteDoc, getDoc, collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
-
-export interface CartItem {
-  id: string;
-  userId: string;
-  productId: string;
-  productName: string;
-  price: number;
-  quantity: number;
-  image: string;
-  addedAt: Timestamp;
-}
-
-export interface Cart {
-  items: CartItem[];
-  subtotal: number;
-  tax: number;
-  shipping: number;
-  total: number;
-}
+import { Cart, CartItem } from '@/lib/types/product';
 
 /**
  * Add item to cart
@@ -104,16 +86,18 @@ export async function getUserCart(userId: string): Promise<Cart> {
 
     // Calculate totals
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = subtotal * 0.075; // 7.5% tax
-    const shipping = subtotal > 5000 ? 0 : 500;
+    const tax = subtotal * 0.1; // 10% VAT
+    const shipping = subtotal > 50000 ? 0 : 2500;
     const total = subtotal + tax + shipping;
 
     return {
+      userId,
       items,
       subtotal,
       tax,
       shipping,
       total,
+      updatedAt: new Date(),
     };
   } catch (error) {
     console.error('Error fetching cart:', error);

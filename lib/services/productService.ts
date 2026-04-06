@@ -6,20 +6,7 @@
 import { collection, getDocs, doc, getDoc, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
-
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  images: string[];
-  sellerId: string;
-  category: string;
-  stock: number;
-  rating: number;
-  reviews: number;
-  createdAt: Timestamp;
-}
+import { Product } from '@/lib/types/product';
 
 export interface Offer {
   id: string;

@@ -57,6 +57,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen for auth state changes and restore user data
   useEffect(() => {
+    // Guard against server-side execution
+    if (!auth || !db) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (currentUser) {
@@ -115,6 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (email: string, password: string, membershipType?: string, name?: string) => {
     try {
       setError(null);
+
+      if (!auth || !db) {
+        throw new Error('Firebase not initialized');
+      }
 
       // Create auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -187,6 +197,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       setError(null);
+      if (!auth) {
+        throw new Error('Firebase not initialized');
+      }
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       setUser(userCredential.user as AuthUser);
     } catch (err: any) {
@@ -203,6 +216,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       setError(null);
+      if (!auth) {
+        throw new Error('Firebase not initialized');
+      }
       await signOut(auth);
       setUser(null);
       setCurrentRole(null);
@@ -217,6 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       setError(null);
+      if (!auth) {
+        throw new Error('Firebase not initialized');
+      }
       await sendPasswordResetEmail(auth, email);
     } catch (err: any) {
       setError(err.message || 'Failed to send reset email');
@@ -227,6 +246,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUserProfile = async (displayName: string, photoURL?: string) => {
     try {
       setError(null);
+      if (!auth || !db) {
+        throw new Error('Firebase not initialized');
+      }
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName,
@@ -259,6 +281,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = async () => {
     try {
       setError(null);
+      if (!auth || !db) {
+        throw new Error('Firebase not initialized');
+      }
       if (auth.currentUser) {
         await setDoc(
           doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
@@ -283,6 +308,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const selectRole = async (role: string) => {
     try {
       setError(null);
+      if (!auth || !db) {
+        throw new Error('Firebase not initialized');
+      }
       if (auth.currentUser) {
         await setDoc(
           doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
@@ -313,6 +341,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchRole = async (role: string) => {
     try {
       setError(null);
+      if (!auth || !db) {
+        throw new Error('Firebase not initialized');
+      }
       if (auth.currentUser && user?.roles?.includes(role)) {
         await setDoc(
           doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
@@ -337,6 +368,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUserData = async () => {
     try {
       setError(null);
+      if (!auth || !db) {
+        throw new Error('Firebase not initialized');
+      }
       if (auth.currentUser) {
         const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid));
         const userData = userDoc.data();

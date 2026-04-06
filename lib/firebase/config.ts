@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -12,17 +12,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase (only once)
-let app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
+// Initialize Firebase - only if we have the required config and are on client
+let app: any = null;
 
-// Initialize services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+if (typeof window !== 'undefined' && firebaseConfig.apiKey) {
+  try {
+    app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+  }
+}
 
-// Set persistence
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.warn('Persistence setup warning:', error.code);
-});
+// Initialize services (will be null on server)
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
+export const storage = app ? getStorage(app) : null;
 
 export default app;

@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/auth/authContext';
 import { lazyRouteComponents, preloadRoute, trackCodeSplittingMetrics } from '@/lib/optimization/lazyRoutes';
 import { LazyLoginScreen, LazySignupScreen } from '@/lib/optimization/lazyRoutes';
 import Logo from '@/components/Logo';
+import { useNotifications } from '@/lib/hooks';
+import { Bell, X } from 'lucide-react';
 
 export default function Navigation() {
   const { user, loading, logout } = useAuth();
@@ -13,6 +15,11 @@ export default function Navigation() {
   const [activeTab, setActiveTab] = useState('home');
   const [showSignup, setShowSignup] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { notifications, unreadCount, markAsRead } = useNotifications({
+    userId: user?.uid || '',
+    refreshInterval: 30000,
+  });
 
   if (loading) {
     return (
@@ -111,13 +118,28 @@ export default function Navigation() {
       {/* Top header for desktop */}
         <div className="hidden md:flex items-center justify-between h-16 border-b border-gray-200 dark:border-gray-700 px-4">
           <Logo size="small" />
-          <button
-            onClick={() => setShowLogoutDialog(true)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title="Logout"
-          >
-            🚪
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Notification Bell */}
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setShowLogoutDialog(true)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Logout"
+            >
+              🚪
+            </button>
+          </div>
         </div>
 
         {/* Navigation items */}
@@ -151,6 +173,63 @@ export default function Navigation() {
 
       {/* Spacer for mobile */}
       <div className="h-20 md:hidden"></div>
+
+      {/* Notification Drawer */}
+      {showNotifications && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setShowNotifications(false)}
+          />
+          
+          {/* Notification Panel */}
+          <div className="fixed right-0 top-0 h-screen w-96 bg-white dark:bg-gray-900 shadow-xl z-50 flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="font-semibold text-lg">Notifications ({unreadCount})</h3>
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Notifications List */}
+            <div className="flex-1 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-4 text-center text-gray-500">No notifications</div>
+              ) : (
+                notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={`p-4 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer ${
+                      !notif.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                    }`}
+                    onClick={() => notif.id && markAsRead(notif.id)}
+                  >
+                    <p className="font-medium text-sm text-gray-900 dark:text-white">
+                      {notif.title}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {notif.message}
+                    </p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-gray-500">
+                        {new Date(notif.createdAt.seconds * 1000).toLocaleDateString()}
+                      </span>
+                      {!notif.read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Logout Dialog */}
       {showLogoutDialog && (

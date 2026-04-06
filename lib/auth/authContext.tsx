@@ -186,9 +186,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoleSelectionComplete(false);
       setOnboardingCompleted(false);
     } catch (err: any) {
-      const errorMessage = err.code === 'auth/email-already-in-use'
-        ? 'This email is already registered'
-        : err.message || 'Failed to create account';
+      console.error('Signup error details:', {
+        code: err.code,
+        message: err.message,
+        customData: err.customData,
+      });
+
+      let errorMessage = 'Failed to create account. Please try again.';
+
+      // Handle specific Firebase error codes
+      if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+      } else if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please log in or use a different email.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please use at least 8 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Account creation is not currently available. Please try again later.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many attempts. Please wait a while before trying again.';
+      } else if (err.message?.includes('Firebase')) {
+        errorMessage = 'Firebase service error. Please check your configuration and try again.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
       setError(errorMessage);
       throw err;
     }

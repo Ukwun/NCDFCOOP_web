@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getUserCart } from '@/lib/services/cartService';
-import { initatePaystackPayment } from '@/lib/services/paymentService';
+import { initiateFlutterwavePayment, recordBankTransferIntent } from '@/lib/services/paymentService';
 import { createOrder } from '@/lib/services/orderService';
 import { Cart, Address } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
@@ -15,7 +15,7 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'bank_transfer' | 'cash_on_delivery'>('paystack');
+  const [paymentMethod, setPaymentMethod] = useState<'flutterwave' | 'bank_transfer' | 'cash_on_delivery'>('flutterwave');
 
   const [shippingAddress, setShippingAddress] = useState<Address>({
     firstName: '',
@@ -140,13 +140,14 @@ export default function CheckoutPage() {
         paymentMethod
       );
 
-      if (paymentMethod === 'paystack') {
-        // Initiate Paystack payment
-        await initatePaystackPayment(
+      if (paymentMethod === 'flutterwave') {
+        // Initiate Flutterwave payment
+        await initiateFlutterwavePayment(
           cart.total,
           user.email || shippingAddress.email,
           user.uid,
           `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+          orderId,
           async (_reference) => {
             // Payment successful
             router.push(`/order-confirmation/${orderId}`);
@@ -157,7 +158,15 @@ export default function CheckoutPage() {
           }
         );
       } else if (paymentMethod === 'bank_transfer') {
-        // Redirect to bank transfer details
+        // Record bank transfer intent
+        await recordBankTransferIntent(
+          cart.total,
+          user.email || shippingAddress.email,
+          user.uid,
+          `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+          orderId
+        );
+        // Redirect to bank transfer details page
         router.push(`/payment/bank-transfer/${orderId}`);
       } else if (paymentMethod === 'cash_on_delivery') {
         // Order confirmed, cash on delivery
@@ -384,15 +393,15 @@ export default function CheckoutPage() {
               <div className="space-y-3">
                 <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer"
                   style={{
-                    borderColor: paymentMethod === 'paystack' ? AppColors.primary : AppColors.border,
-                    backgroundColor: paymentMethod === 'paystack' ? `${AppColors.primary}10` : 'transparent',
+                    borderColor: paymentMethod === 'flutterwave' ? AppColors.primary : AppColors.border,
+                    backgroundColor: paymentMethod === 'flutterwave' ? `${AppColors.primary}10` : 'transparent',
                   }}
                 >
                   <input
                     type="radio"
                     name="payment"
-                    value="paystack"
-                    checked={paymentMethod === 'paystack'}
+                    value="flutterwave"
+                    checked={paymentMethod === 'flutterwave'}
                     onChange={(e) => setPaymentMethod(e.target.value as any)}
                     className="mr-3"
                   />
@@ -403,7 +412,7 @@ export default function CheckoutPage() {
                         color: AppColors.textPrimary,
                       }}
                     >
-                      🔐 Paystack (Secure Payment)
+                      🔐 Flutterwave (Card, Mobile Money, USSD)
                     </p>
                     <p
                       style={{
@@ -411,7 +420,7 @@ export default function CheckoutPage() {
                         color: AppColors.textSecondary,
                       }}
                     >
-                      Pay instantly with debit/credit card
+                      Pay instantly with your preferred method
                     </p>
                   </div>
                 </label>

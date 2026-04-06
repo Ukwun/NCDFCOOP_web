@@ -15,17 +15,20 @@ export default function Home() {
 
     // Small delay to allow splash to show for minimum 3 seconds
     const redirectTimer = setTimeout(() => {
-      if (!user) {
-        // Not authenticated, go to welcome
-        router.push('/welcome');
-      } else if (!onboardingCompleted) {
-        // Authenticated but onboarding not complete
+      // Step 1: Not authenticated yet - show onboarding first
+      if (!user && !onboardingCompleted) {
         router.push('/onboarding');
-      } else if (!roleSelectionComplete) {
-        // Onboarding done but role not selected
+      }
+      // Step 2: Saw onboarding but not authenticated yet - go to signup
+      else if (!user && onboardingCompleted) {
+        router.push('/welcome');
+      }
+      // Step 3: Authenticated but no role selected - go to role selection
+      else if (user && !roleSelectionComplete) {
         router.push('/role-selection');
-      } else {
-        // All set, go to home
+      }
+      // Step 4: All complete - go to home
+      else if (user && roleSelectionComplete) {
         router.push('/home');
       }
     }, 3000);

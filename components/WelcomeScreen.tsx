@@ -19,18 +19,21 @@ const MEMBERSHIP_TYPES: MembershipType[] = [
     name: 'Member',
     title: '👤 Member',
     description: 'Access discounts, loyalty rewards, and premium benefits',
+    icon: '👤',
   },
   {
     id: 'wholesale',
     name: 'Wholesale',
     title: '🛒 Wholesale Buyer',
     description: 'Bulk buying with wholesale pricing and dedicated support',
+    icon: '🛒',
   },
   {
     id: 'cooperative',
     name: 'Cooperative',
     title: '🚀 Start Selling',
     description: 'Become a seller and reach members across the cooperative',
+    icon: '🚀',
   },
 ];
 

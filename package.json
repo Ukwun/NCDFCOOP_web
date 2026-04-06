@@ -9,13 +9,17 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:website": "node scripts/test-website.js",
+    "audit:website": "node scripts/audit-website.js",
+    "test:all": "npm run test:website && npm run audit:website"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.47.0",
     "autoprefixer": "^10.4.0",
     "axios": "^1.6.0",
     "firebase": "^10.0.0",
+    "lucide-react": "^1.7.0",
     "next": "^14.0.0",
     "postcss": "^8.4.0",
     "react": "^18.2.0",

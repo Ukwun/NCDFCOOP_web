@@ -1,0 +1,172 @@
+﻿
+> coop_commerce_web@1.0.0 build
+> next build
+
+  Ôû▓ Next.js 14.2.35
+  - Environments: .env.local
+  - Experiments (use with caution):
+    ┬À instrumentationHook
+
+   Creating an optimized production build ...
+[@sentry/nextjs - Node.js] Info: Sending telemetry data on issues and performance to Sentry. To disable telemetry, set `options.telemetry` to `false`.
+node.exe : [@sentry/nextjs - Node.js] Error: An error occurred. Couldn't finish all operations: Error: 
+Command failed: C:\development\coop_commerce_web\node_modules\@sentry\cli-win32-x64\bin\sentry-cli.exe 
+--header sentry-trace:57c8cffde5484f05a02f3216e9176517-82dc0d909242f1ba releases new 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\LENOVO 1\AppData\Roami ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([@sentry/nextjs...ff76018c6a4c89d:String) [], RemoteExcepti 
+   on
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+error: API request failed
+
+Caused by:
+    sentry reported an error: Invalid token (http status: 401)
+
+Add --log-level=[info|debug] or export SENTRY_LOG_LEVEL=[info|debug] to see more output.
+Please attach the full debug log to all bug reports.
+
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at ChildProcess.exithandler (node:child_process:417:12)
+    at ChildProcess.emit (node:events:519:28)
+    at maybeClose (node:internal/child_process:1101:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5) {
+  code: 1,
+  killed: false,
+  signal: null,
+  cmd: 'C:\\development\\coop_commerce_web\\node_modules\\@sentry\\cli-win32-x64\\bin\\sentry-cli.exe 
+--header sentry-trace:57c8cffde5484f05a02f3216e9176517-82dc0d909242f1ba releases new 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d'
+}
+error: API request failed
+
+Caused by:
+    sentry reported an error: Invalid token (http status: 401)
+
+Add --log-level=[info|debug] or export SENTRY_LOG_LEVEL=[info|debug] to see more output.
+Please attach the full debug log to all bug reports.
+[@sentry/nextjs - Node.js] Error: An error occurred. Couldn't finish all operations: Error: Command 
+--header sentry-trace:44d6d67693dd4713ac920fb586220b2d-8c304167f0613d9f-1 --header baggage:sentry-environ
+ment=production,sentry-release=5.1.1,sentry-public_key=4c2bae7d9fbc413e8f7385f55c515d51,sentry-trace_id=4
+4d6d67693dd4713ac920fb586220b2d,sentry-sample_rate=1,sentry-transaction=Sentry%20Bundler%20Plugin%20execu
+tion,sentry-sampled=true sourcemaps upload -p javascript-nextjs --release 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d 
+C:\Users\LENOVO~1\AppData\Local\Temp\sentry-bundler-plugin-upload-zqfOfX --ignore node_modules 
+--no-rewrite failed with exit code 1
+    at ChildProcess.<anonymous> 
+(C:\development\coop_commerce_web\node_modules\@sentry\cli\js\helper.js:321:32)
+    at ChildProcess.emit (node:events:519:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+[@sentry/nextjs - Edge] Info: Sending telemetry data on issues and performance to Sentry. To disable telemetry, set `options.telemetry` to `false`.
+[@sentry/nextjs - Edge] Error: An error occurred. Couldn't finish all operations: Error: Command failed: 
+C:\development\coop_commerce_web\node_modules\@sentry\cli-win32-x64\bin\sentry-cli.exe --header 
+sentry-trace:57c8cffde5484f05a02f3216e9176517-84c8b6cb831fc31e releases new 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d
+error: API request failed
+
+Caused by:
+    sentry reported an error: Invalid token (http status: 401)
+
+Add --log-level=[info|debug] or export SENTRY_LOG_LEVEL=[info|debug] to see more output.
+Please attach the full debug log to all bug reports.
+
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at ChildProcess.exithandler (node:child_process:417:12)
+    at ChildProcess.emit (node:events:519:28)
+    at maybeClose (node:internal/child_process:1101:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5) {
+  code: 1,
+  killed: false,
+  signal: null,
+  cmd: 'C:\\development\\coop_commerce_web\\node_modules\\@sentry\\cli-win32-x64\\bin\\sentry-cli.exe 
+--header sentry-trace:57c8cffde5484f05a02f3216e9176517-84c8b6cb831fc31e releases new 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d'
+}
+error: API request failed
+
+Caused by:
+    sentry reported an error: Invalid token (http status: 401)
+
+Add --log-level=[info|debug] or export SENTRY_LOG_LEVEL=[info|debug] to see more output.
+Please attach the full debug log to all bug reports.
+[@sentry/nextjs - Edge] Error: An error occurred. Couldn't finish all operations: Error: Command 
+--header sentry-trace:72db356443624e9fbd0364f54aa02383-9d2e6ffbf06e22e0-1 --header baggage:sentry-environ
+ment=production,sentry-release=5.1.1,sentry-public_key=4c2bae7d9fbc413e8f7385f55c515d51,sentry-trace_id=7
+2db356443624e9fbd0364f54aa02383,sentry-sample_rate=1,sentry-transaction=Sentry%20Bundler%20Plugin%20execu
+tion,sentry-sampled=true sourcemaps upload -p javascript-nextjs --release 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d 
+C:\Users\LENOVO~1\AppData\Local\Temp\sentry-bundler-plugin-upload-x6gqNo --ignore node_modules 
+--no-rewrite failed with exit code 1
+    at ChildProcess.<anonymous> 
+(C:\development\coop_commerce_web\node_modules\@sentry\cli\js\helper.js:321:32)
+    at ChildProcess.emit (node:events:519:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+[@sentry/nextjs - Client] Info: Sending telemetry data on issues and performance to Sentry. To disable telemetry, set `options.telemetry` to `false`.
+[@sentry/nextjs - Client] Error: An error occurred. Couldn't finish all operations: Error: Command 
+failed: C:\development\coop_commerce_web\node_modules\@sentry\cli-win32-x64\bin\sentry-cli.exe --header 
+sentry-trace:57c8cffde5484f05a02f3216e9176517-9176bd179909886a releases new 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d
+error: API request failed
+
+Caused by:
+    sentry reported an error: Invalid token (http status: 401)
+
+Add --log-level=[info|debug] or export SENTRY_LOG_LEVEL=[info|debug] to see more output.
+Please attach the full debug log to all bug reports.
+
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at ChildProcess.exithandler (node:child_process:417:12)
+    at ChildProcess.emit (node:events:519:28)
+    at maybeClose (node:internal/child_process:1101:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5) {
+  code: 1,
+  killed: false,
+  signal: null,
+  cmd: 'C:\\development\\coop_commerce_web\\node_modules\\@sentry\\cli-win32-x64\\bin\\sentry-cli.exe 
+--header sentry-trace:57c8cffde5484f05a02f3216e9176517-9176bd179909886a releases new 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d'
+}
+error: API request failed
+
+Caused by:
+    sentry reported an error: Invalid token (http status: 401)
+
+Add --log-level=[info|debug] or export SENTRY_LOG_LEVEL=[info|debug] to see more output.
+Please attach the full debug log to all bug reports.
+[@sentry/nextjs - Client] Error: An error occurred. Couldn't finish all operations: Error: Command 
+--header sentry-trace:6b73f52c02a74140bbf9c9bbb5212314-bb3e38baa73cb07a-1 --header baggage:sentry-environ
+ment=production,sentry-release=5.1.1,sentry-public_key=4c2bae7d9fbc413e8f7385f55c515d51,sentry-trace_id=6
+b73f52c02a74140bbf9c9bbb5212314,sentry-sample_rate=1,sentry-transaction=Sentry%20Bundler%20Plugin%20execu
+tion,sentry-sampled=true sourcemaps upload -p javascript-nextjs --release 
+6d01950983a00d1aa5a0b9d07ff76018c6a4c89d 
+C:\Users\LENOVO~1\AppData\Local\Temp\sentry-bundler-plugin-upload-reCQnt --ignore node_modules 
+--no-rewrite failed with exit code 1
+    at ChildProcess.<anonymous> 
+(C:\development\coop_commerce_web\node_modules\@sentry\cli\js\helper.js:321:32)
+    at ChildProcess.emit (node:events:519:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+ Ô£ô Compiled successfully
+   Linting and checking validity of types ...
+Failed to compile.
+
+./components/ExampleServiceComponents.tsx:12:10
+Type error: Duplicate identifier 'useState'.
+
+[0m [90m 10 |[39m [32m'use client'[39m[33m;[39m[0m
+[0m [90m 11 |[39m[0m
+[0m[31m[1m>[22m[39m[90m 12 |[39m [36mimport[39m { useState } [36mfrom[39m 
+[32m'react'[39m[33m;[39m[0m
+[0m [90m    |[39m          [31m[1m^[22m[39m[0m
+[0m [90m 13 |[39m [36mimport[39m { useNotifications } [36mfrom[39m 
+[32m'@/lib/hooks'[39m[33m;[39m[0m
+[0m [90m 14 |[39m [36mimport[39m { [33mBell[39m[33m,[39m [33mX[39m[33m,[39m 
+[33mCheckCircle2[39m[33m,[39m [33mAlertCircle[39m[33m,[39m [33mGift[39m[33m,[39m 
+[33mMessageSquare[39m[33m,[39m [33mPackage[39m } [36mfrom[39m 
+[32m'lucide-react'[39m[33m;[39m[0m
+[0m [90m 15 |[39m[0m
+Next.js build worker exited with code: 1 and signal: null

@@ -1,16 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { getUserCart, removeFromCart, updateCartItemQuantity, Cart } from '@/lib/services/cartService';
+import { getUserCart, removeFromCart, updateCartItemQuantity } from '@/lib/services/cartService';
+import { Cart } from '@/lib/types/product';
 import PaystackPaymentButton from '@/components/PaystackPaymentButton';
 import OptimizedImage from '@/components/OptimizedImage';
+import { useActivityTracking } from '@/lib/hooks';
 
 export default function CartScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { trackCheckoutStart } = useActivityTracking({
+    userId: user?.uid || '',
+  });
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +34,7 @@ export default function CartScreen() {
         } else {
           // Use mock data if no user
           setCart({
+            userId: '',
             items: [
               {
                 id: '1',
@@ -56,6 +61,7 @@ export default function CartScreen() {
             tax: 712.5,
             shipping: 500,
             total: 10712.5,
+            updatedAt: new Date(),
           });
         }
       } catch (err) {
@@ -63,6 +69,7 @@ export default function CartScreen() {
         setError('Failed to load cart. Please try again.');
         // Fallback to mock data
         setCart({
+          userId: user?.uid || '',
           items: [
             {
               id: '1',
@@ -89,6 +96,7 @@ export default function CartScreen() {
           tax: 712.5,
           shipping: 500,
           total: 10712.5,
+          updatedAt: new Date(),
         });
       } finally {
         setLoading(false);
@@ -187,8 +195,8 @@ export default function CartScreen() {
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-4 flex-1">
                         <OptimizedImage
-                          src={item.image}
-                          alt={item.productName}
+                          src={item.image || ''}
+                          alt={item.productName || ''}
                           type="thumbnail"
                           width={80}
                           height={80}
@@ -285,6 +293,8 @@ export default function CartScreen() {
                 <button
                   onClick={() => {
                     if (shippingAddress.trim()) {
+                      // Track checkout start
+                      trackCheckoutStart(Math.round(cart.total), cart.items.length);
                       setIsCheckingOut(true);
                     } else {
                       setError('Please enter a shipping address');
@@ -303,7 +313,7 @@ export default function CartScreen() {
                     amount={Math.round(cart.total)}
                     cartItems={cart.items.map((item) => ({
                       productId: item.productId,
-                      productName: item.productName,
+                      productName: item.productName || '',
                       quantity: item.quantity,
                       price: item.price,
                     }))}

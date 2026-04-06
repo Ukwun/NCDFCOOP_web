@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { useAuth } from '@/lib/auth/authContext';
 import { getMemberData, recordTransaction } from '@/lib/services/memberService';
 import { validateTransactionAmount } from '@/lib/validation/inputValidation';
 import { initatePaystackPayment } from '@/lib/services/paymentService';
-import { trackActivity } from '@/lib/analytics/activityTracker';
+import { useActivityTracking } from '@/lib/hooks';
+import { trackActivity } from '@/lib/services/activityService';
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { trackProductView } = useActivityTracking({
+    userId: user?.uid || '',
+  });
   const [memberData, setMemberData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [depositAmount, setDepositAmount] = useState('');
@@ -27,7 +30,8 @@ export default function HomeScreen() {
       try {
         const data = await getMemberData(user.uid);
         setMemberData(data);
-        await trackActivity('page_view', { page: 'home' }, user.uid);
+        // Track home page view
+        await trackProductView('home_page', 'Home');
       } catch (err) {
         console.error('Error fetching member data:', err);
         setError('Failed to load member data');

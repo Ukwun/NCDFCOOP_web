@@ -152,7 +152,7 @@ export default function ProductDetailPage() {
               }}
             >
               <Image
-                src={product.images[selectedImage] || product.thumbnail}
+                src={product.images[selectedImage] || product.thumbnail || product.images[0] || ''}
                 alt={product.name}
                 fill
                 className="object-cover"
@@ -237,7 +237,7 @@ export default function ProductDetailPage() {
                   <span
                     key={i}
                     className={`text-2xl ${
-                      i < Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-300'
+                      i < Math.floor(product.rating || 0) ? 'text-yellow-400' : 'text-gray-300'
                     }`}
                   >
                     ★
@@ -250,7 +250,7 @@ export default function ProductDetailPage() {
                   color: AppColors.textSecondary,
                 }}
               >
-                {product.rating.toFixed(1)} ({product.reviews} reviews)
+                {(product.rating || 0).toFixed(1)} ({product.reviews || 0} reviews)
               </span>
             </div>
 

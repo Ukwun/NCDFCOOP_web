@@ -1,9 +1,16 @@
-'use client';
-
 import type { ReactNode } from 'react';
-import { AuthProvider } from '@/lib/auth/authContext';
-import EnhancedNavigation from '@/components/EnhancedNavigation';
+import { ClientLayout } from '@/components/ClientLayout';
 import './globals.css';
+
+export const metadata = {
+  title: 'NCDFCOOP Commerce - Website Version',
+  description: 'NCDFCOOP Commerce Platform - Member-Focused E-Commerce',
+  themeColor: '#1A472A',
+  icons: {
+    icon: '/images/logo/NCDFCOOPLOGO.png',
+    shortcut: '/images/logo/NCDFCOOPLOGO.png',
+  },
+};
 
 export default function RootLayout({
   children,
@@ -15,20 +22,12 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>NCDFCOOP Commerce - Website Version</title>
-        <meta name="description" content="NCDFCOOP Commerce Platform - Member-Focused E-Commerce" />
-        <meta name="theme-color" content="#1A472A" />
-        <link rel="icon" href="/images/logo/NCDFCOOPLOGO.png" type="image/png" />
-        <link rel="shortcut icon" href="/images/logo/NCDFCOOPLOGO.png" type="image/png" />
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="bg-gray-50 dark:bg-gray-900">
-        <AuthProvider>
-          <EnhancedNavigation />
-          <div className="flex-1">
-            {children}
-          </div>
-        </AuthProvider>
+        <ClientLayout>
+          {children}
+        </ClientLayout>
       </body>
     </html>
   );

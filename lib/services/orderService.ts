@@ -51,7 +51,29 @@ export async function createOrder(
       ), // 7 days
     };
 
+    // Save order
     await setDoc(doc(db, COLLECTIONS.ORDERS, orderId), order);
+
+    // Reduce product stock for each item in the order
+    for (const item of items) {
+      try {
+        const productRef = doc(db, COLLECTIONS.PRODUCTS, item.productId);
+        const productDoc = await getDoc(productRef);
+        
+        if (productDoc.exists()) {
+          const currentStock = productDoc.data()?.stock || 0;
+          const newStock = Math.max(0, currentStock - item.quantity);
+          
+          await updateDoc(productRef, {
+            stock: newStock,
+            updatedAt: Timestamp.now(),
+          });
+        }
+      } catch (error) {
+        console.error(`Error updating stock for product ${item.productId}:`, error);
+        // Continue with other items even if one fails
+      }
+    }
 
     // Clear cart
     await clearCart(userId);

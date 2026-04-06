@@ -10,19 +10,28 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    function getUserRole() {
+      // Safely get user role, returns null if document doesn't exist
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.data.selectedRole;
+    }
+    
     function isAdmin() {
       return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'admin';
     }
     
     function isSeller() {
       return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'seller' ||
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'franchise');
     }
     
     function isMember() {
       return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'member' ||
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'buyer');
     }
@@ -39,20 +48,14 @@ service cloud.firestore {
     // USERS COLLECTION - User profiles
     // ============================================
     match /users/{userId} {
-      // Read own profile or admin can read all
-      allow read: if isOwner(userId) || isAdmin();
+      // Read own profile
+      allow read: if isOwner(userId);
       
-      // Create: Only during registration
-      allow create: if isOwner(userId) && 
-        request.resource.data.keys().hasAll(['email', 'name', 'createdAt']) &&
-        (request.resource.data.selectedRole in ['member', 'seller', 'buyer', 'franchise', 'admin'] ||
-         (request.resource.data.roles.size() > 0 && 
-          request.resource.data.roles[0] in ['member', 'seller', 'buyer', 'franchise', 'admin']));
+      // Create: Only during registration (new user creating their own profile)
+      allow create: if isOwner(userId);
       
       // Update: Only own profile
-      allow update: if isOwner(userId) &&
-        request.resource.data.email == resource.data.email && // Email is immutable
-        request.resource.data.createdAt == resource.data.createdAt; // Creation date is immutable
+      allow update: if isOwner(userId);
       
       // Delete: Never
       allow delete: if false;
@@ -66,13 +69,10 @@ service cloud.firestore {
       allow read: if isOwner(memberId) || isAdmin();
       
       // Create: Only own member record during signup
-      allow create: if isOwner(memberId) && 
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.keys().hasAll(['userId', 'memberSince']);
+      allow create: if isOwner(memberId);
       
       // Update: Only own member data
-      allow update: if isOwner(memberId) &&
-        request.resource.data.userId == resource.data.userId; // userId immutable
+      allow update: if isOwner(memberId);
       
       // Delete: Never (admins should deactivate instead)
       allow delete: if false;

@@ -64,7 +64,26 @@ function SignUpContent() {
       // Successful signup - redirect to role selection
       router.push('/role-selection');
     } catch (err: any) {
-      setError(err.message || 'Failed to create account. Please try again.');
+      console.error('Signup error:', err);
+      
+      // Provide better error messages
+      let errorMessage = 'Failed to create account. Please try again.';
+      
+      if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Network connection failed. Please check your internet and try again.';
+      } else if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'This email is already registered. Please log in or use a different email.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Use at least 8 characters.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (err.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Account creation is not currently enabled.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     }
   };

@@ -28,16 +28,23 @@ export default function SplashScreen() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [loading]);
+  }, [loading, navigationInitiated]);
 
   const performNavigation = () => {
-    if (!user) {
-      router.push('/welcome');
-    } else if (!onboardingCompleted) {
+    // Step 1: Not authenticated yet - show onboarding first
+    if (!user && !onboardingCompleted) {
       router.push('/onboarding');
-    } else if (!roleSelectionComplete) {
+    }
+    // Step 2: Saw onboarding but not authenticated yet - go to signup
+    else if (!user && onboardingCompleted) {
+      router.push('/welcome');
+    }
+    // Step 3: Authenticated but no role selected - go to role selection
+    else if (user && !roleSelectionComplete) {
       router.push('/role-selection');
-    } else {
+    }
+    // Step 4: All complete - go to home
+    else if (user && roleSelectionComplete) {
       router.push('/home');
     }
   };

@@ -2,15 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 
 export default function OnboardingScreen1() {
   const router = useRouter();
+  const { completeOnboarding } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setIsVisible(true);
   }, []);
+
+  const handleCompleteOnboarding = async () => {
+    setIsLoading(true);
+    try {
+      await completeOnboarding();
+      // After onboarding, go to authentication (signup)
+      router.push('/welcome');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      setIsLoading(false);
+    }
+  };
 
   return (
     <>
@@ -31,10 +46,11 @@ export default function OnboardingScreen1() {
         }
 
         .glass-effect {
-          background: rgba(250, 250, 250, 0.95);
+          background: rgba(255, 255, 255, 0.15);
           -webkit-backdrop-filter: blur(20px);
           backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
+          border: 1px solid rgba(255, 255, 255, 0.5);
+          box-shadow: inset 0 0 60px rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.1);
         }
       `}</style>
 
@@ -109,7 +125,8 @@ export default function OnboardingScreen1() {
             }}
           >
             <button
-              onClick={() => router.push('/onboarding2')}
+              onClick={handleCompleteOnboarding}
+              disabled={isLoading}
               style={{
                 flex: 1,
                 padding: `${AppSpacing.md} ${AppSpacing.lg}`,
@@ -118,22 +135,27 @@ export default function OnboardingScreen1() {
                 border: 'none',
                 borderRadius: '8px',
                 ...AppTextStyles.labelLarge,
-                cursor: 'pointer',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.6 : 1,
                 transition: 'all 300ms ease-out',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = AppColors.primaryDark;
-                e.currentTarget.style.transform = 'translateY(-2px)';
+                if (!isLoading) {
+                  e.currentTarget.style.backgroundColor = AppColors.primaryDark;
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = AppColors.primary;
-                e.currentTarget.style.transform = 'translateY(0)';
+                if (!isLoading) {
+                  e.currentTarget.style.backgroundColor = AppColors.primary;
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
               }}
             >
-              Next
+              {isLoading ? 'Loading...' : 'Get Started'}
             </button>
             <button
-              onClick={() => router.push('/welcome')}
+              onClick={() => router.push('/home')}
               style={{
                 flex: 1,
                 padding: `${AppSpacing.md} ${AppSpacing.lg}`,

@@ -79,10 +79,31 @@ export async function getUserCart(userId: string): Promise<Cart> {
     const q = query(collection(db, COLLECTIONS.CART_ITEMS), where('userId', '==', userId));
     const snapshot = await getDocs(q);
 
-    const items: CartItem[] = snapshot.docs.map((doc) => ({
+    let items: CartItem[] = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     } as CartItem));
+
+    // Enrich cart items with full product data
+    items = await Promise.all(
+      items.map(async (item) => {
+        try {
+          const productDoc = await getDoc(doc(db, COLLECTIONS.PRODUCTS, item.productId));
+          if (productDoc.exists()) {
+            return {
+              ...item,
+              productData: {
+                id: productDoc.id,
+                ...productDoc.data(),
+              } as any,
+            };
+          }
+        } catch (error) {
+          console.error(`Error fetching product ${item.productId}:`, error);
+        }
+        return item;
+      })
+    );
 
     // Calculate totals
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);

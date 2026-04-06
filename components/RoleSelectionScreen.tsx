@@ -118,14 +118,14 @@ export default function RoleSelectionScreen() {
             marginBottom: AppSpacing.lg,
             padding: AppSpacing.md,
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            borderLeft: `4px solid ${AppColors.status.error}`,
+            borderLeft: `4px solid ${AppColors.error}`,
             borderRadius: AppSpacing.xs,
           }}
         >
           <div
             style={{
               ...AppTextStyles.labelLarge,
-              color: AppColors.status.error,
+              color: AppColors.error,
             }}
           >
             {error}

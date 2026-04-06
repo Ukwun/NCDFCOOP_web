@@ -16,6 +16,9 @@ export const COLLECTIONS = {
   ACTIVITY_LOGS: 'activityLogs',
   CART_ITEMS: 'cartItems',
   REVIEWS: 'reviews',
+  NOTIFICATIONS: 'notifications',
+  FAVORITES: 'favorites',
+  REWARDS: 'rewards',
 } as const;
 
 export const USER_ROLES = {

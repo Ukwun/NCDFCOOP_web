@@ -1,0 +1,58 @@
+# Netlify Configuration for NCDF COOP Commerce Web
+# Automatic deployment settings from GitHub
+
+[build]
+  # Build command
+  command = "npm run build"
+  
+  # Directory with the built site (Next.js output)
+  publish = ".next"
+  
+  # Environment variables are set in Netlify dashboard
+  # Required variables:
+  # - All NEXT_PUBLIC_* variables
+  # - SENTRY_AUTH_TOKEN
+  # - SENTRY_ENVIRONMENT
+  # - NODE_ENV
+
+[functions]
+  # Next.js functions configuration
+  directory = ".next/server"
+
+# Rewrite rules for Next.js routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cache settings
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/_next/image*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Production context
+[context.production]
+  command = "npm run build"
+  publish = ".next"
+  environment = { NODE_ENV = "production" }
+
+# Preview context (for PR previews)
+[context.deploy-preview]
+  command = "npm run build"
+  publish = ".next"
+
+# Branch preview context
+[context.branch-preview]
+  command = "npm run build"
+  publish = ".next"

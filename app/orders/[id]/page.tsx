@@ -7,6 +7,7 @@ import { getOrder } from '@/lib/services/orderService';
 import { getBankTransferStatus } from '@/lib/services/bankTransferService';
 import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { toDate } from '@/lib/utils/dateHelper';
 
 interface OrderTimeline {
   step: number;
@@ -85,7 +86,7 @@ export default function OrderTrackingPage() {
         title: 'Order Placed',
         status: 'completed',
         icon: '📋',
-        timestamp: order.createdAt?.toDate?.() || new Date(),
+        timestamp: toDate(order.createdAt),
         description: `Order ${order.id} created`,
       },
       {
@@ -132,7 +133,7 @@ export default function OrderTrackingPage() {
         icon: '🚚',
         description:
           order.status === 'shipped'
-            ? `On the way - delivery by ${order.estimatedDelivery?.toDate?.().toLocaleDateString('en-NG')}`
+            ? `On the way - delivery by ${toDate(order.estimatedDelivery).toLocaleDateString('en-NG')}`
             : 'Awaiting shipment',
       },
       {
@@ -415,7 +416,7 @@ export default function OrderTrackingPage() {
                   margin: 0,
                 }}
               >
-                {order.createdAt?.toDate?.().toLocaleDateString('en-NG')}
+                {toDate(order.createdAt).toLocaleDateString('en-NG')}
               </p>
             </div>
 
@@ -437,7 +438,7 @@ export default function OrderTrackingPage() {
                   margin: 0,
                 }}
               >
-                {order.estimatedDelivery?.toDate?.().toLocaleDateString('en-NG')}
+                {toDate(order.estimatedDelivery).toLocaleDateString('en-NG')}
               </p>
             </div>
 

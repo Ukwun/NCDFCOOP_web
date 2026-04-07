@@ -7,6 +7,7 @@ import { getUserOrders } from '@/lib/services/orderService';
 import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import Image from 'next/image';
+import { toDate } from '@/lib/utils/dateHelper';
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -310,7 +311,7 @@ export default function OrdersPage() {
                           color: AppColors.textPrimary,
                         }}
                       >
-                        {new Date(order.createdAt?.toDate?.() || new Date()).toLocaleDateString('en-US', {
+                        {toDate(order.createdAt).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',

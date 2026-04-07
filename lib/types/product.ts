@@ -27,8 +27,8 @@ export interface Product {
     height: number;
   };
   tags?: string[];
-  createdAt?: Timestamp;
-  updatedAt?: Timestamp;
+  createdAt?: Date | Timestamp;
+  updatedAt?: Date | Timestamp;
   isActive?: boolean;
   isFeatured?: boolean;
   discount?: number; // percentage
@@ -111,8 +111,8 @@ export interface Review {
   comment: string;
   verified: boolean;
   helpful: number;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date | Timestamp;
+  updatedAt: Date | Timestamp;
 }
 
 export interface CartItem {
@@ -123,7 +123,7 @@ export interface CartItem {
   quantity: number;
   price: number;
   image?: string;
-  addedAt: Timestamp;
+  addedAt: Date | Timestamp;
   productData?: Product; // Optional full product data
 }
 
@@ -134,8 +134,8 @@ export interface Cart {
   tax: number;
   shipping: number;
   total: number;
-  updatedAt: Timestamp;
-  expiresAt?: Timestamp;
+  updatedAt: Date | Timestamp;
+  expiresAt?: Date | Timestamp;
 }
 
 export interface Order {
@@ -151,9 +151,9 @@ export interface Order {
   paymentReference?: string;
   trackingNumber?: string;
   notes?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  estimatedDelivery?: Timestamp;
+  createdAt: Date | Timestamp;
+  updatedAt: Date | Timestamp;
+  estimatedDelivery?: Date | Timestamp;
 }
 
 export interface OrderItem {

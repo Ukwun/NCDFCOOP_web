@@ -19,6 +19,7 @@ export const COLLECTIONS = {
   NOTIFICATIONS: 'notifications',
   FAVORITES: 'favorites',
   REWARDS: 'rewards',
+  INQUIRIES: 'inquiries',
 } as const;
 
 export const USER_ROLES = {

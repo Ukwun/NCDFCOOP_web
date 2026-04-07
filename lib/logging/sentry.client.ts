@@ -17,14 +17,6 @@ export function initSentryClient() {
     return;
   }
 
-  // Handle both replays and profiling
-  const integrations = [
-    new Sentry.Replay({
-      maskAllText: true,
-      blockAllMedia: true,
-    }),
-  ];
-
   Sentry.init({
     // Sentry DSN
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || 

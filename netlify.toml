@@ -1,5 +1,6 @@
 # Netlify Configuration for NCDF COOP Commerce Web
 # Automatic deployment settings from GitHub
+# Last deployment trigger: 2026-04-07
 
 [build]
   # Build command

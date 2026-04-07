@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { Order, Product } from '@/lib/types/product';
 
 export interface SellerStats {
   totalSales: number;
@@ -81,7 +82,7 @@ export async function getSellerStats(sellerId: string): Promise<SellerStats> {
 }
 
 // Fetch seller's recent orders
-export async function getSellerRecentOrders(sellerId: string, limit: number = 5) {
+export async function getSellerRecentOrders(sellerId: string, limit: number = 5): Promise<Order[]> {
   try {
     const ordersQuery = query(
       collection(db, COLLECTIONS.ORDERS),
@@ -93,11 +94,18 @@ export async function getSellerRecentOrders(sellerId: string, limit: number = 5)
       .map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }))
+      } as Order))
       .sort((a, b) => {
-        const dateA = a.createdAt?.toDate?.() || new Date(0);
-        const dateB = b.createdAt?.toDate?.() || new Date(0);
-        return dateB - dateA;
+        const getTime = (date: any) => {
+          if (date instanceof Timestamp) {
+            return date.toDate().getTime();
+          }
+          if (date instanceof Date) {
+            return date.getTime();
+          }
+          return 0;
+        };
+        return getTime(b.createdAt) - getTime(a.createdAt);
       })
       .slice(0, limit);
 
@@ -109,7 +117,7 @@ export async function getSellerRecentOrders(sellerId: string, limit: number = 5)
 }
 
 // Fetch seller's top products
-export async function getSellerTopProducts(sellerId: string, limit: number = 5) {
+export async function getSellerTopProducts(sellerId: string, maxResults: number = 5): Promise<Product[]> {
   try {
     const productsQuery = query(
       collection(db, COLLECTIONS.PRODUCTS),
@@ -121,9 +129,9 @@ export async function getSellerTopProducts(sellerId: string, limit: number = 5) 
       .map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }))
+      } as Product))
       .sort((a, b) => (b.rating || 0) - (a.rating || 0))
-      .slice(0, limit);
+      .slice(0, maxResults);
 
     return products;
   } catch (error) {

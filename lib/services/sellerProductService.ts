@@ -18,12 +18,12 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
-import { SellerProduct } from '@/lib/types/product';
+import { Product } from '@/lib/types/product';
 
 // Create new product
 export async function createProduct(
   sellerId: string,
-  productData: Omit<SellerProduct, 'id' | 'sellerId' | 'createdAt' | 'updatedAt'>
+  productData: Omit<Product, 'id' | 'sellerId' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), {
@@ -42,7 +42,7 @@ export async function createProduct(
 }
 
 // Get all products for a seller
-export async function getSellerProducts(sellerId: string): Promise<SellerProduct[]> {
+export async function getSellerProducts(sellerId: string): Promise<Product[]> {
   try {
     const productsQuery = query(
       collection(db, COLLECTIONS.PRODUCTS),
@@ -53,7 +53,7 @@ export async function getSellerProducts(sellerId: string): Promise<SellerProduct
     return productsSnap.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
-    })) as SellerProduct[];
+    })) as Product[];
   } catch (error) {
     console.error('Error fetching seller products:', error);
     throw new Error('Failed to fetch products');
@@ -61,7 +61,7 @@ export async function getSellerProducts(sellerId: string): Promise<SellerProduct
 }
 
 // Get single product by ID
-export async function getProductById(productId: string): Promise<SellerProduct | null> {
+export async function getProductById(productId: string): Promise<Product | null> {
   try {
     const docSnap = await getDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
     if (!docSnap.exists()) {
@@ -70,7 +70,7 @@ export async function getProductById(productId: string): Promise<SellerProduct |
     return {
       id: docSnap.id,
       ...docSnap.data(),
-    } as SellerProduct;
+    } as Product;
   } catch (error) {
     console.error('Error fetching product:', error);
     throw new Error('Failed to fetch product');
@@ -80,7 +80,7 @@ export async function getProductById(productId: string): Promise<SellerProduct |
 // Update product
 export async function updateProduct(
   productId: string,
-  updates: Partial<SellerProduct>
+  updates: Partial<Product>
 ): Promise<void> {
   try {
     await updateDoc(doc(db, COLLECTIONS.PRODUCTS, productId), {
@@ -194,7 +194,7 @@ export async function getProductAnalytics(productId: string): Promise<any> {
 export async function searchSellerProducts(
   sellerId: string,
   searchTerm: string
-): Promise<SellerProduct[]> {
+): Promise<Product[]> {
   try {
     const products = await getSellerProducts(sellerId);
     return products.filter(

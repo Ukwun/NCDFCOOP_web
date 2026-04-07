@@ -152,7 +152,7 @@ export async function getUserNotifications(
     return snapshot.docs
       .map((doc) => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as Record<string, any>),
       } as Notification))
       .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds)
       .slice(0, limit);

@@ -40,7 +40,7 @@ export class RecommendationEngine {
    */
   static async getPersonalizedRecommendations(
     userId: string,
-    limit: number = 10
+    maxResults: number = 10
   ): Promise<ProductRecommendation[]> {
     try {
       const recommendations: ProductRecommendation[] = [];
@@ -97,7 +97,7 @@ export class RecommendationEngine {
 
       return Array.from(uniqueRecs.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
+        .slice(0, maxResults);
     } catch (error) {
       console.error('Error getting personalized recommendations:', error);
       return [];
@@ -109,7 +109,7 @@ export class RecommendationEngine {
    */
   static async getTrendingProducts(
     timeWindowDays: number = 7,
-    limit: number = 10
+    maxResults: number = 10
   ): Promise<ProductRecommendation[]> {
     try {
       const cutoffDate = new Date();
@@ -156,7 +156,7 @@ export class RecommendationEngine {
         .sort(
           (a: any, b: any) => b.purchases - a.purchases
         )
-        .slice(0, limit)
+        .slice(0, maxResults)
         .map((p: any) => ({
           productId: p.productId,
           productName: p.productName,
@@ -176,7 +176,7 @@ export class RecommendationEngine {
    */
   static async getFrequentlyBoughtTogether(
     productId: string,
-    limit: number = 5
+    maxResults: number = 5
   ): Promise<ProductRecommendation[]> {
     try {
       // Get all purchases containing this product
@@ -207,7 +207,7 @@ export class RecommendationEngine {
 
       return Object.entries(companionProducts)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, limit)
+        .slice(0, maxResults)
         .map(([id, count]) => ({
           productId: id,
           productName: `Product ${id}`,
@@ -286,7 +286,7 @@ export class RecommendationEngine {
    */
   private static async getContentBasedRecommendations(
     viewedProducts: string[],
-    limit: number
+    maxResults: number
   ): Promise<ProductRecommendation[]> {
     try {
       if (viewedProducts.length === 0) return [];
@@ -300,7 +300,7 @@ export class RecommendationEngine {
       });
 
       return Array.from(Object.entries(categories))
-        .slice(0, limit)
+        .slice(0, maxResults)
         .map(([id, _]) => ({
           productId: id,
           productName: `Product ${id}`,
@@ -321,7 +321,7 @@ export class RecommendationEngine {
   private static async getCollaborativeRecommendations(
     userId: string,
     userPurchasedProducts: string[],
-    limit: number
+    maxResults: number
   ): Promise<ProductRecommendation[]> {
     try {
       if (userPurchasedProducts.length === 0) return [];
@@ -380,7 +380,7 @@ export class RecommendationEngine {
 
       return Object.values(recommendedProducts)
         .sort((a: any, b: any) => b.score - a.score)
-        .slice(0, limit)
+        .slice(0, maxResults)
         .map((p: any) => ({
           ...p,
           reason: 'Users like you also bought this',
@@ -397,7 +397,7 @@ export class RecommendationEngine {
    */
   private static async getCategoryTrendingProducts(
     categories: string[],
-    limit: number
+    maxResults: number
   ): Promise<ProductRecommendation[]> {
     try {
       if (categories.length === 0) return [];
@@ -433,7 +433,7 @@ export class RecommendationEngine {
 
       return Object.values(categoryProducts)
         .sort((a: any, b: any) => b.purchases - a.purchases)
-        .slice(0, limit)
+        .slice(0, maxResults)
         .map((p: any) => ({
           productId: p.productId,
           productName: p.productName,
@@ -453,7 +453,7 @@ export class RecommendationEngine {
    */
   private static async getBehaviorBasedRecommendations(
     lastViewedProductId: string,
-    limit: number
+    maxResults: number
   ): Promise<ProductRecommendation[]> {
     try {
       if (!lastViewedProductId) return [];

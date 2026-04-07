@@ -29,7 +29,7 @@ export async function createOrder(
   items: any[],
   totalAmount: number,
   shippingAddress: string,
-  paymentMethod: string
+  paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery'
 ): Promise<string> {
   try {
     const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

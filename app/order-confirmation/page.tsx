@@ -316,7 +316,10 @@ export default function OrderConfirmationPage() {
                 margin: 0,
               }}
             >
-              📦 <strong>Estimated Delivery:</strong> {order.estimatedDelivery?.toDate?.().toLocaleDateString('en-NG') || '5-7 business days'}
+              📦 <strong>Estimated Delivery:</strong> {(order.estimatedDelivery instanceof Date 
+                ? order.estimatedDelivery 
+                : order.estimatedDelivery?.toDate?.() || new Date()
+              ).toLocaleDateString('en-NG') || '5-7 business days'}
             </p>
           </div>
         </div>
@@ -375,7 +378,10 @@ export default function OrderConfirmationPage() {
                   margin: AppSpacing.sm + ' 0 0 0',
                 }}
               >
-                {order.createdAt?.toDate?.().toLocaleDateString('en-NG') || new Date().toLocaleDateString('en-NG')}
+                {(order.createdAt instanceof Date 
+                  ? order.createdAt 
+                  : order.createdAt?.toDate?.() || new Date()
+                ).toLocaleDateString('en-NG')}
               </p>
             </div>
 

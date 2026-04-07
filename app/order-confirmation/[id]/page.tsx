@@ -195,7 +195,10 @@ export default function OrderConfirmationPage() {
                 color: AppColors.textPrimary,
               }}
             >
-              {new Date(order.createdAt).toLocaleDateString('en-US', {
+              {(order.createdAt instanceof Date 
+                ? order.createdAt 
+                : order.createdAt?.toDate?.() || new Date()
+              ).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric',

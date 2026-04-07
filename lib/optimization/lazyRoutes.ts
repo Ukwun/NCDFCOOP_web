@@ -11,7 +11,7 @@ import dynamic from 'next/dynamic';
 import React from 'react';
 
 // Fallback component shown while loading
-function LoadingFallback(): JSX.Element {
+function LoadingFallback(): React.ReactElement {
   const divStyle = {
     display: 'flex',
     alignItems: 'center',

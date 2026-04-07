@@ -7,6 +7,17 @@
 
 import * as Sentry from '@sentry/nextjs';
 
+// Extend Window interface for Sentry user context
+declare global {
+  interface Window {
+    __SENTRY_USER__?: {
+      id?: string;
+      email?: string;
+      username?: string;
+    };
+  }
+}
+
 /**
  * Initialize Sentry for client-side error tracking
  * Called once on application startup
@@ -34,9 +45,6 @@ export function initSentryClient() {
     // Session Replay configuration
     replaysSessionSampleRate: process.env.NEXT_PUBLIC_ENVIRONMENT === 'production' ? 0.1 : 1.0,
     replaysOnErrorSampleRate: 1.0, // Always replay on error
-    
-    // Integrations for browser
-    integrations,
     
     // Debug mode
     debug: process.env.NEXT_PUBLIC_ENVIRONMENT === 'development',

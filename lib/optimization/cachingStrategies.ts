@@ -241,9 +241,11 @@ export class LRUCache<T> {
 
     // Evict least recently used if over capacity
     if (this.cache.size > this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
-      this.ttls.delete(firstKey);
+      const firstKey = this.cache.keys().next().value as string | undefined;
+      if (firstKey) {
+        this.cache.delete(firstKey);
+        this.ttls.delete(firstKey);
+      }
     }
 
     // Set TTL if provided

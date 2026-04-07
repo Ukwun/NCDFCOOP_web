@@ -17,6 +17,8 @@ export const COLLECTIONS = {
   CART_ITEMS: 'cartItems',
   REVIEWS: 'reviews',
   NOTIFICATIONS: 'notifications',
+  BROADCASTS: 'broadcasts',
+  REFUNDS: 'refunds',
   FAVORITES: 'favorites',
   REWARDS: 'rewards',
   INQUIRIES: 'inquiries',

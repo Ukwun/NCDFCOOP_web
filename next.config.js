@@ -1,5 +1,6 @@
 // 🚨 Error Tracking & Performance Monitoring
 const { withSentryConfig } = require('@sentry/nextjs');
+const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -29,6 +30,15 @@ const nextConfig = {
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 5,
+  },
+
+  // 🔄 Webpack configuration for path alias resolution
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname),
+    };
+    return config;
   },
 
   // 🔄 Headers for Caching

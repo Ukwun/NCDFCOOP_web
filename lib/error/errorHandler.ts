@@ -66,6 +66,15 @@ export class ErrorHandler {
   private static maxLogSize = 100;
 
   /**
+   * Log informational messages
+   */
+  static logInfo(code: string, message: string): void {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[INFO] ${code}: ${message}`);
+    }
+  }
+
+  /**
    * Log an error for debugging
    */
   static logError(

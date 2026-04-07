@@ -77,6 +77,11 @@ export async function getUserActivityHistory(
   userId: string,
   limit: number = 50
 ): Promise<ActivityLog[]> {
+  if (!db) {
+    console.warn('Firestore database not initialized');
+    return [];
+  }
+
   try {
     const q = query(
       collection(db, COLLECTIONS.ACTIVITY_LOGS),
@@ -103,6 +108,11 @@ export async function getActivityByType(
   eventType: ActivityLog['eventType'],
   limit: number = 50
 ): Promise<ActivityLog[]> {
+  if (!db) {
+    console.warn('Firestore database not initialized');
+    return [];
+  }
+
   try {
     const q = query(
       collection(db, COLLECTIONS.ACTIVITY_LOGS),

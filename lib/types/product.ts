@@ -1,5 +1,7 @@
 // Product catalog types and interfaces
 
+import { Timestamp } from 'firebase/firestore';
+
 export interface Product {
   id: string;
   name: string;
@@ -25,8 +27,8 @@ export interface Product {
     height: number;
   };
   tags?: string[];
-  createdAt?: Date | Timestamp;
-  updatedAt?: Date | Timestamp;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
   isActive?: boolean;
   isFeatured?: boolean;
   discount?: number; // percentage
@@ -109,8 +111,8 @@ export interface Review {
   comment: string;
   verified: boolean;
   helpful: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface CartItem {
@@ -121,7 +123,7 @@ export interface CartItem {
   quantity: number;
   price: number;
   image?: string;
-  addedAt: Date;
+  addedAt: Timestamp;
   productData?: Product; // Optional full product data
 }
 
@@ -132,8 +134,8 @@ export interface Cart {
   tax: number;
   shipping: number;
   total: number;
-  updatedAt: Date;
-  expiresAt?: Date;
+  updatedAt: Timestamp;
+  expiresAt?: Timestamp;
 }
 
 export interface Order {
@@ -149,9 +151,9 @@ export interface Order {
   paymentReference?: string;
   trackingNumber?: string;
   notes?: string;
-  createdAt: Date | Timestamp;
-  updatedAt: Date | Timestamp;
-  estimatedDelivery?: Date | Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  estimatedDelivery?: Timestamp;
 }
 
 export interface OrderItem {

@@ -38,7 +38,7 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid) {
 
 // Initialize services (will be null on server)
 export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
-export const storage = app ? getStorage(app) : null;
+export const db = (app ? getFirestore(app) : null) as any;
+export const storage = (app ? getStorage(app) : null) as any;
 
 export default app;

@@ -34,8 +34,10 @@ class LRUCache {
   set(key: string, value: RateLimitEntry): void {
     // If cache is full, remove least recently used
     if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      const firstKey = this.cache.keys().next().value as string | undefined;
+      if (firstKey) {
+        this.cache.delete(firstKey);
+      }
     }
     this.cache.set(key, value);
   }

@@ -49,10 +49,15 @@ export function createLazyComponent(
     loading?: React.ComponentType<any>;
   } = {}
 ) {
-  return dynamic(importFunc, {
-    loading: options.loading,
+  const dynamicOptions: any = {
     ssr: options.ssr ?? true,
-  });
+  };
+  
+  if (options.loading) {
+    dynamicOptions.loading = options.loading;
+  }
+  
+  return dynamic(importFunc, dynamicOptions);
 }
 
 /**
@@ -206,48 +211,48 @@ export const componentLazyLoadingConfig = {
  * Library lazy loading configuration
  * Third-party libraries to load on demand
  */
-export const libraryLazyLoadingConfig = {
+export const libraryLazyLoadingConfig: Record<string, { import: () => Promise<any>; trigger: string; size: string }> = {
   // PDF generation
-  pdfLib: {
-    import: () => import('pdf-lib'),
-    trigger: 'export-pdf',
-    size: 'large',
-  },
+  // pdfLib: {
+  //   import: () => import('pdf-lib'),
+  //   trigger: 'export-pdf',
+  //   size: 'large',
+  // },
 
   // Advanced charts
-  recharts: {
-    import: () => import('recharts'),
-    trigger: 'view-analytics',
-    size: 'large',
-  },
+  // recharts: {
+  //   import: () => import('recharts'),
+  //   trigger: 'view-analytics',
+  //   size: 'large',
+  // },
 
   // Rich text editing
-  tinymce: {
-    import: () => import('tinymce'),
-    trigger: 'edit-content',
-    size: 'xlarge',
-  },
+  // tinymce: {
+  //   import: () => import('tinymce'),
+  //   trigger: 'edit-content',
+  //   size: 'xlarge',
+  // },
 
   // Maps
-  mapbox: {
-    import: () => import('mapbox-gl'),
-    trigger: 'view-map',
-    size: 'xlarge',
-  },
+  // mapbox: {
+  //   import: () => import('mapbox-gl'),
+  //   trigger: 'view-map',
+  //   size: 'xlarge',
+  // },
 
   // QR code generation
-  qrCode: {
-    import: () => import('qrcode.react'),
-    trigger: 'generate-qr',
-    size: 'small',
-  },
+  // qrCode: {
+  //   import: () => import('qrcode.react'),
+  //   trigger: 'generate-qr',
+  //   size: 'small',
+  // },
 
   // Date/time library
-  dayjs: {
-    import: () => import('dayjs'),
-    trigger: 'format-date',
-    size: 'small',
-  },
+  // dayjs: {
+  //   import: () => import('dayjs'),
+  //   trigger: 'format-date',
+  //   size: 'small',
+  // },
 };
 
 /**

@@ -22,7 +22,7 @@ interface Transaction {
 
 export default function MemberSavingsPage() {
   const router = useRouter();
-  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([
+  const [savingsGoals, _setSavingsGoals] = useState<SavingsGoal[]>([
     {
       id: '1',
       name: 'Farm Expansion Equipment',

@@ -143,7 +143,7 @@ export interface Order {
   totalAmount: number; // Total order amount including tax and shipping
   status: OrderStatus;
   paymentStatus: PaymentStatus;
-  paymentMethod: 'paystack' | 'bank_transfer' | 'cash_on_delivery';
+  paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
   shippingAddress: string; // JSON string of Address
   billingAddress?: string; // JSON string of Address
   paymentReference?: string;

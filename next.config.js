@@ -101,23 +101,35 @@ const nextConfig = {
  * - Server-side error tracking
  * - Performance monitoring
  * - Session replay (on supported plans)
+ * 
+ * DISABLED: Sentry auth token is not configured
+ * TODO: Add valid Sentry auth token to .env.local to enable
  */
-module.exports = withSentryConfig(
-  nextConfig,
-  {
-    // Sentry build options
-    org: process.env.SENTRY_ORG || '8-gigabytes',
-    project: process.env.SENTRY_PROJECT || 'javascript-nextjs',
-    
-    // Automatically set release version
-    authToken: process.env.SENTRY_AUTH_TOKEN,
-    
-    // Sentry CLI options
-    sentry: {
-      hideSourceMaps: true,
-      tunnelRoute: '/monitoring',
-      widenClientFileUpload: true,
-      autoSessionTracking: true,
-    },
-  }
-);
+
+// ✅ Sentry enabled - auth token configured
+const SENTRY_ENABLED = !!process.env.SENTRY_AUTH_TOKEN;
+
+if (SENTRY_ENABLED) {
+  module.exports = withSentryConfig(
+    nextConfig,
+    {
+      // Sentry build options
+      org: process.env.SENTRY_ORG || '8-gigabytes',
+      project: process.env.SENTRY_PROJECT || 'javascript-nextjs',
+      
+      // Automatically set release version
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      
+      // Sentry CLI options
+      sentry: {
+        hideSourceMaps: true,
+        tunnelRoute: '/monitoring',
+        widenClientFileUpload: true,
+        autoSessionTracking: true,
+      },
+    }
+  );
+} else {
+  console.log('⚠️  Sentry disabled during build (missing auth token)');
+  module.exports = nextConfig;
+}

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Check if Firebase environment variables are set
     const firebaseVars = {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const firebaseUrl = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + 
       process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     
-    const firebaseTest = await Promise.race([
+    await Promise.race([
       fetch(firebaseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Attempting Firebase Auth test...');
 
-    const signupResponse = await Promise.race([
+    const signupResponse = (await Promise.race([
       fetch(firebaseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Firebase request timeout (5s)')), 5000)
       ),
-    ]);
+    ])) as Response;
 
     const responseData = await signupResponse.json();
 

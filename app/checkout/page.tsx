@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getUserCart } from '@/lib/services/cartService';
-import { initiateFlutterwavePayment, recordBankTransferIntent } from '@/lib/services/paymentService';
+import { initiateFlutterwavePayment } from '@/lib/services/paymentService';
+import { recordBankTransferIntent } from '@/lib/services/bankTransferService';
 import { createOrder } from '@/lib/services/orderService';
 import { Cart, Address } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
@@ -160,11 +161,9 @@ export default function CheckoutPage() {
       } else if (paymentMethod === 'bank_transfer') {
         // Record bank transfer intent
         await recordBankTransferIntent(
-          cart.total,
-          user.email || shippingAddress.email,
+          orderId,
           user.uid,
-          `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-          orderId
+          cart.total
         );
         // Redirect to bank transfer details page
         router.push(`/payment/bank-transfer/${orderId}`);

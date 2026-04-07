@@ -4,6 +4,7 @@
  */
 
 export { useActivityTracking } from './useActivityTracking';
+export { useIntelligentTracking } from './useIntelligentTracking';
 export { useNotifications } from './useNotifications';
 export { useRewards } from './useRewards';
 export { useFavorites } from './useFavorites';

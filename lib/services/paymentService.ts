@@ -138,9 +138,8 @@ async function verifyFlutterwavePayment(
   orderId: string
 ): Promise<boolean> {
   try {
-    // In a real application, call your backend endpoint
-    // This verifies with Flutterwave using the secret key
-    const response = await fetch('/api/verify-flutterwave-payment', {
+    // Call server-side verification endpoint
+    const response = await fetch('/api/payments/verify-flutterwave', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -162,11 +161,13 @@ async function verifyFlutterwavePayment(
 
 /**
  * Get bank transfer details for manual payment
+ * Note: This is now handled in bankTransferService
+ * Kept here for backwards compatibility
  */
-export function getBankTransferDetails(): BankTransferDetails {
+function getBankTransferDetailsLegacy(): BankTransferDetails {
   return {
-    accountName: 'NCDFCOOP Commerce',
-    accountNumber: '1234567890',
+    accountName: 'NCDFCOOP Commerce Limited',
+    accountNumber: '3136996240',
     bankName: 'First Bank Nigeria',
     sortCode: '011',
   };
@@ -174,54 +175,32 @@ export function getBankTransferDetails(): BankTransferDetails {
 
 /**
  * Record bank transfer payment intent
- * User will manually transfer money to account and provide proof
+ * DEPRECATED: Use bankTransferService.recordBankTransferIntent instead
+ * Kept for backwards compatibility
  */
-export async function recordBankTransferIntent(
+async function recordBankTransferIntentLegacy(
   amount: number,
   email: string,
   userId: string,
   fullName: string,
   orderId: string
 ): Promise<string> {
-  try {
-    const reference = `BANK-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Create payment record with pending status
-    await setDoc(doc(db, COLLECTIONS.TRANSACTIONS, reference), {
-      id: reference,
-      userId,
-      orderId,
-      type: 'order_payment',
-      amount,
-      email,
-      status: TRANSACTION_STATUS.PENDING,
-      paymentMethod: 'bank_transfer',
-      createdAt: Timestamp.now(),
-      metadata: {
-        fullName,
-        bankDetails: getBankTransferDetails(),
-        instructions:
-          'Please transfer the exact amount to the bank details provided and submit proof of payment',
-      },
-    });
-
-    return reference;
-  } catch (error: any) {
-    console.error('Error recording bank transfer intent:', error);
-    throw new Error(error.message || 'Failed to create bank transfer payment record');
-  }
+  // Import and use bankTransferService instead
+  const { recordBankTransferIntent: recordBankTransfer } = await import('./bankTransferService');
+  return recordBankTransfer(orderId, userId, amount);
 }
 
 /**
  * Verify and complete bank transfer payment
- * Called when user submits proof of payment
+ * DEPRECATED: Use bankTransferService.verifyBankTransferProof instead
  */
-export async function completeBankTransferPayment(
+async function completeBankTransferPaymentLegacy(
   reference: string,
   proofOfPaymentUrl: string,
   userId: string,
   orderId: string
 ): Promise<void> {
+  // This is now handled in bankTransferService
   try {
     await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, reference), {
       status: TRANSACTION_STATUS.COMPLETED,

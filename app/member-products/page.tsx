@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth/authContext';
 
 export default function MemberProductsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const [sortBy, setSortBy] = useState('newest');
   const [filterCategory, setFilterCategory] = useState('all');
 

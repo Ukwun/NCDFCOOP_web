@@ -60,7 +60,6 @@ const seedProducts = [
     thumbnail: 'https://via.placeholder.com/400x400/52C41A/FFFFFF?text=Leafy+Greens',
     sellerId: 'seller_green_valley',
     sellerName: 'Green Valley Farms',
-    discount: 33,
     unit: 'bundle',
     createdAt: Timestamp.fromDate(new Date(Date.now() - 20 * 24 * 60 * 60 * 1000)),
   },
@@ -240,7 +239,7 @@ const seedProducts = [
   },
 ];
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     // Guard: Check if already seeded (prevent duplicates)
     // In production, you'd want better checks

@@ -23,7 +23,7 @@ interface FlashProduct {
 export default function FlashSalesPage() {
   const router = useRouter();
   const [timeLeft, setTimeLeft] = useState('');
-  const [products, setProducts] = useState<FlashProduct[]>([
+  const [products, _setProducts] = useState<FlashProduct[]>([
     {
       id: '1',
       name: 'Premium Milled Rice (25kg)',

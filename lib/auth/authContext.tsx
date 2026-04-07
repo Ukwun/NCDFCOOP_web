@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         if (currentUser) {
           // Get user document
-          const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, currentUser.uid));
+          const userDoc = await getDoc(doc(db!, COLLECTIONS.USERS, currentUser.uid));
           const userData = userDoc.data();
           
           if (userData) {

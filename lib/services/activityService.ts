@@ -46,6 +46,11 @@ export async function logActivity(
   deviceInfo?: ActivityLog['deviceInfo']
 ): Promise<void> {
   try {
+    if (!db) {
+      console.warn('Database not initialized for activity logging');
+      return;
+    }
+
     const activityId = `${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const activity: ActivityLog = {

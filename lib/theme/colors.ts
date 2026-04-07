@@ -42,6 +42,7 @@ export const AppColors = {
   success: '#22C55E',
   warning: '#EAB308',
   info: '#3B82F6',
+  disabled: '#9CA3AF',
 
   // Border & Divider
   border: '#E0E0E0',

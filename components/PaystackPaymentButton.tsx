@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { initatePaystackPayment } from '@/lib/services/paymentService';
+import { initiateFlutterwavePayment } from '@/lib/services/paymentService';
 import { createOrder } from '@/lib/services/orderService';
 import { clearCart } from '@/lib/services/cartService';
 
-interface PaystackPaymentButtonProps {
+interface FlutterwavePaymentButtonProps {
   userId: string;
   email: string;
   fullName: string;
@@ -25,28 +25,32 @@ export default function PaystackPaymentButton({
   shippingAddress,
   onSuccess,
   onError,
-}: PaystackPaymentButtonProps) {
+}: FlutterwavePaymentButtonProps) {
   const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
     try {
       setLoading(true);
+      const orderId = `order_${userId}_${Date.now()}`;
 
-      // Initialize Paystack payment
-      await initatePaystackPayment(
+      // Initialize Flutterwave payment
+      await initiateFlutterwavePayment(
         amount,
         email,
         userId,
         fullName,
+        orderId,
         // onSuccess callback
         async (reference: string) => {
           try {
             // Create order in database
-            await createOrder(userId, cartItems, amount, {
+            await createOrder(
+              userId,
+              cartItems,
+              amount,
               shippingAddress,
-              paymentReference: reference,
-              paymentMethod: 'paystack',
-            });
+              'flutterwave'
+            );
 
             // Clear cart
             await clearCart(userId);

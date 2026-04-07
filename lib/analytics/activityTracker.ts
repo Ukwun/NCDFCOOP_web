@@ -21,6 +21,11 @@ export interface ActivityLog {
  */
 export async function trackActivity(action: string, details: Record<string, any> = {}, userId?: string) {
   try {
+    if (!db) {
+      console.warn('Database not initialized for tracking');
+      return;
+    }
+
     if (!userId && typeof window !== 'undefined') {
       // Get from localStorage or auth context if available
       const storedUserId = localStorage.getItem('userId');

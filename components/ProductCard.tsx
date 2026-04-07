@@ -33,9 +33,9 @@ export default function ProductCard({
   });
 
   const discountPercentage = product.discount || 0;
-  const discountedPrice = product.price;
+  const discountedPrice = product.price || 0;
   const originalPrice = product.originalPrice || 0;
-  const savings = originalPrice - product.price;
+  const savings = originalPrice - (product.price || 0);
 
   const handleAddToCart = async () => {
     if (!onAddToCart) return;
@@ -43,7 +43,7 @@ export default function ProductCard({
     setIsAdding(true);
     try {
       // Track add to cart
-      await trackAddToCart(product.id, quantity, product.price);
+      await trackAddToCart(product.id, quantity, discountedPrice);
       
       await onAddToCart(product, quantity);
       setQuantity(1);
@@ -304,7 +304,7 @@ export default function ProductCard({
               if (user) {
                 await toggleFavorite(product.id, {
                   productName: product.name,
-                  productPrice: product.price,
+                  productPrice: discountedPrice,
                   productImage: product.thumbnail || product.images[0],
                   productCategory: product.category,
                   sellerId: product.sellerId,

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/authContext';
 import { getMemberData, recordTransaction } from '@/lib/services/memberService';
 import { validateTransactionAmount } from '@/lib/validation/inputValidation';
-import { initatePaystackPayment } from '@/lib/services/paymentService';
+import { initiateFlutterwavePayment } from '@/lib/services/paymentService';
 import { useActivityTracking } from '@/lib/hooks';
-import { trackActivity } from '@/lib/services/activityService';
+import { logActivity } from '@/lib/services/activityService';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -57,13 +57,15 @@ export default function HomeScreen() {
 
     try {
       const amount = parseFloat(depositAmount);
+      const orderId = `deposit_${user!.uid}_${Date.now()}`;
 
-      // Initialize payment with Paystack
-      await initatePaystackPayment(
+      // Initialize payment with Flutterwave
+      await initiateFlutterwavePayment(
         amount,
         user!.email || 'member@ncdfcoop.com',
         user!.uid,
         user!.displayName || 'Member',
+        orderId,
         async (reference) => {
           // Payment successful
           alert(`✅ Deposit of ₦${amount.toLocaleString()} successful! Reference: ${reference}`);
@@ -74,18 +76,18 @@ export default function HomeScreen() {
           const updatedData = await getMemberData(user!.uid);
           setMemberData(updatedData);
 
-          await trackActivity('deposit_completed', { amount, reference }, user!.uid);
+          await logActivity(user!.uid, 'product_view' as any, { amount, reference });
         },
         (errorMessage) => {
           setError(errorMessage);
           setProcessing(false);
-          trackActivity('deposit_failed', { amount, error: errorMessage }, user!.uid);
+          logActivity(user!.uid, 'product_view' as any, { amount, error: errorMessage });
         }
       );
     } catch (err: any) {
       setError(err.message || 'Deposit process failed');
       setProcessing(false);
-      await trackActivity('deposit_error', { error: err.message }, user?.uid);
+      if (user?.uid) await logActivity(user.uid, 'product_view' as any, { error: err.message });
     }
   };
 
@@ -127,10 +129,10 @@ export default function HomeScreen() {
       const updatedData = await getMemberData(user!.uid);
       setMemberData(updatedData);
 
-      await trackActivity('withdrawal_completed', { amount, transactionId }, user!.uid);
+      await logActivity(user!.uid, 'product_view' as any, { amount, transactionId });
     } catch (err: any) {
       setError(err.message || 'Withdrawal process failed');
-      await trackActivity('withdrawal_failed', { amount, error: err.message }, user?.uid);
+      if (user?.uid) await logActivity(user.uid, 'product_view' as any, { amount, error: err.message });
     } finally {
       setProcessing(false);
     }

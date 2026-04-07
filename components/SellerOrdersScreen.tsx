@@ -23,22 +23,14 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
     loading,
     error,
     getOrdersByStatus,
-    pendingOrders,
-    activeOrders,
-    completedOrders,
-    totalRevenue,
   } = useSellerOrders(userId);
 
   const filteredOrders =
     filterStatus === 'all'
       ? orders
-      : filterStatus === 'pending'
-        ? pendingOrders
-        : filterStatus === 'active'
-          ? activeOrders
-          : filterStatus === 'completed'
-            ? completedOrders
-            : getOrdersByStatus(filterStatus);
+      : getOrdersByStatus(filterStatus);
+
+  const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
 
   const handleUpdateStatus = async () => {
     if (!selectedOrder || !newStatus) {
@@ -110,11 +102,11 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
           </div>
           <div>
             <p className="text-green-100 text-sm">Pending</p>
-            <p className="text-2xl font-bold">{pendingOrders.length}</p>
+            <p className="text-2xl font-bold">{getOrdersByStatus('pending').length}</p>
           </div>
           <div>
             <p className="text-green-100 text-sm">Active</p>
-            <p className="text-2xl font-bold">{activeOrders.length}</p>
+            <p className="text-2xl font-bold">{getOrdersByStatus('shipped').length}</p>
           </div>
           <div>
             <p className="text-green-100 text-sm">Total Revenue</p>

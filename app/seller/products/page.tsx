@@ -48,6 +48,10 @@ export default function SellerProductsPage() {
 
   const fetchSellerProducts = async () => {
     if (!user) return;
+    if (!db) {
+      setError('Database not initialized. Please refresh the page.');
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -74,6 +78,11 @@ export default function SellerProductsPage() {
   };
 
   const handleUpdateStock = async (productId: string, newStock: number) => {
+    if (!db) {
+      setError('Database not initialized. Please refresh the page.');
+      return;
+    }
+
     try {
       const productRef = doc(db, COLLECTIONS.PRODUCTS, productId);
       await updateDoc(productRef, { stock: newStock });
@@ -87,6 +96,11 @@ export default function SellerProductsPage() {
 
   const handleDeleteProduct = async (productId: string) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
+
+    if (!db) {
+      setError('Database not initialized. Please refresh the page.');
+      return;
+    }
 
     try {
       await deleteDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
@@ -337,7 +351,7 @@ export default function SellerProductsPage() {
                     >
                       {/* Product Name */}
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 cursor-pointer hover:opacity-70" onClick={() => router.push(`/products/${product.id}`)}>
                           {product.thumbnail && (
                             <Image
                               src={product.thumbnail}

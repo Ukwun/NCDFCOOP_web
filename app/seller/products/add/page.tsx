@@ -58,6 +58,11 @@ export default function AddProductPage() {
       return;
     }
 
+    if (!db) {
+      setError('Database not initialized. Please refresh the page.');
+      return;
+    }
+
     if (!formData.name || !formData.price || !formData.category) {
       setError('Please fill in all required fields');
       return;

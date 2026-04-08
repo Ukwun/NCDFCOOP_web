@@ -3,8 +3,8 @@
 # Last deployment trigger: 2026-04-07
 
 [build]
-  # Build command - install dependencies first, then build
-  command = "npm ci --legacy-peer-deps && npm run build"
+  # Build command - clean install dependencies, then build
+  command = "npm ci && npm run build"
   
   # Directory with the built site (Next.js output)
   publish = ".next"

@@ -3,8 +3,8 @@
 # Last deployment trigger: 2026-04-07
 
 [build]
-  # Build command - clean install dependencies, then build
-  command = "npm ci && npm run build"
+  # Build command - install dependencies, then build
+  command = "npm install --prefer-offline --no-audit && npm run build"
   
   # Directory with the built site (Next.js output)
   publish = ".next"
@@ -48,16 +48,16 @@
 
 # Production context
 [context.production]
-  command = "npm ci && npm run build"
+  command = "npm install --prefer-offline --no-audit && npm run build"
   publish = ".next"
   environment = { NODE_ENV = "production" }
 
 # Preview context (for PR previews)
 [context.deploy-preview]
-  command = "npm ci && npm run build"
+  command = "npm install --prefer-offline --no-audit && npm run build"
   publish = ".next"
 
 # Branch preview context
 [context.branch-preview]
-  command = "npm ci && npm run build"
+  command = "npm install --prefer-offline --no-audit && npm run build"
   publish = ".next"

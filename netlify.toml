@@ -48,16 +48,16 @@
 
 # Production context
 [context.production]
-  command = "npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"
   environment = { NODE_ENV = "production" }
 
 # Preview context (for PR previews)
 [context.deploy-preview]
-  command = "npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"
 
 # Branch preview context
 [context.branch-preview]
-  command = "npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"

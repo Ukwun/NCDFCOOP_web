@@ -4,7 +4,7 @@
 
 [build]
   # Build command - install dependencies, then build
-  command = "npm install --prefer-offline --no-audit && npm run build"
+  command = "npm ci && npm run build"
   
   # Directory with the built site (Next.js output)
   publish = ".next"
@@ -48,16 +48,16 @@
 
 # Production context
 [context.production]
-  command = "npm install --prefer-offline --no-audit && npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"
   environment = { NODE_ENV = "production" }
 
 # Preview context (for PR previews)
 [context.deploy-preview]
-  command = "npm install --prefer-offline --no-audit && npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"
 
 # Branch preview context
 [context.branch-preview]
-  command = "npm install --prefer-offline --no-audit && npm run build"
+  command = "npm ci && npm run build"
   publish = ".next"

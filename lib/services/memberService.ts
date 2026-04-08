@@ -65,7 +65,7 @@ export async function updateMemberTier(userId: string): Promise<void> {
     const memberData = await getMemberData(userId);
     if (!memberData) return;
 
-    let newTier = MEMBER_TIERS.BRONZE;
+    let newTier: 'bronze' | 'silver' | 'gold' | 'platinum' = MEMBER_TIERS.BRONZE;
     const totalSpent = memberData.totalPurchases;
 
     if (totalSpent >= 1000000) {

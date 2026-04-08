@@ -125,6 +125,7 @@ export interface EnhancedActivityLog {
     scrollCount?: number;
     clickCount?: number;
     formInteractionCount?: number;
+    scrollDepth?: number;
   };
 }
 

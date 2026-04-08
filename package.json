@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "NCDFCOOP Commerce Platform - Website Version - Production Ready with Firebase Backend",
   "private": true,
+  "engines": {
+    "node": ">=18.20.0 <21"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

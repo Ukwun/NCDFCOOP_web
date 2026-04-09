@@ -4,16 +4,14 @@
 # Build fixed: Complete package-lock.json with TypeScript, aggressive node_modules cleanup
 
 [build]
-  # Build command - use npm ci for deterministic installs from package-lock.json
-  # npm ci is the standard, reliable approach for CI/CD environments
-  command = "npm ci && npm run build"
+  # Build command with explicit NODE_ENV override to prevent Netlify site-level "production" setting
+  # from blocking devDependencies installation (which includes TypeScript)
+  command = "sh -c 'NODE_ENV=development npm ci && npm run build'"
   
   # Directory with the built site (Next.js output)
   publish = ".next"
 
 [build.environment]
-  # During build: allow devDependencies installation (for TypeScript, etc.)
-  NODE_ENV = "development"
   # Node.js version for Netlify build
   NODE_VERSION = "20"
 

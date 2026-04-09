@@ -12,15 +12,10 @@
   publish = ".next"
 
 [build.environment]
+  # During build: allow devDependencies installation (for TypeScript, etc.)
+  NODE_ENV = "development"
   # Node.js version for Netlify build
   NODE_VERSION = "20"
-  
-  # Environment variables are set in Netlify dashboard
-  # Required variables:
-  # - All NEXT_PUBLIC_* variables
-  # - SENTRY_AUTH_TOKEN
-  # - SENTRY_ENVIRONMENT
-  # - NODE_ENV
 
 [functions]
   # Next.js functions configuration

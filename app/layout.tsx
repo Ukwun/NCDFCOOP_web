@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { ClientLayout } from '@/components/ClientLayout';
 import './globals.css';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'NCDFCOOP Commerce - Website Version',
   description: 'NCDFCOOP Commerce Platform - Member-Focused E-Commerce',

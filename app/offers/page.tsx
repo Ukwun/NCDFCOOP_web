@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import OfferScreen from '@/components/OfferScreen';
 import ProtectedRoute from '@/components/ProtectedRoute';
 

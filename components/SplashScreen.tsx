@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 
 const AppColors = { background: '#12202F', textPrimary: '#FAFAFA', textSecondary: '#B0B0B0', accent: '#4CAF50' };
 
@@ -50,12 +49,12 @@ export default function SplashScreen() {
             backgroundColor: 'white',
           }}
         >
-          <Image
+          <img
             src="/images/logo/NCDFCOOPLOGO.png"
             alt="NCDF COOP Logo"
             width={80}
             height={80}
-            priority
+            style={{ width: '80px', height: '80px', objectFit: 'contain' }}
           />
         </div>
 

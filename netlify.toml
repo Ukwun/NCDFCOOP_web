@@ -4,9 +4,9 @@
 # Build fixed: Complete package-lock.json with TypeScript, aggressive node_modules cleanup
 
 [build]
-  # Build command with explicit NODE_ENV override to prevent Netlify site-level "production" setting
-  # from blocking devDependencies installation (which includes TypeScript)
-  command = "sh -c 'NODE_ENV=development npm ci && npm run build'"
+  # Build command: install deps with NODE_ENV=development (so devDeps are installed)
+  # then build with NODE_ENV=production (so Next.js builds optimally)
+  command = "sh -c 'NODE_ENV=development npm ci && NODE_ENV=production npm run build'"
   
   # Directory with the built site (Next.js output)
   publish = ".next"

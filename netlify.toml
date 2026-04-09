@@ -4,9 +4,9 @@
 # Build fixed: Complete package-lock.json with TypeScript, aggressive node_modules cleanup
 
 [build]
-  # Build command - remove node_modules, clear cache, reinstall all deps, then build
-  # This ensures TypeScript and all dependencies are fully installed from lock file
-  command = "rm -rf node_modules && npm cache clean --force && npm install --prefer-offline && npm run build"
+  # Build command - remove node_modules, clear cache, reinstall all deps, ensure TypeScript, then build
+  # This ensures TypeScript and all dependencies are fully installed
+  command = "rm -rf node_modules && npm cache clean --force && npm install && npm install --save-dev typescript && npm run build"
   
   # Directory with the built site (Next.js output)
   publish = ".next"

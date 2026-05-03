@@ -155,7 +155,8 @@ export default function OnboardingScreen1() {
               {isLoading ? 'Loading...' : 'Get Started'}
             </button>
             <button
-              onClick={() => router.push('/home')}
+              onClick={handleCompleteOnboarding}
+              disabled={isLoading}
               style={{
                 flex: 1,
                 padding: `${AppSpacing.md} ${AppSpacing.lg}`,
@@ -164,17 +165,22 @@ export default function OnboardingScreen1() {
                 border: `2px solid ${AppColors.primary}`,
                 borderRadius: '8px',
                 ...AppTextStyles.labelLarge,
-                cursor: 'pointer',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.6 : 1,
                 transition: 'all 300ms ease-out',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = `${AppColors.primary}10`;
+                if (!isLoading) {
+                  e.currentTarget.style.backgroundColor = `${AppColors.primary}10`;
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                if (!isLoading) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
-              Skip
+              {isLoading ? 'Loading...' : 'Skip'}
             </button>
           </div>
         </div>

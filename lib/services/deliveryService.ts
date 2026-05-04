@@ -69,9 +69,7 @@ export async function updateDeliveryStatus(orderId: string, status: string) {
       data: { orderId, status },
     });
   }
-}import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { COLLECTIONS } from '@/lib/constants/database';
+
 
 // Get orders available for delivery or assigned to this courier
 export async function getDeliveryOrders(courierId: string) {

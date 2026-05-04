@@ -1,14 +1,17 @@
 'use client';
 
+
 import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-
+import { useState, useEffect } from 'react';
 import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
-import { useEffect, useState } from 'react';
 import { AnalyticsService, ProductPopularity } from '@/lib/services/analyticsService';
+import { useEffect, useState } from 'react';
+import { getSellerRecentOrders } from '@/lib/services/sellerService';
+import { ORDER_STATUS } from '@/lib/constants/database';
 
 
+export default function SellerDashboardHomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [filterTab, setFilterTab] = useState('All');
@@ -25,6 +28,7 @@ import { AnalyticsService, ProductPopularity } from '@/lib/services/analyticsSer
   const [avgOrderValue, setAvgOrderValue] = useState(0);
   const [topProducts, setTopProducts] = useState<ProductPopularity[]>([]);
   const [orderTrends, setOrderTrends] = useState<number[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   // Calculate stats
   const stats = {
@@ -41,23 +45,59 @@ import { AnalyticsService, ProductPopularity } from '@/lib/services/analyticsSer
   useEffect(() => {
     if (!user?.uid) return;
     const fetchAnalytics = async () => {
-      // Average order value for this seller
-      const now = new Date();
-      const lastMonth = new Date();
-      lastMonth.setMonth(now.getMonth() - 1);
-      // Get all purchases for this seller
-      // (Assume activity logs store sellerId in activityData)
       // Top products
       const top = await AnalyticsService.getProductPopularity('purchases', 5);
       setTopProducts(top.filter((p) => products.some((prod) => prod.id === p.productId)));
       // Order trends (dummy: last 4 weeks)
-      // In real code, would aggregate by week
       setOrderTrends([12, 18, 22, 15]);
       // Average order value (dummy)
       setAvgOrderValue(15000);
+      // Fetch recent orders for segmentation and escrow/payment status
+      const orders = await getSellerRecentOrders(user.uid, 10);
+      setRecentOrders(orders);
     };
     fetchAnalytics();
   }, [user?.uid, products]);
+  // Segment orders by buyer type (member/wholesale)
+  const memberOrders = recentOrders.filter((o) => o.buyerType === 'member');
+  const wholesaleOrders = recentOrders.filter((o) => o.buyerType === 'wholesale');
+
+  // Escrow/payment status summary
+  const escrowOrders = recentOrders.filter((o) => o.status === 'pending' && o.paymentStatus !== 'completed');
+  const paidOrders = recentOrders.filter((o) => o.paymentStatus === 'completed');
+  // Helper for realistic status display
+  const getOrderStatusLabel = (order: any) => {
+    if (order.status === 'pending' && order.paymentStatus !== 'completed') return 'Awaiting Escrow';
+    if (order.status === 'pending' && order.paymentStatus === 'completed') return 'Escrow Funded';
+    if (order.status === 'processing') return 'Processing';
+    if (order.status === 'shipped') return 'Shipped';
+    if (order.status === 'delivered') return 'Delivered';
+    if (order.status === 'cancelled') return 'Cancelled';
+    return order.status;
+  };
+
+
+
+  // Move onboarding check to top-level before main return
+  if (!onboardingComplete) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-8 text-center">
+          <div className="text-5xl mb-4">🏪</div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Start Selling</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Complete the onboarding process to access your seller dashboard and manage products.
+          </p>
+          <button
+            onClick={() => router.push('/seller/onboarding')}
+            className="w-full bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            Start Selling →
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -150,6 +190,65 @@ import { AnalyticsService, ProductPopularity } from '@/lib/services/analyticsSer
         </div>
 
         {/* Seller Analytics */}
+                {/* Realistic Order Segmentation & Escrow Status */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Recent Member Orders</h3>
+                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {memberOrders.length === 0 && <li className="py-2 text-gray-500">No member orders yet.</li>}
+                      {memberOrders.slice(0, 5).map((order) => (
+                        <li key={order.id} className="py-2 flex flex-col">
+                          <span className="font-medium">Order #{order.id}</span>
+                          <span className="text-xs">{getOrderStatusLabel(order)}</span>
+                          <span className="text-xs text-gray-500">₦{order.totalAmount?.toLocaleString()} | {order.items?.length} items</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Recent Wholesale Orders</h3>
+                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {wholesaleOrders.length === 0 && <li className="py-2 text-gray-500">No wholesale orders yet.</li>}
+                      {wholesaleOrders.slice(0, 5).map((order) => (
+                        <li key={order.id} className="py-2 flex flex-col">
+                          <span className="font-medium">Order #{order.id}</span>
+                          <span className="text-xs">{getOrderStatusLabel(order)}</span>
+                          <span className="text-xs text-gray-500">₦{order.totalAmount?.toLocaleString()} | {order.items?.length} items</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Escrow/Payment Status Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Orders Awaiting Escrow</h3>
+                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {escrowOrders.length === 0 && <li className="py-2 text-gray-500">No orders awaiting escrow.</li>}
+                      {escrowOrders.slice(0, 5).map((order) => (
+                        <li key={order.id} className="py-2 flex flex-col">
+                          <span className="font-medium">Order #{order.id}</span>
+                          <span className="text-xs">{getOrderStatusLabel(order)}</span>
+                          <span className="text-xs text-gray-500">₦{order.totalAmount?.toLocaleString()} | {order.items?.length} items</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Paid Orders (Escrow Funded)</h3>
+                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {paidOrders.length === 0 && <li className="py-2 text-gray-500">No paid orders yet.</li>}
+                      {paidOrders.slice(0, 5).map((order) => (
+                        <li key={order.id} className="py-2 flex flex-col">
+                          <span className="font-medium">Order #{order.id}</span>
+                          <span className="text-xs">{getOrderStatusLabel(order)}</span>
+                          <span className="text-xs text-gray-500">₦{order.totalAmount?.toLocaleString()} | {order.items?.length} items</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Average Order Value</p>

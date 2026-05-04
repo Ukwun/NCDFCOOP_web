@@ -69,7 +69,7 @@ export async function updateDeliveryStatus(orderId: string, status: string) {
       data: { orderId, status },
     });
   }
-
+}
 
 // Get orders available for delivery or assigned to this courier
 export async function getDeliveryOrders(courierId: string) {

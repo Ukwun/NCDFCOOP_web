@@ -3,6 +3,9 @@
 import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { Timestamp, collection, writeBatch, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { COLLECTIONS } from '@/lib/constants/database';
 import { useMemberData } from '@/lib/hooks/useMemberData';
 import ProductCard from './ProductCard';
 // Use real images from public/images for mock data
@@ -18,126 +21,7 @@ const MEMBER_PRODUCT_IMAGES = [
 ];
   // Member-exclusive products (mock)
   const memberProducts = [
-    {
-      id: 'm1',
-      name: 'Crayfish (1kg)',
-      price: 3200,
-      originalPrice: 4000,
-      thumbnail: MEMBER_PRODUCT_IMAGES[0],
-      images: [MEMBER_PRODUCT_IMAGES[0]],
-      stock: 12,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'Premium crayfish for members only.',
-      rating: 4.9,
-      reviews: 21,
-      category: 'Seafood',
-    },
-    {
-      id: 'm2',
-      name: 'Beef (2kg)',
-      price: 8500,
-      originalPrice: 9500,
-      thumbnail: MEMBER_PRODUCT_IMAGES[1],
-      images: [MEMBER_PRODUCT_IMAGES[1]],
-      stock: 8,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'Fresh beef, member pricing.',
-      rating: 4.7,
-      reviews: 14,
-      category: 'Proteins',
-    },
-    {
-      id: 'm3',
-      name: 'Egusi Seeds',
-      price: 2100,
-      originalPrice: 2600,
-      thumbnail: MEMBER_PRODUCT_IMAGES[2],
-      images: [MEMBER_PRODUCT_IMAGES[2]],
-      stock: 20,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'High quality egusi seeds.',
-      rating: 4.8,
-      reviews: 17,
-      category: 'Seeds',
-    },
-    {
-      id: 'm4',
-      name: '6-in-1 Spices',
-      price: 1800,
-      originalPrice: 2200,
-      thumbnail: MEMBER_PRODUCT_IMAGES[3],
-      images: [MEMBER_PRODUCT_IMAGES[3]],
-      stock: 25,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'Essential spice mix for members.',
-      rating: 4.6,
-      reviews: 11,
-      category: 'Spices',
-    },
-    {
-      id: 'm5',
-      name: 'Bag of Garri',
-      price: 2500,
-      originalPrice: 3200,
-      thumbnail: MEMBER_PRODUCT_IMAGES[4],
-      images: [MEMBER_PRODUCT_IMAGES[4]],
-      stock: 18,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'Member-only garri pricing.',
-      rating: 4.7,
-      reviews: 13,
-      category: 'Grains',
-    },
-    {
-      id: 'm6',
-      name: 'Buckwheat',
-      price: 2900,
-      originalPrice: 3400,
-      thumbnail: MEMBER_PRODUCT_IMAGES[5],
-      images: [MEMBER_PRODUCT_IMAGES[5]],
-      stock: 10,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'Healthy buckwheat for members.',
-      rating: 4.5,
-      reviews: 8,
-      category: 'Grains',
-    },
-    {
-      id: 'm7',
-      name: 'Family Pack',
-      price: 12000,
-      originalPrice: 13500,
-      thumbnail: MEMBER_PRODUCT_IMAGES[6],
-      images: [MEMBER_PRODUCT_IMAGES[6]],
-      stock: 6,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'Family essentials in one pack.',
-      rating: 4.9,
-      reviews: 19,
-      category: 'Packs',
-    },
-    {
-      id: 'm8',
-      name: 'Essential Basket',
-      price: 9500,
-      originalPrice: 11000,
-      thumbnail: MEMBER_PRODUCT_IMAGES[7],
-      images: [MEMBER_PRODUCT_IMAGES[7]],
-      stock: 9,
-      sellerId: 'coop',
-      sellerName: 'CoopMart',
-      description: 'Curated basket for members.',
-      rating: 4.8,
-      reviews: 15,
-      category: 'Packs',
-    },
+    // ...existing code for products...
   ];
 
 interface QuickAction {
@@ -153,6 +37,10 @@ export default function MemberHomeScreen() {
   const router = useRouter();
   const { data: memberData, loading: memberLoading } = useMemberData(user?.uid || '');
   const [showDepositDialog, setShowDepositDialog] = useState(false);
+  const [showWithdrawalDialog, setShowWithdrawalDialog] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   // Use real data with fallbacks
   const tier = memberData?.tier.toUpperCase() || 'GOLD';
@@ -160,111 +48,98 @@ export default function MemberHomeScreen() {
   const pointsToNextTier = 5000; // TODO: Calculate based on tier
   const totalSpent = memberData?.totalSpent || 125000;
   const savedThisYear = Math.round(totalSpent * (memberData?.discountPercentage || 15) / 100);
-  const discountRate = memberData?.discountPercentage || 15;
-  const savingsGoal = memberData?.savingsGoal || 50000;
-  const currentSavings = memberData?.savingsBalance || 19000;
-
-  const tierColor = {
-    BRONZE: '#8B6914',
-    SILVER: '#A9A9A9',
-    GOLD: '#C9A227',
-    PLATINUM: '#9D4EDD',
-  }[tier] || '#C9A227';
-
-  const tierEmoji = {
-    BRONZE: '🥉',
-    SILVER: '🥈',
-    GOLD: '🥇',
-    PLATINUM: '💎',
-  }[tier] || '🥇';
-
-  const progressPercent = Math.round((points / pointsToNextTier) * 100);
-  const savingsPercent = Math.round((currentSavings / savingsGoal) * 100);
-
-  const quickActions: QuickAction[] = [
-    { id: 'redeem', label: 'Redeem\nRewards', icon: '🎁', route: '/my-rewards', color: 'bg-pink-100 dark:bg-pink-900' },
-    { id: 'benefits', label: 'Your\nBenefits', icon: '⭐', route: '/member-benefits', color: 'bg-yellow-100 dark:bg-yellow-900' },
-    { id: 'refer', label: 'Refer &\nEarn', icon: '👥', route: '/referral-program', color: 'bg-blue-100 dark:bg-blue-900' },
-    { id: 'deposit', label: 'Quick\nDeposit', icon: '➕', route: '', color: 'bg-green-100 dark:bg-green-900' },
-    { id: 'withdraw', label: 'Quick\nWithdraw', icon: '➖', route: '', color: 'bg-red-100 dark:bg-red-900' },
-    { id: 'savings', label: 'My\nSavings', icon: '📈', route: '/member-savings', color: 'bg-purple-100 dark:bg-purple-900' },
-  ];
-
-  const handleQuickAction = (action: QuickAction) => {
-    if (action.id === 'deposit') {
-      setShowDepositDialog(true);
-    } else if (action.id === 'withdraw') {
-      // Handle withdraw
-      console.log('Withdraw action');
-    } else {
-      router.push(action.route);
-    }
-  };
-
-  const firstName = user?.displayName?.split(' ')[0] || 'Member';
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <div className="flex-1">
-              <div className="inline-block px-3 py-1 bg-[#C9A227] text-white text-xs font-semibold rounded-full">
-                ♥️ MEMBER HOME (Loyalty & Rewards)
-              </div>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-white dark:from-yellow-900 dark:to-gray-900">
+      {/* MEMBER HEADER */}
+      <div className="bg-[#C9A227] text-white border-b border-yellow-700 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between">
+          <div className="flex items-center gap-3 mb-2 sm:mb-0">
+            <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-10 w-auto" />
+            <span className="text-lg sm:text-2xl font-bold tracking-wide">MEMBER HOME & REWARDS</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-            Welcome, {firstName}! 👋
-          </h1>
+          <div className="text-sm sm:text-base font-semibold opacity-80">Loyalty • Savings • Exclusive Deals</div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        {/* Loyalty Card (Hero) */}
-        <div
-          className="rounded-lg p-6 sm:p-8 text-white shadow-lg"
-          style={{ background: `linear-gradient(135deg, ${tierColor} 0%, ${tierColor}CC 100%)` }}
-        >
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <p className="text-sm opacity-90 mb-1">Your Tier</p>
-              <h2 className="text-3xl sm:text-4xl font-bold flex items-center gap-2">
-                {tierEmoji} {tier}
-              </h2>
-            </div>
-            <div className="text-4xl opacity-80">💳</div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm opacity-90 mb-1">Available Points</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold">{points.toLocaleString()}</span>
-                <span className="text-sm opacity-75">pts</span>
-              </div>
-            </div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Loyalty Card & Stats */}
+        <div className="bg-yellow-100 dark:bg-yellow-900 rounded-lg p-6 mb-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#B89015] dark:text-yellow-200 mb-2">Welcome, {user?.displayName?.split(' ')[0] || 'Member'}!</h2>
+            <p className="text-gray-700 dark:text-yellow-100 mb-2">Your loyalty tier: <span className="font-bold">{tier}</span></p>
+            <ul className="list-disc ml-6 text-yellow-900 dark:text-yellow-100 text-sm mb-2">
+              <li>Exclusive member pricing on all products</li>
+              <li>Earn rewards points on every purchase</li>
+              <li>Special deals and savings just for you</li>
+            </ul>
             <button
               onClick={() => router.push('/my-rewards')}
-              className="w-full bg-white text-[#C9A227] font-bold py-2 px-4 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              🎁 Redeem Rewards
-            </button>
-
-            <div className="border-t border-white border-opacity-30 pt-4">
-              <p className="text-sm opacity-90 mb-2">Next Tier at {pointsToNextTier.toLocaleString()} pts</p>
-              <div className="w-full bg-white bg-opacity-20 rounded-full h-3 overflow-hidden">
-                <div
-                  className="bg-white h-full rounded-full transition-all"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <p className="text-xs opacity-75 mt-2">{progressPercent}% Complete</p>
-            </div>
+              className="mt-2 px-6 py-2 bg-[#C9A227] text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors"
+            >View Your Rewards →</button>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-5xl">💎</span>
+            <span className="text-yellow-900 dark:text-yellow-100 font-bold">Member Account</span>
           </div>
         </div>
+
+        {/* Member Product Grid */}
+        <div className="mb-10">
+          <h2 className="text-xl sm:text-2xl font-bold text-[#B89015] dark:text-yellow-200 mb-4">Member-Exclusive Products</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {memberProducts.map((product) => (
+              <div key={product.id} style={{ minWidth: 240, maxWidth: 280, margin: '0 auto' }}>
+                <ProductCard
+                  product={{
+                    ...product,
+                    price: product.memberPrice || product.price,
+                    memberOnly: true,
+                  }}
+                  onAddToCart={async (prod, quantity) => {
+                    if (!user) {
+                      alert('Please sign in to add items to your cart.');
+                      return;
+                    }
+                    try {
+                      await addToCart(
+                        user.uid,
+                        prod.id,
+                        prod.name,
+                        prod.price,
+                        prod.thumbnail || prod.images?.[0] || '',
+                        quantity
+                      );
+                      alert('Added to cart!');
+                    } catch (err) {
+                      alert('Failed to add to cart.');
+                    }
+                  }}
+                  onViewDetails={() => router.push(`/products/${product.id}`)}
+                />
+                <div className="mt-2 text-xs text-yellow-800 dark:text-yellow-200 font-semibold">Member Price: ₦{product.memberPrice || product.price} • Save {product.discount || 0}%</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Member Benefits CTA */}
+        <div className="bg-gradient-to-r from-[#C9A227] to-[#B89015] rounded-lg p-6 sm:p-8 text-white shadow-md">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2">⭐ Member Benefits</h3>
+              <p className="text-sm sm:text-base opacity-90">
+                Enjoy exclusive deals, rewards, and transparency as a valued member.
+              </p>
+            </div>
+            <button
+              onClick={() => router.push('/member-benefits')}
+              className="px-6 py-2 bg-white text-[#C9A227] font-semibold rounded-lg hover:bg-yellow-100 transition-colors whitespace-nowrap"
+            >View All Benefits</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
         {/* Savings & Impact Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -20,6 +20,7 @@ import { db } from '@/lib/firebase/config';
 import { COLLECTIONS, ORDER_STATUS } from '@/lib/constants/database';
 import { clearCart } from '@/lib/services/cartService';
 import { Order } from '@/lib/types/product';
+import { createNotification } from '@/lib/services/notificationService';
 
 /**
  * Create order from cart
@@ -139,6 +140,20 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
       status,
       updatedAt: Timestamp.now(),
     });
+
+    // Fetch order to get userId
+    const orderSnap = await getDoc(doc(db, COLLECTIONS.ORDERS, orderId));
+    if (orderSnap.exists()) {
+      const order = orderSnap.data() as Order;
+      // Create notification for user
+      await createNotification(order.userId, {
+        title: 'Order Status Updated',
+        message: `Your order #${orderId} status changed to: ${status}`,
+        type: 'order',
+        read: false,
+        data: { orderId, status },
+      });
+    }
   } catch (error) {
     console.error('Error updating order status:', error);
     throw error;
@@ -155,6 +170,20 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
       status: paymentStatus === 'completed' ? ORDER_STATUS.PAID : ORDER_STATUS.PENDING,
       updatedAt: Timestamp.now(),
     });
+
+    // Fetch order to get userId
+    const orderSnap = await getDoc(doc(db, COLLECTIONS.ORDERS, orderId));
+    if (orderSnap.exists()) {
+      const order = orderSnap.data() as Order;
+      // Create notification for user
+      await createNotification(order.userId, {
+        title: 'Payment Status Updated',
+        message: `Your order #${orderId} payment status: ${paymentStatus}`,
+        type: 'order',
+        read: false,
+        data: { orderId, paymentStatus },
+      });
+    }
   } catch (error) {
     console.error('Error updating payment status:', error);
     throw error;

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
+import ProductCard from '@/components/ProductCard';
 
 export default function MemberProductsPage() {
   const router = useRouter();
@@ -14,20 +15,34 @@ export default function MemberProductsPage() {
 
   const categories = ['All', 'Grains & Cereals', 'Proteins', 'Dairy', 'Fresh Produce', 'Value Deals'];
 
-  // Mock member-exclusive products
+  // Use real images for member-exclusive products
+  const MEMBER_PRODUCT_IMAGES = [
+    '/images/Crayfish 1.png',
+    '/images/Beef1.png',
+    '/images/egusiseeds1.png',
+    '/images/6in1spices1.png',
+    '/images/Bag of garri1.png',
+    '/images/Buck wheat1.png',
+    '/images/Family pack1.png',
+    '/images/essential basket1.png',
+    '/images/Frame 174.png',
+    '/images/Frame 175.png',
+    '/images/Frame 176.png',
+    '/images/All inclusive pack.png',
+  ];
   const products = [
-    { id: 1, name: 'Premium Milled Rice', category: 'Grains & Cereals', price: 15000, memberPrice: 12750, discount: 15, image: '🌾', stock: 45 },
-    { id: 2, name: 'Free-Range Eggs (30pc)', category: 'Proteins', price: 8500, memberPrice: 6800, discount: 20, image: '🥚', stock: 12 },
-    { id: 3, name: 'Fresh Organic Milk (1L)', category: 'Dairy', price: 1200, memberPrice: 960, discount: 20, image: '🥛', stock: 78 },
-    { id: 4, name: 'Gourmet Butter (500g)', category: 'Dairy', price: 4500, memberPrice: 3825, discount: 15, image: '🧈', stock: 23 },
-    { id: 5, name: 'Beef Cuts Pack (2kg)', category: 'Proteins', price: 22000, memberPrice: 18700, discount: 15, image: '🍖', stock: 8 },
-    { id: 6, name: 'Chickpeas (5kg)', category: 'Grains & Cereals', price: 6000, memberPrice: 5100, discount: 15, image: '⭐', stock: 34 },
-    { id: 7, name: 'Fresh Tomatoes Crate', category: 'Fresh Produce', price: 5500, memberPrice: 4400, discount: 20, image: '🍅', stock: 16 },
-    { id: 8, name: 'Assorted Vegetables Bundle', category: 'Fresh Produce', price: 3000, memberPrice: 2400, discount: 20, image: '🥬', stock: 52 },
-    { id: 9, name: 'Nigerian Garri (50kg)', category: 'Grains & Cereals', price: 12000, memberPrice: 10200, discount: 15, image: '🌡️', stock: 19 },
-    { id: 10, name: 'Honey Premium (1kg)', category: 'Value Deals', price: 8000, memberPrice: 6400, discount: 20, image: '🍯', stock: 7 },
-    { id: 11, name: 'Groundnut Oil (5L)', category: 'Value Deals', price: 7000, memberPrice: 5950, discount: 15, image: '🌰', stock: 29 },
-    { id: 12, name: 'Pasteurized Cheese (500g)', category: 'Dairy', price: 3500, memberPrice: 2975, discount: 15, image: '🧀', stock: 14 },
+    { id: '1', name: 'Premium Milled Rice', category: 'Grains & Cereals', price: 15000, memberPrice: 12750, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[0], images: [MEMBER_PRODUCT_IMAGES[0]], stock: 45, sellerId: 'coop', sellerName: 'CoopMart', description: 'Premium rice for members.', rating: 4.8, reviews: 20 },
+    { id: '2', name: 'Free-Range Eggs (30pc)', category: 'Proteins', price: 8500, memberPrice: 6800, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[1], images: [MEMBER_PRODUCT_IMAGES[1]], stock: 12, sellerId: 'coop', sellerName: 'CoopMart', description: 'Farm fresh eggs.', rating: 4.7, reviews: 14 },
+    { id: '3', name: 'Fresh Organic Milk (1L)', category: 'Dairy', price: 1200, memberPrice: 960, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[2], images: [MEMBER_PRODUCT_IMAGES[2]], stock: 78, sellerId: 'coop', sellerName: 'CoopMart', description: 'Organic milk for your family.', rating: 4.9, reviews: 18 },
+    { id: '4', name: 'Gourmet Butter (500g)', category: 'Dairy', price: 4500, memberPrice: 3825, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[3], images: [MEMBER_PRODUCT_IMAGES[3]], stock: 23, sellerId: 'coop', sellerName: 'CoopMart', description: 'Rich gourmet butter.', rating: 4.6, reviews: 11 },
+    { id: '5', name: 'Beef Cuts Pack (2kg)', category: 'Proteins', price: 22000, memberPrice: 18700, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[4], images: [MEMBER_PRODUCT_IMAGES[4]], stock: 8, sellerId: 'coop', sellerName: 'CoopMart', description: 'Fresh beef cuts.', rating: 4.7, reviews: 13 },
+    { id: '6', name: 'Chickpeas (5kg)', category: 'Grains & Cereals', price: 6000, memberPrice: 5100, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[5], images: [MEMBER_PRODUCT_IMAGES[5]], stock: 34, sellerId: 'coop', sellerName: 'CoopMart', description: 'Nutritious chickpeas.', rating: 4.5, reviews: 8 },
+    { id: '7', name: 'Fresh Tomatoes Crate', category: 'Fresh Produce', price: 5500, memberPrice: 4400, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[6], images: [MEMBER_PRODUCT_IMAGES[6]], stock: 16, sellerId: 'coop', sellerName: 'CoopMart', description: 'Fresh tomatoes.', rating: 4.8, reviews: 15 },
+    { id: '8', name: 'Assorted Vegetables Bundle', category: 'Fresh Produce', price: 3000, memberPrice: 2400, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[7], images: [MEMBER_PRODUCT_IMAGES[7]], stock: 52, sellerId: 'coop', sellerName: 'CoopMart', description: 'Assorted vegetables.', rating: 4.7, reviews: 12 },
+    { id: '9', name: 'Nigerian Garri (50kg)', category: 'Grains & Cereals', price: 12000, memberPrice: 10200, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[8], images: [MEMBER_PRODUCT_IMAGES[8]], stock: 19, sellerId: 'coop', sellerName: 'CoopMart', description: 'Classic garri.', rating: 4.6, reviews: 10 },
+    { id: '10', name: 'Honey Premium (1kg)', category: 'Value Deals', price: 8000, memberPrice: 6400, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[9], images: [MEMBER_PRODUCT_IMAGES[9]], stock: 7, sellerId: 'coop', sellerName: 'CoopMart', description: 'Pure honey.', rating: 4.9, reviews: 9 },
+    { id: '11', name: 'Groundnut Oil (5L)', category: 'Value Deals', price: 7000, memberPrice: 5950, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[10], images: [MEMBER_PRODUCT_IMAGES[10]], stock: 29, sellerId: 'coop', sellerName: 'CoopMart', description: 'Healthy groundnut oil.', rating: 4.7, reviews: 11 },
+    { id: '12', name: 'Pasteurized Cheese (500g)', category: 'Dairy', price: 3500, memberPrice: 2975, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[11], images: [MEMBER_PRODUCT_IMAGES[11]], stock: 14, sellerId: 'coop', sellerName: 'CoopMart', description: 'Delicious cheese.', rating: 4.8, reviews: 10 },
   ];
 
   const filteredProducts = filterCategory === 'all'
@@ -116,60 +131,14 @@ export default function MemberProductsPage() {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
           {sortedProducts.map((product) => (
-            <div
-              key={product.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-lg transition-all cursor-pointer overflow-hidden"
-              onClick={() => router.push(`/products/${product.id}`)}
-            >
-              {/* Product Image */}
-              <div className="aspect-square bg-gradient-to-br from-yellow-100 to-yellow-50 dark:from-yellow-900 dark:to-yellow-800 flex items-center justify-center text-5xl relative">
-                {product.image}
-                {product.discount > 0 && (
-                  <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold">
-                    -{product.discount}%
-                  </div>
-                )}
-                {product.stock < 10 && (
-                  <div className="absolute bottom-2 left-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-semibold">
-                    Low Stock
-                  </div>
-                )}
-              </div>
-
-              {/* Product Info */}
-              <div className="p-3">
-                <p className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2 mb-2">
-                  {product.name}
-                </p>
-                
-                {/* Pricing */}
-                <div className="mb-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 line-through">
-                    ₦{product.price.toLocaleString()}
-                  </p>
-                  <p className="text-lg font-bold text-[#0B6B3A]">
-                    ₦{product.memberPrice.toLocaleString()}
-                  </p>
-                </div>
-
-                {/* Stock Info */}
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                  {product.stock} in stock
-                </p>
-
-                {/* Add to Cart Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    alert(`Added "${product.name}" to cart!`);
-                  }}
-                  className="w-full bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-2 px-3 rounded-lg transition-colors text-sm"
-                >
-                  🛒 Add to Cart
-                </button>
-              </div>
+            <div key={product.id} style={{ minWidth: 240, maxWidth: 280, margin: '0 auto' }}>
+              <ProductCard product={{
+                ...product,
+                price: product.memberPrice, // Always show member price
+                originalPrice: product.price,
+              }} />
             </div>
           ))}
         </div>

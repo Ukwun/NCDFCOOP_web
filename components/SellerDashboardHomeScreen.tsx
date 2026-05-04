@@ -3,9 +3,12 @@
 import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
 
-export default function SellerDashboardHomeScreen() {
+import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
+import { useEffect, useState } from 'react';
+import { AnalyticsService, ProductPopularity } from '@/lib/services/analyticsService';
+
+
   const { user } = useAuth();
   const router = useRouter();
   const [filterTab, setFilterTab] = useState('All');
@@ -18,6 +21,12 @@ export default function SellerDashboardHomeScreen() {
   // Define business name from user display name or default
   const businessName = user?.displayName || 'My Store';
 
+  // Seller analytics state
+  const [avgOrderValue, setAvgOrderValue] = useState(0);
+  const [topProducts, setTopProducts] = useState<ProductPopularity[]>([]);
+  const [orderTrends, setOrderTrends] = useState<number[]>([]);
+
+  // Calculate stats
   const stats = {
     total: products.length,
     pending: products.filter((p) => p.status === 'pending').length,
@@ -27,6 +36,28 @@ export default function SellerDashboardHomeScreen() {
       .reduce((sum, p) => sum + (p.price * p.quantity * 0.1), 0), // Estimate 10% commission
     rating: 4.8,
   };
+
+  // Fetch seller analytics
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchAnalytics = async () => {
+      // Average order value for this seller
+      const now = new Date();
+      const lastMonth = new Date();
+      lastMonth.setMonth(now.getMonth() - 1);
+      // Get all purchases for this seller
+      // (Assume activity logs store sellerId in activityData)
+      // Top products
+      const top = await AnalyticsService.getProductPopularity('purchases', 5);
+      setTopProducts(top.filter((p) => products.some((prod) => prod.id === p.productId)));
+      // Order trends (dummy: last 4 weeks)
+      // In real code, would aggregate by week
+      setOrderTrends([12, 18, 22, 15]);
+      // Average order value (dummy)
+      setAvgOrderValue(15000);
+    };
+    fetchAnalytics();
+  }, [user?.uid, products]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -115,6 +146,36 @@ export default function SellerDashboardHomeScreen() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm">
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">This Month Revenue</p>
             <p className="text-2xl sm:text-3xl font-bold text-[#0B6B3A]">₦{stats.revenue.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Seller Analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Average Order Value</p>
+            <p className="text-2xl font-bold text-indigo-600">₦{avgOrderValue.toLocaleString()}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Top Products</p>
+            <ul className="space-y-1">
+              {topProducts.map((p) => (
+                <li key={p.productId} className="flex justify-between">
+                  <span>{p.productName}</span>
+                  <span className="font-semibold">{p.purchaseCount} sales</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Order Trends (Last 4 Weeks)</p>
+            <div className="flex gap-2 items-end h-16">
+              {orderTrends.map((v, i) => (
+                <div key={i} className="flex flex-col items-center justify-end h-full">
+                  <div className="w-6 bg-green-400 rounded-t" style={{ height: `${v * 3}px` }}></div>
+                  <span className="text-xs mt-1">W{i + 1}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

@@ -4,13 +4,20 @@ import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useFlashDeals } from '@/lib/hooks/useFlashDeals';
+import ProductCard from './ProductCard';
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-}
+// Use real images from public/images for mock data
+const PRODUCT_IMAGES = [
+  '/images/Bag of garri1.png',
+  '/images/Palm Oil.png',
+  '/images/Cassava Flour.png',
+  '/images/Eggs (30pc).png',
+  '/images/Crayfish 1.png',
+  '/images/Buck wheat1.png',
+  '/images/Beef1.png',
+  '/images/egusiseeds1.png',
+  '/images/6in1spices1.png',
+];
 
 const CATEGORIES = [
   { name: 'Grains', emoji: '🥘', id: 'grains' },
@@ -25,17 +32,73 @@ export default function WholesaleBuyerHomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { deals: flashDeals } = useFlashDeals();
-  const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<any[]>([]);
 
 
   // Load recommended products on mount
   useEffect(() => {
-    // TODO: Fetch from Firestore based on user preferences
-    const mockProducts: Product[] = [
-      { id: '1', name: 'Garlic Bulbs', price: 2500, image: '🧄' },
-      { id: '2', name: 'Palm Oil', price: 4200, image: '🫒' },
-      { id: '3', name: 'Cassava Flour', price: 1800, image: '🌾' },
-      { id: '4', name: 'Eggs (30pc)', price: 3600, image: '🥚' },
+    // Use real images for mock products
+    const mockProducts = [
+      {
+        id: '1',
+        name: 'Bag of Garri',
+        price: 2500,
+        originalPrice: 3200,
+        thumbnail: PRODUCT_IMAGES[0],
+        images: [PRODUCT_IMAGES[0]],
+        stock: 20,
+        sellerId: 'wholesale',
+        sellerName: 'BulkMart',
+        description: 'Premium quality garri in bulk.',
+        rating: 4.7,
+        reviews: 18,
+        category: 'Grains',
+      },
+      {
+        id: '2',
+        name: 'Palm Oil',
+        price: 4200,
+        originalPrice: 4800,
+        thumbnail: PRODUCT_IMAGES[1],
+        images: [PRODUCT_IMAGES[1]],
+        stock: 15,
+        sellerId: 'wholesale',
+        sellerName: 'AgroHub',
+        description: 'Unadulterated palm oil for wholesale buyers.',
+        rating: 4.5,
+        reviews: 12,
+        category: 'Oils',
+      },
+      {
+        id: '3',
+        name: 'Cassava Flour',
+        price: 1800,
+        originalPrice: 2100,
+        thumbnail: PRODUCT_IMAGES[2],
+        images: [PRODUCT_IMAGES[2]],
+        stock: 30,
+        sellerId: 'wholesale',
+        sellerName: 'FarmersDirect',
+        description: 'Finely milled cassava flour.',
+        rating: 4.2,
+        reviews: 9,
+        category: 'Grains',
+      },
+      {
+        id: '4',
+        name: 'Eggs (30pc)',
+        price: 3600,
+        originalPrice: 4000,
+        thumbnail: PRODUCT_IMAGES[3],
+        images: [PRODUCT_IMAGES[3]],
+        stock: 10,
+        sellerId: 'wholesale',
+        sellerName: 'EggDepot',
+        description: 'Farm fresh eggs in bulk.',
+        rating: 4.8,
+        reviews: 22,
+        category: 'Proteins',
+      },
     ];
     setRecommendedProducts(mockProducts);
   }, []);
@@ -91,29 +154,29 @@ export default function WholesaleBuyerHomeScreen() {
           <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
             <div className="flex gap-4 pb-2">
               {flashDeals.length > 0 ? (
-                flashDeals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    onClick={() => router.push(`/products/${deal.id}`)}
-                    className="flex-shrink-0 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
-                  >
-                    <div className="aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-4xl font-bold">
-                      {deal.image || '📦'}
+                flashDeals.map((deal, idx) => {
+                  // Map FlashDealState to Product type
+                  const product = {
+                    id: deal.id,
+                    name: deal.name,
+                    price: deal.price,
+                    originalPrice: deal.originalPrice,
+                    thumbnail: deal.image || PRODUCT_IMAGES[(idx + 4) % PRODUCT_IMAGES.length],
+                    images: [deal.image || PRODUCT_IMAGES[(idx + 4) % PRODUCT_IMAGES.length]],
+                    sellerId: 'flash',
+                    sellerName: 'Flash Seller',
+                    stock: 10,
+                    description: 'Limited time offer!',
+                    rating: 4.5,
+                    reviews: 10,
+                    category: 'Deals',
+                  };
+                  return (
+                    <div key={deal.id} style={{ minWidth: 240, maxWidth: 280 }}>
+                      <ProductCard product={product} />
                     </div>
-                    <div className="p-3">
-                      <p className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2">
-                        {deal.name}
-                      </p>
-                      <div className="mt-2 flex items-baseline gap-2">
-                        <span className="text-lg font-bold text-[#059669]">₦{deal.price.toLocaleString()}</span>
-                        <span className="text-xs text-gray-500 line-through">₦{deal.originalPrice.toLocaleString()}</span>
-                      </div>
-                      <div className="mt-2 text-xs text-orange-600 font-semibold">
-                        ⏱️ {deal.timeLeftDisplay}
-                      </div>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="w-full text-center py-8 text-gray-500">
                   <p>No active flash deals at the moment.</p>
@@ -147,45 +210,31 @@ export default function WholesaleBuyerHomeScreen() {
         {/* Recommended Products */}
         <div className="mb-10">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Recommended for You
+            Wholesale Picks For You
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {recommendedProducts.map((product) => (
-              <div
-                key={product.id}
-                onClick={() => router.push(`/products/${product.id}`)}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
-              >
-                <div className="aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-4xl">
-                  {product.image}
-                </div>
-                <div className="p-3 sm:p-4">
-                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2">
-                    {product.name}
-                  </h4>
-                  <p className="text-lg font-bold text-[#059669] mt-2">
-                    ₦{product.price.toLocaleString()}
-                  </p>
-                </div>
+              <div key={product.id} style={{ minWidth: 240, maxWidth: 280, margin: '0 auto' }}>
+                <ProductCard product={product} />
               </div>
             ))}
           </div>
         </div>
 
-        {/* Upgrade CTA */}
-        <div className="bg-gradient-to-r from-[#C9A227] to-[#B89015] rounded-lg p-6 sm:p-8 text-white shadow-md">
+        {/* Wholesale Info CTA */}
+        <div className="bg-gradient-to-r from-[#1E7F4E] to-[#155a3a] rounded-lg p-6 sm:p-8 text-white shadow-md">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-xl sm:text-2xl font-bold mb-2">💎 Become a Member</h3>
+              <h3 className="text-xl sm:text-2xl font-bold mb-2">🛒 Wholesale Buyer Benefits</h3>
               <p className="text-sm sm:text-base opacity-90">
-                Get exclusive prices & loyalty rewards. Earn points on every purchase!
+                Access bulk pricing, priority fulfillment, and dedicated support for your business needs.
               </p>
             </div>
             <button
-              onClick={() => router.push('/membership')}
-              className="px-6 py-2 bg-white text-[#C9A227] font-semibold rounded-lg hover:bg-gray-100 transition-colors whitespace-nowrap"
+              onClick={() => router.push('/member-benefits')}
+              className="px-6 py-2 bg-white text-[#1E7F4E] font-semibold rounded-lg hover:bg-gray-100 transition-colors whitespace-nowrap"
             >
-              Learn More
+              View Benefits
             </button>
           </div>
         </div>

@@ -1,20 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useBuyerOrders } from '@/lib/hooks';
 import { orderService } from '@/lib/services/api';
 import { ErrorHandler } from '@/lib/error/errorHandler';
+import { AnalyticsService, UserBehaviorPattern } from '@/lib/services/analyticsService';
 
 interface BuyerOrdersScreenProps {
   userId: string;
 }
 
-export const BuyerOrdersScreen: React.FC<BuyerOrdersScreenProps> = ({ userId }) => {
+
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [returnReason, setReturnReason] = useState('');
+
+  // Analytics state
+  const [behavior, setBehavior] = useState<UserBehaviorPattern | null>(null);
+  const [purchaseTrends, setPurchaseTrends] = useState<number[]>([]);
 
   const {
     orders,
@@ -25,6 +30,17 @@ export const BuyerOrdersScreen: React.FC<BuyerOrdersScreenProps> = ({ userId }) 
     completedOrders,
     totalSpent,
   } = useBuyerOrders(userId);
+
+  useEffect(() => {
+    if (!userId) return;
+    const fetchAnalytics = async () => {
+      const pattern = await AnalyticsService.getUserBehaviorPattern(userId);
+      setBehavior(pattern);
+      // Dummy purchase trends (last 4 months)
+      setPurchaseTrends([2, 4, 3, 5]);
+    };
+    fetchAnalytics();
+  }, [userId]);
 
   const filteredOrders =
     filterStatus === 'all'
@@ -108,6 +124,28 @@ export const BuyerOrdersScreen: React.FC<BuyerOrdersScreenProps> = ({ userId }) 
             <p className="text-2xl font-bold">
               ₦{totalSpent.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
             </p>
+          </div>
+        </div>
+        {/* Buyer Analytics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+          <div>
+            <p className="text-blue-100 text-xs">Order Frequency (last 4 months)</p>
+            <div className="flex gap-2 items-end h-12">
+              {purchaseTrends.map((v, i) => (
+                <div key={i} className="flex flex-col items-center justify-end h-full">
+                  <div className="w-6 bg-blue-300 rounded-t" style={{ height: `${v * 8}px` }}></div>
+                  <span className="text-xs mt-1">M{i + 1}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-blue-100 text-xs">Favorite Category</p>
+            <p className="text-lg font-semibold">{behavior?.favoriteCategory || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="text-blue-100 text-xs">Avg. Session Duration</p>
+            <p className="text-lg font-semibold">{behavior?.averageSessionDuration?.toFixed(1) || 0} min</p>
           </div>
         </div>
       </div>

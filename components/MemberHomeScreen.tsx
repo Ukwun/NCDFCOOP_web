@@ -4,6 +4,141 @@ import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMemberData } from '@/lib/hooks/useMemberData';
+import ProductCard from './ProductCard';
+// Use real images from public/images for mock data
+const MEMBER_PRODUCT_IMAGES = [
+  '/images/Crayfish 1.png',
+  '/images/Beef1.png',
+  '/images/egusiseeds1.png',
+  '/images/6in1spices1.png',
+  '/images/Bag of garri1.png',
+  '/images/Buck wheat1.png',
+  '/images/Family pack1.png',
+  '/images/essential basket1.png',
+];
+  // Member-exclusive products (mock)
+  const memberProducts = [
+    {
+      id: 'm1',
+      name: 'Crayfish (1kg)',
+      price: 3200,
+      originalPrice: 4000,
+      thumbnail: MEMBER_PRODUCT_IMAGES[0],
+      images: [MEMBER_PRODUCT_IMAGES[0]],
+      stock: 12,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'Premium crayfish for members only.',
+      rating: 4.9,
+      reviews: 21,
+      category: 'Seafood',
+    },
+    {
+      id: 'm2',
+      name: 'Beef (2kg)',
+      price: 8500,
+      originalPrice: 9500,
+      thumbnail: MEMBER_PRODUCT_IMAGES[1],
+      images: [MEMBER_PRODUCT_IMAGES[1]],
+      stock: 8,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'Fresh beef, member pricing.',
+      rating: 4.7,
+      reviews: 14,
+      category: 'Proteins',
+    },
+    {
+      id: 'm3',
+      name: 'Egusi Seeds',
+      price: 2100,
+      originalPrice: 2600,
+      thumbnail: MEMBER_PRODUCT_IMAGES[2],
+      images: [MEMBER_PRODUCT_IMAGES[2]],
+      stock: 20,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'High quality egusi seeds.',
+      rating: 4.8,
+      reviews: 17,
+      category: 'Seeds',
+    },
+    {
+      id: 'm4',
+      name: '6-in-1 Spices',
+      price: 1800,
+      originalPrice: 2200,
+      thumbnail: MEMBER_PRODUCT_IMAGES[3],
+      images: [MEMBER_PRODUCT_IMAGES[3]],
+      stock: 25,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'Essential spice mix for members.',
+      rating: 4.6,
+      reviews: 11,
+      category: 'Spices',
+    },
+    {
+      id: 'm5',
+      name: 'Bag of Garri',
+      price: 2500,
+      originalPrice: 3200,
+      thumbnail: MEMBER_PRODUCT_IMAGES[4],
+      images: [MEMBER_PRODUCT_IMAGES[4]],
+      stock: 18,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'Member-only garri pricing.',
+      rating: 4.7,
+      reviews: 13,
+      category: 'Grains',
+    },
+    {
+      id: 'm6',
+      name: 'Buckwheat',
+      price: 2900,
+      originalPrice: 3400,
+      thumbnail: MEMBER_PRODUCT_IMAGES[5],
+      images: [MEMBER_PRODUCT_IMAGES[5]],
+      stock: 10,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'Healthy buckwheat for members.',
+      rating: 4.5,
+      reviews: 8,
+      category: 'Grains',
+    },
+    {
+      id: 'm7',
+      name: 'Family Pack',
+      price: 12000,
+      originalPrice: 13500,
+      thumbnail: MEMBER_PRODUCT_IMAGES[6],
+      images: [MEMBER_PRODUCT_IMAGES[6]],
+      stock: 6,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'Family essentials in one pack.',
+      rating: 4.9,
+      reviews: 19,
+      category: 'Packs',
+    },
+    {
+      id: 'm8',
+      name: 'Essential Basket',
+      price: 9500,
+      originalPrice: 11000,
+      thumbnail: MEMBER_PRODUCT_IMAGES[7],
+      images: [MEMBER_PRODUCT_IMAGES[7]],
+      stock: 9,
+      sellerId: 'coop',
+      sellerName: 'CoopMart',
+      description: 'Curated basket for members.',
+      rating: 4.8,
+      reviews: 15,
+      category: 'Packs',
+    },
+  ];
 
 interface QuickAction {
   id: string;
@@ -258,41 +393,20 @@ export default function MemberHomeScreen() {
             🎉 Exclusive Member Deals
           </h3>
           <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 mb-6">
-            <div className="flex gap-4 pb-2">
-              {[1, 2, 3, 4].map((item) => (
-                <div
-                  key={item}
-                  className="flex-shrink-0 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
-                >
-                  <div className="aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-4xl">
-                    {['🥘', '🌾', '🥛', '🍖'][item - 1]}
-                  </div>
-                  <div className="p-4">
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm">Product {item}</p>
-                    <p className="text-xs text-green-600 font-bold mt-1">-{15 + item * 5}% off</p>
-                    <p className="text-xs text-gray-500 mt-2">Only {10 - item} left</p>
-                  </div>
+            <div className="flex gap-6 pb-2">
+              {memberProducts.slice(0, 4).map((product) => (
+                <div key={product.id} className="flex-shrink-0" style={{ minWidth: 240, maxWidth: 280 }}>
+                  <ProductCard product={product} />
                 </div>
               ))}
             </div>
           </div>
 
           {/* Member Product Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
-              <div
-                key={item}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
-              >
-                <div className="aspect-square bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-3xl">
-                  {['🥘', '🌾', '🥛', '🍖', '🧈', '⚡', '🎁', '✨'][item - 1]}
-                </div>
-                <div className="p-3">
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2">
-                    Member Product {item}
-                  </p>
-                  <p className="text-[#C9A227] font-bold text-sm mt-2">₦{(item * 1500).toLocaleString()}</p>
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {memberProducts.map((product) => (
+              <div key={product.id} style={{ minWidth: 240, maxWidth: 280, margin: '0 auto' }}>
+                <ProductCard product={product} />
               </div>
             ))}
           </div>

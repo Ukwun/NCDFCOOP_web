@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useFavorites } from '@/lib/hooks';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
@@ -57,10 +58,14 @@ export default function EnhancedNavigation() {
     return [
       ...baseItems,
       ...roleItems,
+      { id: 'favorites', label: 'Favorites', icon: '❤️', href: '/favorites' },
       { id: 'account', label: 'Account', icon: '👤', href: '/account' },
     ];
   };
 
+
+  // Real-time favorites count (badge)
+  const { count: favoritesCount } = useFavorites({ userId: user?.uid || '', autoFetch: true });
   const navigationItems = getNavigationItems();
 
   return (
@@ -76,8 +81,31 @@ export default function EnhancedNavigation() {
 
             {/* Center Navigation - Hidden on mobile */}
             <div className="hidden md:flex items-center gap-6">
-              {navigationItems.map((item) => (
-                item.id !== 'account' && (
+              {navigationItems.map((item) => {
+                if (item.id === 'account') return null;
+                if (item.id === 'favorites') {
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      className={`relative flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                        pathname === item.href
+                          ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-200'
+                      }`}
+                      aria-label="Favorites"
+                    >
+                      <span>{item.icon}</span>
+                      <span className="text-sm font-medium">{item.label}</span>
+                      {favoritesCount > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs px-1.5 py-0.5 font-bold shadow-lg min-w-[20px] text-center">
+                          {favoritesCount}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                }
+                return (
                   <Link
                     key={item.id}
                     href={item.href}
@@ -90,8 +118,8 @@ export default function EnhancedNavigation() {
                     <span>{item.icon}</span>
                     <span className="text-sm font-medium">{item.label}</span>
                   </Link>
-                )
-              ))}
+                );
+              })}
             </div>
 
             {/* Right Actions */}
@@ -169,20 +197,44 @@ export default function EnhancedNavigation() {
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
         <div className="flex justify-around">
-          {navigationItems.map((item) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              className={`flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors ${
-                pathname === item.href
-                  ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                  : 'text-gray-600 dark:text-gray-400'
-              }`}
-            >
-              <span className="text-xl">{item.icon}</span>
-              <span className="text-xs font-medium mt-1 text-center">{item.label}</span>
-            </Link>
-          ))}
+          {navigationItems.map((item) => {
+            if (item.id === 'favorites') {
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={`relative flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors ${
+                    pathname === item.href
+                      ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
+                      : 'text-gray-600 dark:text-gray-400'
+                  }`}
+                  aria-label="Favorites"
+                >
+                  <span className="text-xl">{item.icon}</span>
+                  <span className="text-xs font-medium mt-1 text-center">{item.label}</span>
+                  {favoritesCount > 0 && (
+                    <span className="absolute -top-1 right-3 bg-red-500 text-white rounded-full text-xs px-1.5 py-0.5 font-bold shadow-lg min-w-[20px] text-center">
+                      {favoritesCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            }
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={`flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors ${
+                  pathname === item.href
+                    ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-xs font-medium mt-1 text-center">{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
       </nav>
 

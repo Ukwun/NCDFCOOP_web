@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
 
+
 export default function EnhancedNavigation() {
   const { user, loading, logout, currentRole, switchRole } = useAuth();
   const router = useRouter();
@@ -14,9 +15,23 @@ export default function EnhancedNavigation() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
 
-  // Hide navigation on splash, welcome, auth, and onboarding pages
-  const hiddenPaths = ['/splash', '/welcome', '/auth/', '/onboarding', '/role-selection', '/seller/onboarding'];
-  const shouldHideNav = hiddenPaths.some(path => pathname.startsWith(path));
+  // Always call useFavorites to obey Rules of Hooks
+  const { count: favoritesCount } = useFavorites({ userId: user?.uid || '', autoFetch: true });
+
+  // Hide navigation on splash, welcome, all auth, onboarding, and role-selection pages
+  const shouldHideNav = pathname
+    ? (
+        pathname === '/splash' ||
+        pathname === '/welcome' ||
+        pathname === '/auth' ||
+        pathname.startsWith('/auth') ||
+        pathname === '/signin' ||
+        pathname === '/signup' ||
+        pathname.startsWith('/onboarding') ||
+        pathname === '/role-selection' ||
+        pathname.startsWith('/seller/onboarding')
+      )
+    : false;
 
   if (loading || !user || shouldHideNav) {
     return null;
@@ -65,7 +80,6 @@ export default function EnhancedNavigation() {
 
 
   // Real-time favorites count (badge)
-  const { count: favoritesCount } = useFavorites({ userId: user?.uid || '', autoFetch: true });
   const navigationItems = getNavigationItems();
 
   return (
@@ -76,7 +90,7 @@ export default function EnhancedNavigation() {
           <div className="flex items-center justify-between h-16">
             {/* Logo/Brand */}
             <Link href="/home" className="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
-              🛍️ NCDFCOOP
+              <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-8 w-auto" style={{ maxHeight: '2rem' }} />
             </Link>
 
             {/* Center Navigation - Hidden on mobile */}

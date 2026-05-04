@@ -20,21 +20,47 @@ export default function FavoritesPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {favorites.map((product) => (
-              <ProductCard key={product.productId || product.id} product={{
-                ...product,
-                id: product.productId || product.id,
-                name: product.productName || product.name,
-                price: product.productPrice || product.price,
-                thumbnail: product.productImage || product.thumbnail,
-                category: product.productCategory || product.category,
-                sellerName: product.sellerName,
-                sellerId: product.sellerId,
-                stock: product.stock ?? 10,
-                images: product.images || [product.productImage || product.thumbnail],
-                description: product.description || '',
-                rating: product.rating || 0,
-                reviews: product.reviews || 0,
-              }} />
+              <ProductCard
+                key={product.productId || product.id}
+                product={{
+                  ...product,
+                  id: product.productId || product.id,
+                  name: product.productName || product.name,
+                  price: product.productPrice || product.price,
+                  thumbnail: product.productImage || product.thumbnail,
+                  category: product.productCategory || product.category,
+                  sellerName: product.sellerName,
+                  sellerId: product.sellerId,
+                  stock: product.stock ?? 10,
+                  images: product.images || [product.productImage || product.thumbnail],
+                  description: product.description || '',
+                  rating: product.rating || 0,
+                  reviews: product.reviews || 0,
+                }}
+                onAddToCart={async (prod, quantity) => {
+                  if (!user) {
+                    alert('Please sign in to add items to your cart.');
+                    return;
+                  }
+                  try {
+                    await addToCart(
+                      user.uid,
+                      prod.id,
+                      prod.name,
+                      prod.price,
+                      prod.thumbnail || prod.images?.[0] || '',
+                      quantity
+                    );
+                    alert('Added to cart!');
+                  } catch (err) {
+                    alert('Failed to add to cart.');
+                  }
+                }}
+                onViewDetails={() => {
+                  const id = product.productId || product.id;
+                  window.location.href = `/products/${id}`;
+                }}
+              />
             ))}
           </div>
         )}

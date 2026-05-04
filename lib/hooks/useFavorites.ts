@@ -5,7 +5,9 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { onSnapshot, Query, query, collection, where, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 import {
   getUserFavorites,
   getFavoritesCount,
@@ -48,12 +50,34 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
     }
   }, [userId]);
 
-  // Initial fetch
+
+  // Real-time listener for favorites
   useEffect(() => {
-    if (autoFetch) {
-      fetchFavorites();
-    }
-  }, [autoFetch, fetchFavorites]);
+    if (!userId || !autoFetch) return;
+
+    const q = query(
+      collection(db, 'favorites'),
+      where('userId', '==', userId),
+      orderBy('addedAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setFavorites(items);
+      setCount(items.length);
+      setFavoriteIds(new Set(items.map((f) => f.productId)));
+      setLoading(false);
+      setError(null);
+    }, (err) => {
+      setError('Failed to load favorites');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [userId, autoFetch]);
 
   const addFavorite = useCallback(
     async (productId: string, productData: Omit<FavoriteItem, 'id' | 'userId' | 'productId' | 'addedAt'>) => {

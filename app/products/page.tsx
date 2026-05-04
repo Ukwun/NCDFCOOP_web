@@ -27,6 +27,33 @@ export default function ProductsPage() {
   // Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
+    const router = useRouter();
+    // Handler for adding to cart
+    const handleAddToCart = useCallback(async (product, quantity) => {
+      if (!user) {
+        alert('Please sign in to add items to your cart.');
+        router.push('/welcome');
+        return;
+      }
+      try {
+        await addToCart(
+          user.uid,
+          product.id,
+          product.name,
+          product.price,
+          product.thumbnail || product.images?.[0] || '',
+          quantity
+        );
+        alert('Added to cart!');
+      } catch (err) {
+        alert('Failed to add to cart.');
+      }
+    }, [user, router]);
+
+    // Handler for viewing details
+    const handleViewDetails = useCallback((productId) => {
+      router.push(`/products/${productId}`);
+    }, [router]);
       try {
         setIsLoading(true);
         setError(null);

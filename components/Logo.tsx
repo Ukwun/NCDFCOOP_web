@@ -21,12 +21,11 @@ export default function Logo({ size = 'medium', href = '/', className = '' }: Lo
   const LogoContent = (
     <div className={`flex items-center gap-2 ${className}`}>
       <div className="relative" style={{ width: sizeConfig.width, height: sizeConfig.height }}>
-        <Image
+        <img
           src="/images/logo/NCDFCOOPLOGO.png"
           alt="NCDFCOOP"
-          fill
           className="object-contain"
-          priority
+          style={{ display: 'inline-block' }}
         />
       </div>
       {size !== 'small' && (
@@ -41,6 +40,5 @@ export default function Logo({ size = 'medium', href = '/', className = '' }: Lo
   if (href) {
     return <Link href={href}>{LogoContent}</Link>;
   }
-
   return LogoContent;
 }

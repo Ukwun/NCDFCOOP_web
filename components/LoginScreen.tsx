@@ -44,7 +44,7 @@ export default function LoginScreen() {
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Logo size="medium" />
+            <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-20 w-auto mx-auto" />
           </div>
           <p className="text-gray-600 dark:text-gray-400">Member Login</p>
         </div>

@@ -3,6 +3,8 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
+import { onSnapshot, query as fsQuery, collection, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth/authContext';
@@ -18,33 +20,80 @@ export default function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Fetch cart on mount
+  // Real-time cart listener
   useEffect(() => {
-    const fetchCart = async () => {
-      if (!user) return;
+    if (authLoading) return;
+    if (!user) {
+      router.push('/welcome');
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
 
+    // Listen to cartItems for this user
+    const q = fsQuery(collection(db, 'cartItems'), where('userId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
       try {
-        setIsLoading(true);
-        setError(null);
+        let items = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-        const cartData = await getUserCart(user.uid);
-        setCart(cartData);
+        // Optionally enrich with product data (as in getUserCart)
+        items = await Promise.all(
+          items.map(async (item) => {
+            try {
+              const productDoc = await getUserCartProduct(item.productId);
+              if (productDoc) {
+                return {
+                  ...item,
+                  productData: productDoc,
+                };
+              }
+            } catch {}
+            return item;
+          })
+        );
+
+        // Calculate totals
+        const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const tax = subtotal * 0.1;
+        const shipping = subtotal > 50000 ? 0 : 2500;
+        const total = subtotal + tax + shipping;
+
+        setCart({
+          userId: user.uid,
+          items,
+          subtotal,
+          tax,
+          shipping,
+          total,
+          updatedAt: new Date(),
+        });
+        setIsLoading(false);
       } catch (err) {
-        console.error('Error fetching cart:', err);
         setError('Failed to load cart');
-      } finally {
         setIsLoading(false);
       }
-    };
-
-    if (!authLoading) {
-      if (!user) {
-        router.push('/welcome');
-      } else {
-        fetchCart();
-      }
-    }
+    }, (err) => {
+      setError('Failed to load cart');
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
   }, [user, authLoading, router]);
+
+  // Helper to fetch product data for enrichment
+  async function getUserCartProduct(productId: string) {
+    try {
+      const { doc: fsDoc, getDoc } = await import('firebase/firestore');
+      const { COLLECTIONS } = await import('@/lib/constants/database');
+      const productDoc = await getDoc(fsDoc(db, COLLECTIONS.PRODUCTS, productId));
+      if (productDoc.exists()) {
+        return { id: productDoc.id, ...productDoc.data() };
+      }
+    } catch {}
+    return null;
+  }
 
   const handleUpdateQuantity = async (productId: string, newQuantity: number) => {
     if (!user || !cart) return;

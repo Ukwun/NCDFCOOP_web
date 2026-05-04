@@ -1,6 +1,39 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+            // ============================================
+            // CART ITEMS COLLECTION - User shopping cart
+            // Each document: id = {userId}_{productId}, field userId
+            match /cartItems/{cartItemId} {
+              // Read: Only owner
+              allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+
+              // Create: Only owner can add to their own cart
+              allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+
+              // Update: Only owner can update their cart
+              allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+
+              // Delete: Only owner can delete their cart item
+              allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+            }
+        // ============================================
+        // FAVORITES COLLECTION - User favorites
+        // Each document: id = {userId}_{productId}, field userId
+        match /favorites/{favoriteId} {
+          // Read: Only owner
+          allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+
+          // Create: Only owner can create their own favorite
+          allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+
+          // Update: Only owner can update their favorite
+          allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+
+          // Delete: Only owner can delete their favorite
+          allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+        }
     // ============================================
     // HELPER FUNCTIONS
     // ============================================

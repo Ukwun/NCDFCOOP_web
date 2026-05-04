@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
 import { AnalyticsService, ProductPopularity } from '@/lib/services/analyticsService';
-import { useEffect, useState } from 'react';
+
 import { getSellerRecentOrders } from '@/lib/services/sellerService';
 import { ORDER_STATUS } from '@/lib/constants/database';
 

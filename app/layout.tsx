@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ClientLayout } from '@/components/ClientLayout';
+import { GlobalSettingsProvider } from '@/lib/context/GlobalSettingsContext';
 import './globals.css';
 
 export const dynamic = 'force-dynamic';
@@ -25,11 +26,15 @@ export default function RootLayout({
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+        <link rel="icon" href="/images/logo/NCDFCOOPLOGO.png" />
+        <link rel="shortcut icon" href="/images/logo/NCDFCOOPLOGO.png" />
       </head>
       <body className="bg-gray-50 dark:bg-gray-900">
-        <ClientLayout>
-          {children}
-        </ClientLayout>
+        <GlobalSettingsProvider>
+          <ClientLayout>
+            {children}
+          </ClientLayout>
+        </GlobalSettingsProvider>
       </body>
     </html>
   );

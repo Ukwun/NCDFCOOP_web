@@ -290,12 +290,18 @@ export default function MembershipPage() {
         <div className="bg-gradient-to-r from-[#0B6B3A] to-[#095234] rounded-lg p-8 text-white text-center">
           <h3 className="text-2xl font-bold mb-3">Ready to Join NCDFCOOP?</h3>
           <p className="mb-6">Start earning rewards today and become part of Nigeria's most trusted cooperative commerce platform</p>
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => router.push('/signup')}
               className="bg-white text-[#0B6B3A] hover:bg-gray-100 font-bold py-3 px-8 rounded-lg transition-colors"
             >
               Sign Up Now
+            </button>
+            <button
+              onClick={() => router.push('/membership/payment')}
+              className="bg-yellow-400 text-[#0B6B3A] hover:bg-yellow-300 font-bold py-3 px-8 rounded-lg transition-colors"
+            >
+              Become a Member (₦5,000)
             </button>
             <button
               onClick={() => router.push('/home')}

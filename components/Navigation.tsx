@@ -117,7 +117,7 @@ export default function Navigation() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:top-0 md:bottom-auto md:right-auto md:w-48 md:border-t-0 md:border-r md:h-screen md:flex md:flex-col">
       {/* Top header for desktop */}
         <div className="hidden md:flex items-center justify-between h-16 border-b border-gray-200 dark:border-gray-700 px-4">
-          <Logo size="small" />
+          <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-8 w-auto" style={{ maxHeight: '2rem' }} />
           <div className="flex items-center gap-2">
             {/* Notification Bell */}
             <button

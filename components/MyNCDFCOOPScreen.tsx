@@ -54,7 +54,7 @@ export default function MyNCDFCOOPScreen() {
   ];
 
   const accountItems = [
-    { icon: '⚙️', title: 'Settings', subtitle: 'Preferences' },
+    { icon: '⚙️', title: 'Settings', subtitle: 'Preferences', onClick: () => window.location.href = '/member/settings' },
     { icon: '❓', title: 'Help & Support', subtitle: 'Get assistance' },
     { icon: 'ℹ️', title: 'About NCDFCOOP', subtitle: 'Our mission' },
   ];
@@ -154,6 +154,7 @@ export default function MyNCDFCOOPScreen() {
             <button
               key={index}
               className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              onClick={item.onClick}
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{item.icon}</span>

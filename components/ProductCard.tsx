@@ -22,9 +22,7 @@ export default function ProductCard({
   isLoading,
 }: ProductCardProps) {
   const { user } = useAuth();
-  const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
-  const [showQuantitySelector, setShowQuantitySelector] = useState(false);
   const { isFavorited, toggleFavorite } = useFavorites({
     userId: user?.uid || '',
   });
@@ -39,15 +37,11 @@ export default function ProductCard({
 
   const handleAddToCart = async () => {
     if (!onAddToCart) return;
-
     setIsAdding(true);
     try {
       // Track add to cart
-      await trackAddToCart(product.id, quantity, discountedPrice);
-      
-      await onAddToCart(product, quantity);
-      setQuantity(1);
-      setShowQuantitySelector(false);
+      await trackAddToCart(product.id, 1, discountedPrice);
+      await onAddToCart(product, 1);
     } catch (error) {
       console.error('Failed to add to cart:', error);
     } finally {
@@ -67,7 +61,7 @@ export default function ProductCard({
         className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:shadow-md transition-shadow cursor-pointer"
         onClick={() => onViewDetails?.(product.id)}
       >
-        {product.thumbnail && (
+        {product.thumbnail ? (
           <Image
             src={product.thumbnail}
             alt={product.name}
@@ -80,6 +74,10 @@ export default function ProductCard({
               (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
+        ) : (
+          <div className="flex items-center justify-center w-full h-full">
+            <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-16 w-auto" />
+          </div>
         )}
 
         {/* Discount Badge */}
@@ -118,15 +116,16 @@ export default function ProductCard({
 
       {/* Content */}
       <div className="p-4 flex flex-col flex-grow">
-        {/* Seller Name */}
+        {/* Seller Name with Logo */}
         <div
-          className="text-xs font-semibold mb-2 px-2 py-1 inline-block rounded-full"
+          className="text-xs font-semibold mb-2 px-2 py-1 inline-flex items-center gap-1 rounded-full"
           style={{
             backgroundColor: '#F0F0F0',
             color: AppColors.textSecondary,
           }}
         >
-          🏪 {product.sellerName}
+          <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="inline h-4 w-auto align-middle mr-1" style={{marginRight: '4px'}} />
+          {product.sellerName}
         </div>
 
         {/* Product Name */}
@@ -268,25 +267,13 @@ export default function ProductCard({
 
           {product.stock > 0 ? (
             <button
-              onClick={() => {
-                if (showQuantitySelector) {
-                  handleAddToCart();
-                } else {
-                  setShowQuantitySelector(true);
-                }
-              }}
+              onClick={handleAddToCart}
               className="flex-1 px-3 py-2.5 rounded-lg font-bold text-xs text-white transition-all duration-300 hover:shadow-lg active:scale-95"
-              style={{
-                backgroundColor: AppColors.primary,
-              }}
+              style={{ backgroundColor: AppColors.primary }}
               disabled={isAdding || isLoading}
               title="Add product to shopping cart"
             >
-              {showQuantitySelector ? (
-                isAdding ? '⏳ Adding...' : '✅ Add'
-              ) : (
-                '🛒 Add to Cart'
-              )}
+              {isAdding ? '⏳ Adding...' : '🛒 Add to Cart'}
             </button>
           ) : (
             <button
@@ -328,47 +315,6 @@ export default function ProductCard({
           </button>
         </div>
 
-        {/* Quantity Selector */}
-        {showQuantitySelector && product.stock > 0 && (
-          <div className="flex items-center gap-2 mt-3 p-3 rounded-lg border-2" style={{
-            backgroundColor: '#F5F5F5',
-            borderColor: AppColors.primary,
-          }}>
-            <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-7 h-7 flex items-center justify-center rounded font-bold text-sm transition-all active:scale-90"
-              style={{
-                backgroundColor: 'white',
-                color: AppColors.primary,
-                border: `2px solid ${AppColors.primary}`,
-              }}
-            >
-              −
-            </button>
-            <input
-              type="number"
-              min="1"
-              max={product.maxOrder || 999}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-              className="flex-1 text-center bg-transparent font-bold text-sm outline-none"
-            />
-            <button
-              onClick={() =>
-                setQuantity(
-                  Math.min(product.maxOrder || 999, quantity + 1)
-                )
-              }
-              className="w-7 h-7 flex items-center justify-center rounded font-bold text-sm transition-all active:scale-90"
-              style={{
-                backgroundColor: AppColors.primary,
-                color: 'white',
-              }}
-            >
-              +
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

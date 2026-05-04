@@ -5,10 +5,29 @@ export const dynamic = 'force-dynamic';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { useState } from 'react';
+import EditProfileModal from '@/components/account/EditProfileModal';
+import ChangePasswordModal from '@/components/account/ChangePasswordModal';
+
 
 export default function AccountPage() {
   const { user, currentRole, logout } = useAuth();
   const router = require('next/navigation').useRouter();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [changePwOpen, setChangePwOpen] = useState(false);
+
+  // Simulate profile save
+  const handleSaveProfile = async (data: { displayName: string }) => {
+    // TODO: Connect to backend/profile update logic
+    alert(`Profile updated: ${data.displayName}`);
+  };
+
+  // Simulate password change
+  const handleChangePassword = async (oldPw: string, newPw: string) => {
+    // TODO: Connect to backend/password update logic
+    alert('Password changed!');
+  };
 
   const handleLogout = async () => {
     try {
@@ -75,18 +94,33 @@ export default function AccountPage() {
 
             {/* Account Actions */}
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-3">
-              <button className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
+              <button
+                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                onClick={() => setEditOpen(true)}
+              >
                 ✏️ Edit Profile
               </button>
-              <button className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
+              <button
+                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                onClick={() => setChangePwOpen(true)}
+              >
                 🔐 Change Password
               </button>
-              <button className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
+              <button
+                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                onClick={() => router.push('/notifications')}
+              >
                 🔔 Notifications
               </button>
-              <button className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
+              <button
+                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                onClick={() => router.push('/settings')}
+              >
                 ⚙️ Settings
               </button>
+                      {/* Modals */}
+                      <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} user={user} onSave={handleSaveProfile} />
+                      <ChangePasswordModal open={changePwOpen} onClose={() => setChangePwOpen(false)} onChangePassword={handleChangePassword} />
             </div>
           </div>
 

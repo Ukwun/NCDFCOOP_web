@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
 import MemberHomeScreen from '@/components/MemberHomeScreen';
+import MemberOnly from '@/components/MemberOnly';
 import WholesaleBuyerHomeScreen from '@/components/WholesaleBuyerHomeScreen';
 import SellerDashboardHomeScreen from '@/components/SellerDashboardHomeScreen';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -23,16 +24,26 @@ export default function HomePage() {
   }
 
   // Render appropriate home screen based on role
+
   const renderHomeScreen = () => {
     switch (currentRole) {
       case USER_ROLES.MEMBER:
-        return <MemberHomeScreen />;
+        return (
+          <MemberOnly>
+            <MemberHomeScreen />
+          </MemberOnly>
+        );
       case USER_ROLES.INSTITUTIONAL_BUYER:
         return <WholesaleBuyerHomeScreen />;
       case USER_ROLES.SELLER:
         return <SellerDashboardHomeScreen />;
       default:
-        return <MemberHomeScreen />;
+        // Default to member home, but still protect it
+        return (
+          <MemberOnly>
+            <MemberHomeScreen />
+          </MemberOnly>
+        );
     }
   };
 

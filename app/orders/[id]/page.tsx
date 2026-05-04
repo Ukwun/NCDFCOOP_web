@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getOrder } from '@/lib/services/orderService';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { createNotification } from '@/lib/services/notificationService';
 import { getBankTransferStatus } from '@/lib/services/bankTransferService';
 import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
@@ -32,53 +35,47 @@ export default function OrderTrackingPage() {
   const [bankTransferStatus, setBankTransferStatus] = useState<any>(null);
 
   useEffect(() => {
-    const fetchOrder = async () => {
-      if (!orderId || !user) {
-        setError('Invalid order or user information');
+    if (!orderId || !user) {
+      setError('Invalid order or user information');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    // Real-time listener for order status
+    const unsub = onSnapshot(doc(db, 'orders', orderId as string), async (docSnap) => {
+      if (!docSnap.exists()) {
+        setError('Order not found');
         setIsLoading(false);
         return;
       }
-
-      try {
-        setIsLoading(true);
-
-        const fetchedOrder = (await getOrder(orderId as string)) as Order | null;
-
-        if (!fetchedOrder) {
-          setError('Order not found');
-          setIsLoading(false);
-          return;
-        }
-
-        // Verify user owns this order
-        if (fetchedOrder.userId !== user.uid) {
-          setError('You do not have permission to view this order');
-          setIsLoading(false);
-          return;
-        }
-
-        setOrder(fetchedOrder);
-
-        // Build timeline based on order status
-        const newTimeline = buildTimeline(fetchedOrder);
-        setTimeline(newTimeline);
-
-        // If bank transfer, fetch transfer status
-        if (fetchedOrder.paymentMethod === 'bank_transfer') {
-          const transferStatus = await getBankTransferStatus(orderId as string);
-          setBankTransferStatus(transferStatus);
-        }
-
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching order:', err);
-        setError('Failed to load order details');
-      } finally {
+      const fetchedOrder = { id: docSnap.id, ...docSnap.data() } as Order;
+      if (fetchedOrder.userId !== user.uid) {
+        setError('You do not have permission to view this order');
         setIsLoading(false);
+        return;
       }
-    };
-
-    fetchOrder();
+      setOrder(fetchedOrder);
+      setTimeline(buildTimeline(fetchedOrder));
+      // If delivered, trigger notification
+      if (fetchedOrder.status === 'delivered') {
+        await createNotification(user.uid, {
+          title: 'Order Delivered',
+          message: `Your order #${orderId} has been delivered!`,
+          type: 'order',
+          read: false,
+          data: { orderId },
+        });
+      }
+      // If bank transfer, fetch transfer status
+      if (fetchedOrder.paymentMethod === 'bank_transfer') {
+        const transferStatus = await getBankTransferStatus(orderId as string);
+        setBankTransferStatus(transferStatus);
+      }
+      setError(null);
+      setIsLoading(false);
+    });
+    return () => unsub();
   }, [orderId, user]);
 
   const buildTimeline = (order: Order): OrderTimeline[] => {

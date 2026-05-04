@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import ProductCard from '@/components/ProductCard';
+import { addToCart } from '@/lib/services/cartService';
 
 export default function MemberProductsPage() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function MemberProductsPage() {
     '/images/All inclusive pack.png',
   ];
   const products = [
-    { id: '1', name: 'Premium Milled Rice', category: 'Grains & Cereals', price: 15000, memberPrice: 12750, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[0], images: [MEMBER_PRODUCT_IMAGES[0]], stock: 45, sellerId: 'coop', sellerName: 'CoopMart', description: 'Premium rice for members.', rating: 4.8, reviews: 20 },
+    { id: '1', name: 'Premium Milled Rice', category: 'Grains & Cereals', price: 15000, memberPrice: 12750, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[0], images: [MEMBER_PRODUCT_IMAGES[0]], stock: 45, sellerId: 'coop', sellerName: 'CoopMart', description: 'Premium rice for members.', rating: 4.8, reviews: 20 }, // Display logic is in ProductCard
     { id: '2', name: 'Free-Range Eggs (30pc)', category: 'Proteins', price: 8500, memberPrice: 6800, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[1], images: [MEMBER_PRODUCT_IMAGES[1]], stock: 12, sellerId: 'coop', sellerName: 'CoopMart', description: 'Farm fresh eggs.', rating: 4.7, reviews: 14 },
     { id: '3', name: 'Fresh Organic Milk (1L)', category: 'Dairy', price: 1200, memberPrice: 960, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[2], images: [MEMBER_PRODUCT_IMAGES[2]], stock: 78, sellerId: 'coop', sellerName: 'CoopMart', description: 'Organic milk for your family.', rating: 4.9, reviews: 18 },
     { id: '4', name: 'Gourmet Butter (500g)', category: 'Dairy', price: 4500, memberPrice: 3825, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[3], images: [MEMBER_PRODUCT_IMAGES[3]], stock: 23, sellerId: 'coop', sellerName: 'CoopMart', description: 'Rich gourmet butter.', rating: 4.6, reviews: 11 },
@@ -134,11 +135,32 @@ export default function MemberProductsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
           {sortedProducts.map((product) => (
             <div key={product.id} style={{ minWidth: 240, maxWidth: 280, margin: '0 auto' }}>
-              <ProductCard product={{
-                ...product,
-                price: product.memberPrice, // Always show member price
-                originalPrice: product.price,
-              }} />
+              <ProductCard
+                product={{
+                  ...product,
+                  price: product.memberPrice, // Always show member price
+                  originalPrice: product.price,
+                }}
+                onAddToCart={async (prod, quantity) => {
+                  if (!_user) {
+                    alert('Please sign in to add items to your cart.');
+                    return;
+                  }
+                  try {
+                    await addToCart(
+                      _user.uid,
+                      prod.id,
+                      prod.name,
+                      prod.price,
+                      prod.thumbnail || prod.images?.[0] || '',
+                      quantity
+                    );
+                    alert('Added to cart!');
+                  } catch (err) {
+                    alert('Failed to add to cart.');
+                  }
+                }}
+              />
             </div>
           ))}
         </div>

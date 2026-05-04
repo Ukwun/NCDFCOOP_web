@@ -2,8 +2,11 @@
 
 export const dynamic = 'force-dynamic';
 
-import WelcomeScreen from '@/components/WelcomeScreen';
+
+// Welcome page removed. Redirect to /signup for authentication.
+import { redirect } from 'next/navigation';
 
 export default function WelcomePage() {
-  return <WelcomeScreen />;
+  redirect('/signup');
+  return null;
 }

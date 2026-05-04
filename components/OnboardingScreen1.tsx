@@ -19,8 +19,8 @@ export default function OnboardingScreen1() {
     setIsLoading(true);
     try {
       await completeOnboarding();
-      // After onboarding, go to authentication (signup)
-      router.push('/welcome');
+      // After onboarding, go directly to authentication (signup)
+      router.push('/signup');
     } catch (error) {
       console.error('Error completing onboarding:', error);
       setIsLoading(false);

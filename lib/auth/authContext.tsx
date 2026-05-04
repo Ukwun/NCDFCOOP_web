@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import {
   onAuthStateChanged,
   signOut,
   User,
@@ -9,7 +8,53 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  OAuthProvider,
 } from 'firebase/auth';
+  // --- Social Authentication Methods ---
+  const signInWithGoogle = async () => {
+    if (!auth) throw new Error('Firebase not initialized');
+    const provider = new GoogleAuthProvider();
+    try {
+      setError(null);
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user as AuthUser);
+      // Optionally: send verification code, create user doc if new
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed');
+      throw err;
+    }
+  };
+
+  const signInWithFacebook = async () => {
+    if (!auth) throw new Error('Firebase not initialized');
+    const provider = new FacebookAuthProvider();
+    try {
+      setError(null);
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user as AuthUser);
+      // Optionally: send verification code, create user doc if new
+    } catch (err: any) {
+      setError(err.message || 'Facebook sign-in failed');
+      throw err;
+    }
+  };
+
+  const signInWithApple = async () => {
+    if (!auth) throw new Error('Firebase not initialized');
+    const provider = new OAuthProvider('apple.com');
+    try {
+      setError(null);
+      const result = await signInWithPopup(auth, provider);
+      setUser(result.user as AuthUser);
+      // Optionally: send verification code, create user doc if new
+    } catch (err: any) {
+      setError(err.message || 'Apple sign-in failed');
+      throw err;
+    }
+  };
 import { doc, setDoc, getDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { COLLECTIONS, USER_ROLES, MEMBER_TIERS } from '@/lib/constants/database';
@@ -30,14 +75,19 @@ interface AuthContextType {
   onboardingCompleted: boolean;
   roleSelectionComplete: boolean;
   currentRole: string | null;
-  
+
   // Auth methods
   logout: () => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
-  
+
+  // Social Auth methods
+  signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
+
   // Workflow methods
   completeOnboarding: () => Promise<void>;
   selectRole: (role: string) => Promise<void>;
@@ -435,6 +485,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         resetPassword,
         updateUserProfile,
+        signInWithGoogle,
+        signInWithFacebook,
+        signInWithApple,
         completeOnboarding,
         selectRole,
         switchRole,

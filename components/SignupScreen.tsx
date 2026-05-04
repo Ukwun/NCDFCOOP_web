@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, Suspense, useState } from 'react';
+import SocialSignInButtons from './SocialSignInButtons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
@@ -8,7 +9,47 @@ import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signup } = useAuth();
+  const { signup, signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
+
+  // Social sign-in loading state
+  const [socialLoading, setSocialLoading] = useState(false);
+
+  // Social sign-in handlers (to be implemented)
+  const handleGoogleSignIn = async () => {
+    setSocialLoading(true);
+    try {
+      await signInWithGoogle();
+      router.push('/role-selection');
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    setSocialLoading(true);
+    try {
+      await signInWithFacebook();
+      router.push('/role-selection');
+    } catch (err: any) {
+      setError(err.message || 'Facebook sign-in failed');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setSocialLoading(true);
+    try {
+      await signInWithApple();
+      router.push('/role-selection');
+    } catch (err: any) {
+      setError(err.message || 'Apple sign-in failed');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
 
   const membershipType = searchParams.get('type') || 'member';
 
@@ -91,16 +132,9 @@ function SignUpContent() {
   return (
     <div
       className="flex min-h-screen items-center justify-center"
-      style={{
-        backgroundColor: AppColors.background,
-      }}
+      style={{ backgroundColor: AppColors.background }}
     >
-      <div
-        className="w-full px-6"
-        style={{
-          maxWidth: '400px',
-        }}
-      >
+      <div className="w-full px-6" style={{ maxWidth: '400px' }}>
         {/* Header */}
         <div className="mb-8 text-center">
           <div
@@ -121,14 +155,24 @@ function SignUpContent() {
           >
             Join NCDFCOOP as a{' '}
             <span
-              style={{
-                fontWeight: 600,
-                color: AppColors.primary,
-              }}
+              style={{ fontWeight: 600, color: AppColors.primary }}
             >
               {membershipType.charAt(0).toUpperCase() + membershipType.slice(1)}
             </span>
           </div>
+        </div>
+
+        {/* Social Auth Buttons */}
+        <SocialSignInButtons
+          onGoogleSignIn={handleGoogleSignIn}
+          onFacebookSignIn={handleFacebookSignIn}
+          onAppleSignIn={handleAppleSignIn}
+          isLoading={socialLoading}
+        />
+
+        {/* Divider */}
+        <div style={{ textAlign: 'center', margin: '16px 0', color: AppColors.textSecondary }}>
+          or
         </div>
 
         {/* Form */}

@@ -21,6 +21,7 @@ import { COLLECTIONS, ORDER_STATUS } from '@/lib/constants/database';
 import { clearCart } from '@/lib/services/cartService';
 import { Order } from '@/lib/types/product';
 import { createNotification } from '@/lib/services/notificationService';
+import { sendOrderConfirmationEmail } from '@/lib/services/emailService';
 
 /**
  * Create order from cart
@@ -83,6 +84,30 @@ export async function createOrder(
     await updateDoc(doc(db, COLLECTIONS.MEMBERS, userId), {
       totalPurchases: increment(items.reduce((sum, item) => sum + item.quantity, 0)),
     });
+
+    // Notify user (buyer)
+    try {
+      await createNotification(userId, {
+        title: 'Order Placed',
+        message: `Your order #${orderId} has been placed successfully!`,
+        type: 'order',
+        read: false,
+        data: { orderId },
+      });
+    } catch (e) { /* ignore */ }
+
+    // Send order confirmation email (buyer)
+    try {
+      // Find buyer email (assume items[0].buyerEmail or fetch from user profile if needed)
+      // For demo, skip fetching email and use a placeholder
+      const buyerEmail = items[0]?.buyerEmail || 'demo@buyer.com';
+      await sendOrderConfirmationEmail(buyerEmail, {
+        orderId,
+        items: items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+        total: totalAmount,
+        shippingAddress,
+      });
+    } catch (e) { /* ignore */ }
 
     return orderId;
   } catch (error) {
@@ -153,6 +178,17 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
         read: false,
         data: { orderId, status },
       });
+      // Email user on status update
+      try {
+        // Find buyer email (assume order.items[0].buyerEmail or fetch from user profile if needed)
+        const buyerEmail = order.items[0]?.buyerEmail || 'demo@buyer.com';
+        await sendOrderConfirmationEmail(buyerEmail, {
+          orderId,
+          items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+          total: order.totalAmount,
+          shippingAddress: order.shippingAddress,
+        });
+      } catch (e) { /* ignore */ }
     }
   } catch (error) {
     console.error('Error updating order status:', error);
@@ -183,6 +219,16 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
         read: false,
         data: { orderId, paymentStatus },
       });
+      // Email user on payment update
+      try {
+        const buyerEmail = order.items[0]?.buyerEmail || 'demo@buyer.com';
+        await sendOrderConfirmationEmail(buyerEmail, {
+          orderId,
+          items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+          total: order.totalAmount,
+          shippingAddress: order.shippingAddress,
+        });
+      } catch (e) { /* ignore */ }
     }
   } catch (error) {
     console.error('Error updating payment status:', error);

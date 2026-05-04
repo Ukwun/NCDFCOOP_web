@@ -37,21 +37,22 @@ export default function CartPage() {
         let items = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }));
+        })) as import('@/lib/types/product').CartItem[];
 
         // Optionally enrich with product data (as in getUserCart)
         items = await Promise.all(
           items.map(async (item) => {
             try {
-              const productDoc = await getUserCartProduct(item.productId);
+              const productDoc = await getUserCartProduct(item.productId ?? item.id);
               if (productDoc) {
+                // Only add productData if it matches Product shape
                 return {
                   ...item,
-                  productData: productDoc,
-                };
+                  productData: productDoc as import('@/lib/types/product').Product,
+                } as import('@/lib/types/product').CartItem;
               }
             } catch {}
-            return item;
+            return item as import('@/lib/types/product').CartItem;
           })
         );
 
@@ -285,7 +286,7 @@ export default function CartPage() {
                 <div className="space-y-6">
                   {cart.items.map((item) => (
                     <div
-                      key={item.productId}
+                      key={item.productId ?? item.id}
                       className="flex gap-4 pb-6 border-b"
                       style={{
                         borderColor: AppColors.border,
@@ -329,7 +330,7 @@ export default function CartPage() {
                         <div className="flex items-center gap-2 border-2 rounded-lg w-fit">
                           <button
                             onClick={() =>
-                              handleUpdateQuantity(item.productId, item.quantity - 1)
+                              handleUpdateQuantity(item.productId ?? item.id, item.quantity - 1)
                             }
                             disabled={isUpdating || item.quantity === 1}
                             className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
@@ -342,7 +343,7 @@ export default function CartPage() {
                             value={item.quantity}
                             onChange={(e) =>
                               handleUpdateQuantity(
-                                item.productId,
+                                item.productId ?? item.id,
                                 Math.max(1, parseInt(e.target.value) || 1)
                               )
                             }
@@ -354,7 +355,7 @@ export default function CartPage() {
                           />
                           <button
                             onClick={() =>
-                              handleUpdateQuantity(item.productId, item.quantity + 1)
+                              handleUpdateQuantity(item.productId ?? item.id, item.quantity + 1)
                             }
                             disabled={isUpdating}
                             className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
@@ -377,7 +378,7 @@ export default function CartPage() {
                           </p>
                         </div>
                         <button
-                          onClick={() => handleRemoveItem(item.productId)}
+                          onClick={() => handleRemoveItem(item.productId ?? item.id)}
                           disabled={isUpdating}
                           className="text-red-600 hover:text-red-800 text-sm font-semibold disabled:opacity-50"
                         >

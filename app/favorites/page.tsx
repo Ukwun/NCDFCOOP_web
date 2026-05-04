@@ -23,19 +23,18 @@ export default function FavoritesPage() {
               <ProductCard
                 key={product.productId || product.id}
                 product={{
-                  ...product,
                   id: product.productId || product.id,
-                  name: product.productName || product.name,
-                  price: product.productPrice || product.price,
-                  thumbnail: product.productImage || product.thumbnail,
-                  category: product.productCategory || product.category,
+                  name: product.productName,
+                  price: product.productPrice,
+                  thumbnail: product.productImage,
+                  category: product.productCategory ?? '',
                   sellerName: product.sellerName,
                   sellerId: product.sellerId,
-                  stock: product.stock ?? 10,
-                  images: product.images || [product.productImage || product.thumbnail],
-                  description: product.description || '',
-                  rating: product.rating || 0,
-                  reviews: product.reviews || 0,
+                  stock: 10,
+                  images: product.productImage ? [product.productImage] : [],
+                  description: '',
+                  rating: 0,
+                  reviews: 0,
                 }}
                 onAddToCart={async (prod, quantity) => {
                   if (!user) {

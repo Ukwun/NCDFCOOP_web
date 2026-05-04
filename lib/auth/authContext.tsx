@@ -136,20 +136,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setOnboardingCompleted(authUser.onboardingCompleted || false);
             setError(null);
           } else {
-            // New user - create document
+            // New user - create document with role from query param if available
+            let urlRole: string | null = null;
+            if (typeof window !== 'undefined') {
+              const url = new URL(window.location.href);
+              urlRole = url.searchParams.get('type');
+            }
+            const validRoles = Object.values(USER_ROLES);
+            const selectedRole = urlRole && validRoles.includes(urlRole) ? urlRole : USER_ROLES.MEMBER;
             const newAuthUser: AuthUser = {
               ...currentUser,
-              roles: [USER_ROLES.MEMBER],
-              selectedRole: USER_ROLES.MEMBER,
+              roles: [selectedRole],
+              selectedRole,
               roleSelectionComplete: false,
               onboardingCompleted: false,
               memberTier: MEMBER_TIERS.BRONZE,
               isNewUser: true,
             };
             setUser(newAuthUser);
-            setCurrentRole(USER_ROLES.MEMBER);
+            setCurrentRole(selectedRole);
             setRoleSelectionComplete(false);
             setOnboardingCompleted(false);
+            // Create user doc in Firestore
+            await setDoc(doc(db, COLLECTIONS.USERS, currentUser.uid), {
+              id: currentUser.uid,
+              email: currentUser.email,
+              name: currentUser.displayName || currentUser.email?.split('@')[0] || '',
+              roles: [selectedRole],
+              selectedRole,
+              membershipType: selectedRole,
+              roleSelectionComplete: false,
+              onboardingCompleted: false,
+              memberTier: MEMBER_TIERS.BRONZE,
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+              profilePicture: currentUser.photoURL || '',
+              phone: currentUser.phoneNumber || '',
+              address: '',
+              isActive: true,
+            });
           }
         } else {
           setUser(null);

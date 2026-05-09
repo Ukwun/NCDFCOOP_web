@@ -35,6 +35,20 @@ export interface ProductRecommendation {
 }
 
 export class RecommendationEngine {
+  private static isMissingIndexError(error: unknown): boolean {
+    const code = (error as any)?.code;
+    const message = String((error as any)?.message || '').toLowerCase();
+    return code === 'failed-precondition' || message.includes('requires an index');
+  }
+
+  private static toTimestampMs(value: any): number {
+    if (!value) return 0;
+    if (typeof value?.toMillis === 'function') return value.toMillis();
+    if (typeof value?.seconds === 'number') return value.seconds * 1000;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
   /**
    * Get personalized recommendations for a user
    */
@@ -488,15 +502,34 @@ export class RecommendationEngine {
     totalSpent: number;
   }> {
     try {
-      const q = query(
+      const indexedQuery = query(
         collection(db, COLLECTIONS.ACTIVITY_LOGS),
         where('userId', '==', userId),
         orderBy('timestamp', 'desc'),
         limit(100)
       );
 
-      const snapshot = await getDocs(q);
-      const activities = snapshot.docs.map((doc) => doc.data());
+      let snapshot;
+      try {
+        snapshot = await getDocs(indexedQuery);
+      } catch (error) {
+        if (!this.isMissingIndexError(error)) {
+          throw error;
+        }
+
+        // Fallback while index builds: fetch by userId and sort client-side.
+        const fallbackQuery = query(
+          collection(db, COLLECTIONS.ACTIVITY_LOGS),
+          where('userId', '==', userId),
+          limit(300)
+        );
+        snapshot = await getDocs(fallbackQuery);
+      }
+
+      const activities = snapshot.docs
+        .map((doc) => doc.data())
+        .sort((a: any, b: any) => this.toTimestampMs(b?.timestamp) - this.toTimestampMs(a?.timestamp))
+        .slice(0, 100);
 
       const purchasedProductIds = new Set<string>();
       let lastViewedProductId = '';
@@ -537,7 +570,7 @@ export class RecommendationEngine {
    */
   private static async getUserViewedProducts(userId: string): Promise<string[]> {
     try {
-      const q = query(
+      const indexedQuery = query(
         collection(db, COLLECTIONS.ACTIVITY_LOGS),
         where('userId', '==', userId),
         where('activityType', '==', 'product_view'),
@@ -545,9 +578,30 @@ export class RecommendationEngine {
         limit(50)
       );
 
-      const snapshot = await getDocs(q);
-      return snapshot.docs
-        .map((doc) => doc.data().activityData?.productId)
+      let activities: any[] = [];
+      try {
+        const snapshot = await getDocs(indexedQuery);
+        activities = snapshot.docs.map((doc) => doc.data());
+      } catch (error) {
+        if (!this.isMissingIndexError(error)) {
+          throw error;
+        }
+
+        // Fallback while index builds: filter/sort locally.
+        const fallbackQuery = query(
+          collection(db, COLLECTIONS.ACTIVITY_LOGS),
+          where('userId', '==', userId),
+          limit(300)
+        );
+        const snapshot = await getDocs(fallbackQuery);
+        activities = snapshot.docs.map((doc) => doc.data());
+      }
+
+      return activities
+        .filter((activity: any) => activity?.activityType === 'product_view')
+        .sort((a: any, b: any) => this.toTimestampMs(b?.timestamp) - this.toTimestampMs(a?.timestamp))
+        .slice(0, 50)
+        .map((activity: any) => activity?.activityData?.productId)
         .filter((id): id is string => !!id);
     } catch (error) {
       console.error('Error getting user viewed products:', error);

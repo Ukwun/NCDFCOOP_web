@@ -8,7 +8,7 @@ import { render, RenderOptions } from '@testing-library/react'
 
 // Custom render function that includes providers
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
-  return <>{children}</>
+  return React.createElement(React.Fragment, null, children)
 }
 
 const customRender = (

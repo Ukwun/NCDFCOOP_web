@@ -11,6 +11,9 @@ import { recordBankTransferIntent } from '@/lib/services/bankTransferService';
 import { createOrder } from '@/lib/services/orderService';
 import { Cart, Address } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
+import { getExperimentVariant } from '@/lib/services/featureFlagsService';
+import RecommendationRail from '@/components/RecommendationRail';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -35,6 +38,12 @@ export default function CheckoutPage() {
   const [billingAddress, setBillingAddress] = useState<Address>(shippingAddress);
   const sameAsShipping = true; // For future implementation of different billing address
   const [error, setError] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+
+  const recommendationVariant = user?.uid
+    ? getExperimentVariant(user.uid, 'checkout_recommendation_rail', 50)
+    : 'control';
 
   // Fetch cart on mount
   useEffect(() => {
@@ -70,6 +79,31 @@ export default function CheckoutPage() {
       router.push('/welcome');
     }
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!user || !cart || recommendationVariant === 'control') {
+        setRecommendations([]);
+        return;
+      }
+
+      try {
+        setRecommendationsLoading(true);
+        const recs = await RecommendationEngine.getPersonalizedRecommendations(
+          user.uid,
+          6
+        );
+        setRecommendations(recs);
+      } catch (recError) {
+        console.error('Failed to fetch checkout recommendations:', recError);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, [user, cart, recommendationVariant]);
 
   const handleAddressChange = (field: keyof Address, value: string) => {
     setShippingAddress((prev) => ({
@@ -228,6 +262,18 @@ export default function CheckoutPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {recommendationVariant === 'treatment' && (
+          <div className="mb-6">
+            <RecommendationRail
+              title="You Might Also Need"
+              recommendations={recommendations}
+              loading={recommendationsLoading}
+              emptyMessage="Personalized checkout suggestions are being prepared."
+              onOpenProduct={(productId) => router.push(`/products/${productId}`)}
+            />
+          </div>
+        )}
+
         {error && (
           <div
             className="p-4 rounded-lg text-white mb-6"

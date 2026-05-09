@@ -96,41 +96,6 @@ export async function sendOrderConfirmationEmail(
 }
 
 /**
- * Send deposit confirmation email
- */
-export async function sendDepositConfirmationEmail(
-  email: string,
-  depositDetails: {
-    amount: number;
-    reference: string;
-    timestamp: Date;
-  }
-): Promise<void> {
-  try {
-    const response = await fetch('/api/email/send-deposit-confirmation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        depositDetails: {
-          ...depositDetails,
-          timestamp: depositDetails.timestamp.toISOString(),
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to send email: ${response.statusText}`);
-    }
-  } catch (error) {
-    console.error('Error sending deposit confirmation email:', error);
-    throw error;
-  }
-}
-
-/**
  * Generic email sending function for custom emails
  */
 export async function sendEmail(payload: EmailPayload): Promise<void> {

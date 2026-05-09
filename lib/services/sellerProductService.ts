@@ -169,8 +169,8 @@ export async function getProductAnalytics(productId: string): Promise<any> {
     activitiesSnap.forEach((doc) => {
       const activity = doc.data();
       if (activity.eventType === 'product_view') views++;
-      if (activity.eventType === 'add_to_cart') addToCarts++;
-      if (activity.eventType === 'product_sold') purchases++;
+      if (activity.eventType === 'cart_add') addToCarts++;
+      if (activity.eventType === 'purchase_complete') purchases++;
     });
 
     return {

@@ -70,7 +70,6 @@ export default function MemberBenefitsPage() {
         '✓ Quarterly rewards gift + bonus',
         '✓ Full voting rights',
         '✓ Invitation to exclusive VIP events',
-        '✓ 2% annual dividend on savings',
       ],
       nextTier: 'You are at the highest tier!',
     },

@@ -33,7 +33,7 @@ export default function ProductCard({
   const discountPercentage = product.discount || 0;
   const discountedPrice = product.price || 0;
   const originalPrice = product.originalPrice || 0;
-  const savings = originalPrice - (product.price || 0);
+  const discountValue = originalPrice - (product.price || 0);
 
   const handleAddToCart = async () => {
     if (!onAddToCart) return;
@@ -201,14 +201,14 @@ export default function ProductCard({
               </span>
             )}
           </div>
-          {savings > 0 && (
+          {discountValue > 0 && (
             <span
               className="text-green-600 text-xs font-bold inline-block"
               style={{
                 ...AppTextStyles.bodySmall,
               }}
             >
-              💚 Save ₦{savings.toLocaleString()}
+              Discount ₦{discountValue.toLocaleString()}
             </span>
           )}
         </div>

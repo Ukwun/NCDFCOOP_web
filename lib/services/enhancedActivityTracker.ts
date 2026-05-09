@@ -30,7 +30,7 @@ export type ActivityType =
   // Engagement
   'offer_viewed' | 'offer_applied' | 'review_submitted' | 'rating_submitted' | 'wishlist_add' |
   // Seller activities
-  'product_addedByNSeller' | 'product_updatedBySeller' | 'order_shipped' |
+  'product_added_by_seller' | 'product_updated_by_seller' | 'order_shipped' |
   // Errors
   'error' | 'payment_failed' | 'network_error' | 'page_error';
 

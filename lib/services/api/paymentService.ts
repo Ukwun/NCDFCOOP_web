@@ -17,7 +17,7 @@ import { ErrorHandler } from '../../error/errorHandler';
 export interface ProcessPaymentPayload {
   orderId: string;
   amount: number;
-  paymentMethod: 'card' | 'bank_transfer' | 'wallet';
+  paymentMethod: 'card' | 'bank_transfer';
   transactionDetails?: {
     cardLast4?: string;
     bankName?: string;

@@ -6,6 +6,7 @@
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { normalizeEventType } from './eventTaxonomy';
 
 export interface ActivityLog {
   userId?: string;
@@ -33,7 +34,7 @@ export async function trackActivity(action: string, details: Record<string, any>
     }
 
     const activity: ActivityLog = {
-      action,
+      action: normalizeEventType(action),
       details,
       timestamp: Timestamp.now(),
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
@@ -64,16 +65,6 @@ export const ACTIVITY_TYPES = {
   // Navigation
   PAGE_VIEW: 'page_view',
   SCREEN_CHANGE: 'screen_change',
-
-  // Transactions
-  DEPOSIT: 'deposit',
-  DEPOSIT_INITIATED: 'deposit_initiated',
-  DEPOSIT_COMPLETED: 'deposit_completed',
-  DEPOSIT_FAILED: 'deposit_failed',
-  WITHDRAWAL: 'withdrawal',
-  WITHDRAWAL_INITIATED: 'withdrawal_initiated',
-  WITHDRAWAL_COMPLETED: 'withdrawal_completed',
-  WITHDRAWAL_FAILED: 'withdrawal_failed',
 
   // Commerce
   PRODUCT_VIEW: 'product_view',

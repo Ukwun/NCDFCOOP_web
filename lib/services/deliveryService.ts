@@ -78,8 +78,9 @@ export async function getDeliveryOrders(courierId: string) {
     where('status', 'in', ['shipped', 'processing'])
   );
   const snap = await getDocs(q);
+  type DeliveryOrderRow = { id: string; courierId?: string } & Record<string, unknown>;
   return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
+    .map((d) => ({ id: d.id, ...d.data() } as DeliveryOrderRow))
     .filter((o) => !o.courierId || o.courierId === courierId);
 }
 

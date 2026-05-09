@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useFlashDeals } from '@/lib/hooks/useFlashDeals';
+import { addToCart } from '@/lib/services/cartService';
 import ProductCard from './ProductCard';
 
 // Use real images from public/images for mock data

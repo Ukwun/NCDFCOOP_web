@@ -83,7 +83,7 @@ export function useActivityTracking({
 
   const trackAddToCart = useCallback(
     (productId: string, quantity: number, price: number) => {
-      trackActivity('add_to_cart', {
+      trackActivity('cart_add', {
         productId,
         quantity,
         subtotal: quantity * price,
@@ -104,7 +104,7 @@ export function useActivityTracking({
 
   const trackOrderPlaced = useCallback(
     (orderId: string, orderAmount: number) => {
-      trackActivity('order_placed', {
+      trackActivity('purchase_complete', {
         orderId,
         orderAmount,
       });

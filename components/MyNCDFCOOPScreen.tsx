@@ -46,7 +46,6 @@ export default function MyNCDFCOOPScreen() {
 
   const menuItems = [
     { icon: '📋', title: 'My Orders', subtitle: 'Track purchases', count: orders.length },
-    { icon: '💰', title: 'Savings Account', subtitle: 'View balance' },
     { icon: '🎁', title: 'Loyalty Points', subtitle: 'Earn rewards' },
     { icon: '📍', title: 'Addresses', subtitle: 'Manage delivery' },
     { icon: '💳', title: 'Payment Methods', subtitle: 'Manage cards' },
@@ -103,9 +102,9 @@ export default function MyNCDFCOOPScreen() {
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-            ₦{(memberData?.totalDeposits || 0).toLocaleString()}
+            ₦{(memberData?.totalPurchases || 0).toLocaleString()}
           </p>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total Deposited</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total Purchased</p>
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
           <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
@@ -115,9 +114,9 @@ export default function MyNCDFCOOPScreen() {
         </div>
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            ₦{(memberData?.savingsBalance || 0).toLocaleString()}
+            {memberData?.tier?.toUpperCase() || 'BRONZE'}
           </p>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Savings Balance</p>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Membership Tier</p>
         </div>
       </div>
 

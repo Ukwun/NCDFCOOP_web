@@ -22,7 +22,6 @@
 - 💎 **Member Products** - Exclusive products with 10-20% member discounts
 - 🎁 **Rewards Redemption** - Convert loyalty points to products/discounts
 - 👥 **Referral Program** - Earn bonuses for referring friends
-- 💰 **Savings Goals** - Track and grow your cooperative savings
 - 🗳️ **Democratic Voting** - Vote on cooperative decisions
 - 📄 **Transparency Reports** - Full financial accountability
 - 🎯 **Membership Tiers** - 4-level tier system with escalating benefits
@@ -77,7 +76,7 @@
 - 💳 **Card Payments** - Visa, Mastercard, AmEx
 - 📱 **Mobile Money** - All major Nigerian providers
 - 🚀 **USSD** - Bank transfer without app
-- 🏦 **Bank Transfer** - Direct account deposit
+- 🏦 **Bank Transfer** - Direct bank transfer
 - 💵 **Cash on Delivery** - Pay when receiving
 
 ### 4. **Order & Delivery**
@@ -133,7 +132,6 @@ coop_commerce_web/
 │   ├── wholesale/                # Wholesale buyer area
 │   ├── orders/                   # Order tracking
 │   ├── my-rewards/               # Rewards redemption
-│   ├── member-savings/           # Savings goals
 │   ├── auth/                     # Authentication
 │   ├── api/                      # API routes
 │   └── ...
@@ -208,7 +206,6 @@ coop_commerce_web/
 - [x] Rewards redemption
 - [x] Referral bonuses
 - [x] Member exclusive deals
-- [x] Savings goals
 - [x] Member products
 
 ### Seller Features ✅
@@ -454,7 +451,6 @@ Real Firebase/Firestore integration with:
 - Orders and transactions
 - Conversations and messages
 - Offers and deals
-- Savings accounts
 - Shopping cart data
 - Member statistics
 

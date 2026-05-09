@@ -103,7 +103,7 @@ export default function WholesaleOrdersPage() {
               <div className="text-2xl font-bold text-blue-600">8,500</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Savings</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Discount Value</div>
               <div className="text-2xl font-bold text-green-600">₦425,000</div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">

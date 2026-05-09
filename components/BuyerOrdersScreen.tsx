@@ -10,7 +10,7 @@ interface BuyerOrdersScreenProps {
   userId: string;
 }
 
-
+function BuyerOrdersScreen({ userId }: BuyerOrdersScreenProps) {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -339,6 +339,6 @@ interface BuyerOrdersScreenProps {
       )}
     </div>
   );
-};
+}
 
 export default BuyerOrdersScreen;

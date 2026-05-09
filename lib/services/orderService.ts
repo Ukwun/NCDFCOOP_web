@@ -180,8 +180,8 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
       });
       // Email user on status update
       try {
-        // Find buyer email (assume order.items[0].buyerEmail or fetch from user profile if needed)
-        const buyerEmail = order.items[0]?.buyerEmail || 'demo@buyer.com';
+        const firstItem = order.items[0] as (typeof order.items[number] & { buyerEmail?: string }) | undefined;
+        const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
         await sendOrderConfirmationEmail(buyerEmail, {
           orderId,
           items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
@@ -221,7 +221,8 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
       });
       // Email user on payment update
       try {
-        const buyerEmail = order.items[0]?.buyerEmail || 'demo@buyer.com';
+        const firstItem = order.items[0] as (typeof order.items[number] & { buyerEmail?: string }) | undefined;
+        const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
         await sendOrderConfirmationEmail(buyerEmail, {
           orderId,
           items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),

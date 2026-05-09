@@ -15,6 +15,7 @@ export * from './recommendationEngine';
 
 // Issue Detection
 export * from './issueDetectionService';
+export * from './commerceIntelligenceService';
 
 // Invoice & Orders
 export * from './invoiceService';

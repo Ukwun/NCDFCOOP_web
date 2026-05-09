@@ -62,10 +62,21 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const items: FavoriteItem[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as Partial<FavoriteItem>;
+        return {
+          id: docSnap.id,
+          userId: data.userId || userId,
+          productId: data.productId || '',
+          productName: data.productName || '',
+          productPrice: data.productPrice || 0,
+          productImage: data.productImage || '',
+          productCategory: data.productCategory,
+          sellerId: data.sellerId,
+          sellerName: data.sellerName,
+          addedAt: data.addedAt || (new Date() as any),
+        } as FavoriteItem;
+      });
       setFavorites(items);
       setCount(items.length);
       setFavoriteIds(new Set(items.map((f) => f.productId)));

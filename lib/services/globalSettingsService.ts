@@ -10,6 +10,13 @@ export interface GlobalSettings {
 
 const SETTINGS_DOC = 'global_settings/main';
 
+const DEFAULT_SETTINGS: GlobalSettings = {
+  darkMode: false,
+  themeColor: '#2563eb',
+  inAppNotifications: true,
+  language: 'en',
+};
+
 // Real-time subscription to global settings
 type Callback = (settings: GlobalSettings) => void;
 export function getGlobalSettings(callback: Callback) {
@@ -24,13 +31,11 @@ export function getGlobalSettings(callback: Callback) {
         language: data.language ?? 'en',
       });
     } else {
-      callback({
-        darkMode: false,
-        themeColor: '#2563eb',
-        inAppNotifications: true,
-        language: 'en',
-      });
+      callback(DEFAULT_SETTINGS);
     }
+  }, (error) => {
+    console.warn('Global settings snapshot unavailable, using defaults:', error?.message || error);
+    callback(DEFAULT_SETTINGS);
   });
 }
 

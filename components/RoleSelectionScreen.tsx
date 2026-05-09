@@ -21,8 +21,6 @@ const ROLE_OPTIONS: RoleOption[] = [
     color: AppColors.roles.member,
     benefits: [
       'Member pricing',
-      'Add money to account',
-      'Save money account',
       'Upgrade to Premium Member',
       'Loyalty rewards',
       'Priority support',
@@ -35,7 +33,6 @@ const ROLE_OPTIONS: RoleOption[] = [
     color: AppColors.roles.wholesaleBuyer,
     benefits: [
       'Wholesale bulk pricing',
-      'Add money to account',
       'Multiple delivery locations',
       'Flexible payment terms',
       'Dedicated account manager',

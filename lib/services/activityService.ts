@@ -6,11 +6,13 @@
 import { doc, setDoc, query, collection, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { CanonicalEventType, normalizeEventType } from '@/lib/analytics/eventTaxonomy';
 
 export interface ActivityLog {
   id?: string;
   userId: string;
-  eventType: 'product_view' | 'product_search' | 'add_to_cart' | 'remove_from_cart' | 'checkout_start' | 'order_placed' | 'order_confirmed' | 'login' | 'signup' | 'password_reset' | 'profile_update' | 'product_added' | 'product_edited' | 'product_deleted' | 'order_shipped' | 'review_submitted' | 'message_sent' | 'logout';
+  eventType: CanonicalEventType;
+  rawEventType?: string;
   eventData: {
     productId?: string;
     productName?: string;
@@ -40,7 +42,7 @@ export interface ActivityLog {
  */
 export async function logActivity(
   userId: string,
-  eventType: ActivityLog['eventType'],
+  eventType: string,
   eventData: ActivityLog['eventData'],
   userMetadata?: ActivityLog['userMetadata'],
   deviceInfo?: ActivityLog['deviceInfo']
@@ -56,7 +58,8 @@ export async function logActivity(
     const activity: ActivityLog = {
       id: activityId,
       userId,
-      eventType,
+      eventType: normalizeEventType(eventType),
+      rawEventType: eventType,
       eventData,
       userMetadata,
       timestamp: Timestamp.now(),
@@ -105,7 +108,7 @@ export async function getUserActivityHistory(
  */
 export async function getActivityByType(
   userId: string,
-  eventType: ActivityLog['eventType'],
+  eventType: string,
   limit: number = 50
 ): Promise<ActivityLog[]> {
   if (!db) {
@@ -117,7 +120,7 @@ export async function getActivityByType(
     const q = query(
       collection(db, COLLECTIONS.ACTIVITY_LOGS),
       where('userId', '==', userId),
-      where('eventType', '==', eventType),
+      where('eventType', '==', normalizeEventType(eventType)),
       orderBy('timestamp', 'desc')
     );
 
@@ -161,10 +164,10 @@ export async function getActivitySummary(userId: string): Promise<{
         case 'product_search':
           summary.totalSearches++;
           break;
-        case 'add_to_cart':
+        case 'cart_add':
           summary.totalCartAdditions++;
           break;
-        case 'order_placed':
+        case 'purchase_complete':
           summary.totalOrders++;
           break;
       }

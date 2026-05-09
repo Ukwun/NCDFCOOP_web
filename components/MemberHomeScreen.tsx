@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { useMemberData } from '@/lib/hooks/useMemberData';
 import ProductCard from './ProductCard';
+import { addToCart } from '@/lib/services/cartService';
 // Use real images from public/images for mock data
 const MEMBER_PRODUCT_IMAGES = [
   '/images/Crayfish 1.png',
@@ -36,11 +37,6 @@ export default function MemberHomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { data: memberData, loading: memberLoading } = useMemberData(user?.uid || '');
-  const [showDepositDialog, setShowDepositDialog] = useState(false);
-  const [showWithdrawalDialog, setShowWithdrawalDialog] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   // Use real data with fallbacks
   const tier = memberData?.tier.toUpperCase() || 'GOLD';
@@ -57,7 +53,7 @@ export default function MemberHomeScreen() {
             <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-10 w-auto" />
             <span className="text-lg sm:text-2xl font-bold tracking-wide">MEMBER HOME & REWARDS</span>
           </div>
-          <div className="text-sm sm:text-base font-semibold opacity-80">Loyalty • Savings • Exclusive Deals</div>
+          <div className="text-sm sm:text-base font-semibold opacity-80">Loyalty • Exclusive Deals • Priority Access</div>
         </div>
       </div>
 
@@ -70,7 +66,7 @@ export default function MemberHomeScreen() {
             <ul className="list-disc ml-6 text-yellow-900 dark:text-yellow-100 text-sm mb-2">
               <li>Exclusive member pricing on all products</li>
               <li>Earn rewards points on every purchase</li>
-              <li>Special deals and savings just for you</li>
+              <li>Special deals and early access offers just for you</li>
             </ul>
             <button
               onClick={() => router.push('/my-rewards')}

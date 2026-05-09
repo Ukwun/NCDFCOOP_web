@@ -22,6 +22,9 @@ export const COLLECTIONS = {
   FAVORITES: 'favorites',
   REWARDS: 'rewards',
   INQUIRIES: 'inquiries',
+  ANALYTICS_DAILY: 'analyticsDaily',
+  ANOMALY_ALERTS: 'anomalyAlerts',
+  INTELLIGENCE_RUNS: 'intelligenceRuns',
 } as const;
 
 export const USER_ROLES = {
@@ -41,8 +44,6 @@ export const MEMBER_TIERS = {
 } as const;
 
 export const TRANSACTION_TYPES = {
-  DEPOSIT: 'deposit',
-  WITHDRAWAL: 'withdrawal',
   PURCHASE: 'purchase',
   REFUND: 'refund',
   LOYALTY_TRANSFER: 'loyalty_transfer',

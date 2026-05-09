@@ -4,6 +4,7 @@
 import { useAuth } from "@/lib/auth/authContext";
 import ProductCard from "@/components/ProductCard";
 import { useFavorites } from "@/lib/hooks";
+import { addToCart } from '@/lib/services/cartService';
 
 export default function FavoritesPage() {
   const { user } = useAuth();

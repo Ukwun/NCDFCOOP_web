@@ -10,11 +10,9 @@ import { COLLECTIONS, MEMBER_TIERS, TRANSACTION_TYPES, TRANSACTION_STATUS } from
 export interface MemberData {
   userId: string;
   memberSince: Timestamp;
-  savingsBalance: number;
   loyaltyPoints: number;
   tier: string;
   totalPurchases: number;
-  totalDeposits: number;
   referralCode: string;
   isVerified: boolean;
   kycStatus: string;
@@ -27,19 +25,6 @@ export async function getMemberData(userId: string): Promise<MemberData | null> 
     return docSnap.exists() ? (docSnap.data() as MemberData) : null;
   } catch (error) {
     console.error('Error fetching member data:', error);
-    throw error;
-  }
-}
-
-export async function updateMemberBalance(userId: string, newBalance: number): Promise<void> {
-  try {
-    const docRef = doc(db, COLLECTIONS.MEMBERS, userId);
-    await updateDoc(docRef, {
-      savingsBalance: newBalance,
-      updatedAt: Timestamp.now(),
-    });
-  } catch (error) {
-    console.error('Error updating member balance:', error);
     throw error;
   }
 }
@@ -97,7 +82,6 @@ export async function recordTransaction(
   description: string = ''
 ): Promise<string> {
   try {
-    const transactionRef = doc(db, COLLECTIONS.TRANSACTIONS, 'temp');
     const transactionId = `TXN${Date.now()}`;
 
     await setDoc(doc(db, COLLECTIONS.TRANSACTIONS, transactionId), {
@@ -112,19 +96,9 @@ export async function recordTransaction(
       metadata: {},
     });
 
-    // Update member balance if deposit or withdrawal
-    if (type === TRANSACTION_TYPES.DEPOSIT && status === TRANSACTION_STATUS.COMPLETED) {
-      const memberData = await getMemberData(userId);
-      if (memberData) {
-        await updateMemberBalance(userId, memberData.savingsBalance + amount);
-        // Award loyalty points (e.g., 1 point per ₦100)
-        await addLoyaltyPoints(userId, Math.floor(amount / 100));
-      }
-    } else if (type === TRANSACTION_TYPES.WITHDRAWAL && status === TRANSACTION_STATUS.COMPLETED) {
-      const memberData = await getMemberData(userId);
-      if (memberData && memberData.savingsBalance >= amount) {
-        await updateMemberBalance(userId, memberData.savingsBalance - amount);
-      }
+    // Loyalty points can still be awarded for qualifying purchase transactions.
+    if (type === TRANSACTION_TYPES.PURCHASE && status === TRANSACTION_STATUS.COMPLETED) {
+      await addLoyaltyPoints(userId, Math.floor(amount / 100));
     }
 
     return transactionId;
@@ -140,12 +114,10 @@ export async function getMemberStats(userId: string) {
     if (!memberData) return null;
 
     return {
-      savingsBalance: memberData.savingsBalance,
       loyaltyPoints: memberData.loyaltyPoints,
       tier: memberData.tier,
       memberSince: memberData.memberSince?.toDate().toLocaleDateString() || '',
       totalPurchases: memberData.totalPurchases,
-      totalDeposits: memberData.totalDeposits,
       referralCode: memberData.referralCode,
       kycStatus: memberData.kycStatus,
     };

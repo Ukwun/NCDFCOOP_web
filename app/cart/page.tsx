@@ -11,6 +11,9 @@ import { useAuth } from '@/lib/auth/authContext';
 import { getUserCart, removeFromCart, updateCartItemQuantity, clearCart } from '@/lib/services/cartService';
 import { Cart } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
+import { getExperimentVariant } from '@/lib/services/featureFlagsService';
+import RecommendationRail from '@/components/RecommendationRail';
 
 export default function CartPage() {
   const router = useRouter();
@@ -19,6 +22,12 @@ export default function CartPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+
+  const recommendationVariant = user?.uid
+    ? getExperimentVariant(user.uid, 'cart_recommendation_rail', 70)
+    : 'control';
 
   // Real-time cart listener
   useEffect(() => {
@@ -82,6 +91,31 @@ export default function CartPage() {
     });
     return () => unsubscribe();
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!user || !cart || recommendationVariant === 'control') {
+        setRecommendations([]);
+        return;
+      }
+
+      try {
+        setRecommendationsLoading(true);
+        const recs = await RecommendationEngine.getCartRecoveryRecommendations(
+          user.uid,
+          cart.items
+        );
+        setRecommendations(recs);
+      } catch (recError) {
+        console.error('Failed to fetch cart recommendations:', recError);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, [user, cart, recommendationVariant]);
 
   // Helper to fetch product data for enrichment
   async function getUserCartProduct(productId: string) {
@@ -255,7 +289,18 @@ export default function CartPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="space-y-6">
+            {recommendationVariant === 'treatment' && (
+              <RecommendationRail
+                title="Recommended For You"
+                recommendations={recommendations}
+                loading={recommendationsLoading}
+                emptyMessage="Recommendations will appear as you browse and add products."
+                onOpenProduct={(productId) => router.push(`/products/${productId}`)}
+              />
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2">
               <div
@@ -516,6 +561,7 @@ export default function CartPage() {
                   </p>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}

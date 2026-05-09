@@ -20,8 +20,6 @@ export interface MemberDataState {
   discountPercentage: number;
   ordersCount: number;
   totalSpent: number;
-  savingsBalance: number;
-  savingsGoal: number;
   memberDividends: number;
 }
 
@@ -74,8 +72,6 @@ export function useMemberData(userId: string): UseMemberDataReturn {
               discountPercentage: tierDiscounts[rawData.tier?.toLowerCase() || 'bronze'] || 5,
               ordersCount: rawData.ordersCount || 0,
               totalSpent: rawData.totalSpent || 0,
-              savingsBalance: rawData.savingsBalance || 0,
-              savingsGoal: rawData.savingsGoal || 50000,
               memberDividends: rawData.memberDividends || 0,
             };
 

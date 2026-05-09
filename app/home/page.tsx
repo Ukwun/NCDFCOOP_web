@@ -2,6 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
 import MemberHomeScreen from '@/components/MemberHomeScreen';
@@ -9,9 +11,49 @@ import MemberOnly from '@/components/MemberOnly';
 import WholesaleBuyerHomeScreen from '@/components/WholesaleBuyerHomeScreen';
 import SellerDashboardHomeScreen from '@/components/SellerDashboardHomeScreen';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
+import { getExperimentVariant } from '@/lib/services/featureFlagsService';
+import RecommendationRail from '@/components/RecommendationRail';
 
 export default function HomePage() {
-  const { currentRole, loading } = useAuth();
+  const { currentRole, loading, user } = useAuth();
+  const router = useRouter();
+  const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+
+  const recommendationVariant = user?.uid
+    ? getExperimentVariant(user.uid, 'home_recommendation_rail', 60)
+    : 'control';
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      const shouldLoad =
+        !!user?.uid &&
+        currentRole === USER_ROLES.MEMBER &&
+        recommendationVariant === 'treatment';
+
+      if (!shouldLoad) {
+        setRecommendations([]);
+        return;
+      }
+
+      try {
+        setRecommendationsLoading(true);
+        const recs = await RecommendationEngine.getPersonalizedRecommendations(
+          user.uid,
+          6
+        );
+        setRecommendations(recs);
+      } catch (error) {
+        console.error('Failed to fetch home recommendations:', error);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, [user?.uid, currentRole, recommendationVariant]);
 
   if (loading) {
     return (
@@ -49,7 +91,20 @@ export default function HomePage() {
 
   return (
     <ProtectedRoute currentPath="/home">
-      {renderHomeScreen()}
+      <div className="space-y-6">
+        {renderHomeScreen()}
+        {currentRole === USER_ROLES.MEMBER && recommendationVariant === 'treatment' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+            <RecommendationRail
+              title="Recommended For Your Next Order"
+              recommendations={recommendations}
+              loading={recommendationsLoading}
+              emptyMessage="Recommendations are adapting to your browsing and purchase behavior."
+              onOpenProduct={(productId) => router.push(`/products/${productId}`)}
+            />
+          </div>
+        )}
+      </div>
     </ProtectedRoute>
   );
 }

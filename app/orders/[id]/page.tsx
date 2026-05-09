@@ -35,7 +35,15 @@ export default function OrderTrackingPage() {
   const [bankTransferStatus, setBankTransferStatus] = useState<any>(null);
 
   useEffect(() => {
-    if (!orderId || !user) {
+
+    // Handle orderId being string | string[]
+    let resolvedOrderId: string | null = null;
+    if (typeof orderId === 'string') {
+      resolvedOrderId = orderId;
+    } else if (Array.isArray(orderId) && orderId.length > 0) {
+      resolvedOrderId = orderId[0];
+    }
+    if (!resolvedOrderId || !user) {
       setError('Invalid order or user information');
       setIsLoading(false);
       return;
@@ -43,7 +51,7 @@ export default function OrderTrackingPage() {
 
     setIsLoading(true);
     // Real-time listener for order status
-    const unsub = onSnapshot(doc(db, 'orders', orderId as string), async (docSnap) => {
+    const unsub = onSnapshot(doc(db, 'orders', resolvedOrderId), async (docSnap) => {
       if (!docSnap.exists()) {
         setError('Order not found');
         setIsLoading(false);
@@ -61,15 +69,15 @@ export default function OrderTrackingPage() {
       if (fetchedOrder.status === 'delivered') {
         await createNotification(user.uid, {
           title: 'Order Delivered',
-          message: `Your order #${orderId} has been delivered!`,
+          message: `Your order #${resolvedOrderId} has been delivered!`,
           type: 'order',
           read: false,
-          data: { orderId },
+          data: { orderId: resolvedOrderId },
         });
       }
       // If bank transfer, fetch transfer status
       if (fetchedOrder.paymentMethod === 'bank_transfer') {
-        const transferStatus = await getBankTransferStatus(orderId as string);
+        const transferStatus = await getBankTransferStatus(resolvedOrderId);
         setBankTransferStatus(transferStatus);
       }
       setError(null);

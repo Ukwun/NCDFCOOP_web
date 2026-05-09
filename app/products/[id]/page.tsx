@@ -119,7 +119,7 @@ export default function ProductDetailPage() {
   }
 
   const discountPercentage = product.discount || 0;
-  const savings = product.originalPrice ? product.originalPrice - product.price : 0;
+  const discountValue = product.originalPrice ? product.originalPrice - product.price : 0;
 
   return (
     <div
@@ -285,14 +285,14 @@ export default function ProductDetailPage() {
                   </span>
                 )}
               </div>
-              {savings > 0 && (
+              {discountValue > 0 && (
                 <p
                   className="text-green-600 font-semibold"
                   style={{
                     ...AppTextStyles.bodyMedium,
                   }}
                 >
-                  Save ₦{savings.toLocaleString()} ({discountPercentage}%)
+                  Discount ₦{discountValue.toLocaleString()} ({discountPercentage}%)
                 </p>
               )}
             </div>

@@ -85,7 +85,7 @@ export default function MemberProductsPage() {
             Member-Only Products
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Special prices for cooperative members - Extra savings on quality products
+            Special prices for cooperative members - Better value on quality products
           </p>
         </div>
       </div>

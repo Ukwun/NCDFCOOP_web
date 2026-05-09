@@ -107,13 +107,14 @@ export async function updateNotificationPreferences(
  */
 export async function createNotification(
   userId: string,
-  notification: Omit<Notification, 'id' | 'createdAt'>
+  notification: Omit<Notification, 'id' | 'createdAt' | 'userId'>
 ): Promise<string> {
   try {
     const notificationId = `${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const notificationData: Notification = {
       ...notification,
+      userId,
       id: notificationId,
       createdAt: Timestamp.now(),
     };

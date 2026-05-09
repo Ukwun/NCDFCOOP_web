@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
-import { AnalyticsService, ProductPopularity } from '@/lib/services/analyticsService';
+import { ProductPopularity } from '@/lib/services/analyticsService';
 
 import { getSellerRecentOrders } from '@/lib/services/sellerService';
 import { ORDER_STATUS } from '@/lib/constants/database';
@@ -45,16 +45,36 @@ export default function SellerDashboardHomeScreen() {
   useEffect(() => {
     if (!user?.uid) return;
     const fetchAnalytics = async () => {
-      // Top products
-      const top = await AnalyticsService.getProductPopularity('purchases', 5);
-      setTopProducts(top.filter((p) => products.some((prod) => prod.id === p.productId)));
+      // Keep seller dashboard scoped to seller-owned product data.
+      const top = products
+        .slice()
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 5)
+        .map((p) => ({
+          productId: p.id,
+          productName: p.name,
+          category: p.category,
+          price: p.price,
+          viewCount: 0,
+          addToCartCount: 0,
+          purchaseCount: 0,
+          viewToCartRate: 0,
+          cartToPurchaseRate: 0,
+          reason: 'Seller inventory performance',
+          score: Math.min(100, p.quantity),
+        } as ProductPopularity));
+      setTopProducts(top);
       // Order trends (dummy: last 4 weeks)
       setOrderTrends([12, 18, 22, 15]);
       // Average order value (dummy)
       setAvgOrderValue(15000);
       // Fetch recent orders for segmentation and escrow/payment status
-      const orders = await getSellerRecentOrders(user.uid, 10);
-      setRecentOrders(orders);
+      try {
+        const orders = await getSellerRecentOrders(user.uid, 10);
+        setRecentOrders(orders);
+      } catch {
+        setRecentOrders([]);
+      }
     };
     fetchAnalytics();
   }, [user?.uid, products]);

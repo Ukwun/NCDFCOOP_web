@@ -2,107 +2,177 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-            // ============================================
-            // CART ITEMS COLLECTION - User shopping cart
-            // Each document: id = {userId}_{productId}, field userId
-            match /cartItems/{cartItemId} {
-              // Read: Only owner
-              allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
-
-              // Create: Only owner can add to their own cart
-              allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-
-              // Update: Only owner can update their cart
-              allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
-
-              // Delete: Only owner can delete their cart item
-              allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
-            }
-        // ============================================
-        // FAVORITES COLLECTION - User favorites
-        // Each document: id = {userId}_{productId}, field userId
-        match /favorites/{favoriteId} {
-          // Read: Only owner
-          allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
-
-          // Create: Only owner can create their own favorite
-          allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-
-          // Update: Only owner can update their favorite
-          allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
-
-          // Delete: Only owner can delete their favorite
-          allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
-        }
     // ============================================
     // HELPER FUNCTIONS
     // ============================================
-    
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function getUserRole() {
-      // Safely get user role, returns null if document doesn't exist
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc.data.selectedRole;
-    }
-    
-    function isAdmin() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'admin';
-    }
-    
-    function isSeller() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'seller' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'franchise');
-    }
-    
-    function isMember() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'member' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.selectedRole == 'buyer');
-    }
-    
+
     function isOwner(uid) {
       return isAuthenticated() && request.auth.uid == uid;
     }
-    
-    function isDocOwner(uid) {
-      return isAuthenticated() && resource.data.userId == request.auth.uid;
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
-    
+
+    function currentRole() {
+      return currentUserDoc().data.selectedRole;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentRole() == 'admin';
+    }
+
+    function isSeller() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (currentRole() == 'seller' || currentRole() == 'franchise');
+    }
+
+    function isInstitutionalBuyer() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentRole() == 'institutional_buyer';
+    }
+
+    function isOperationalRole() {
+      return isAdmin() || isSeller() || isInstitutionalBuyer();
+    }
+
     // ============================================
     // USERS COLLECTION - User profiles
     // ============================================
     match /users/{userId} {
-      // Read own profile
-      allow read: if isOwner(userId);
-      
-      // Create: Only during registration (new user creating their own profile)
+      // Own profile or admin full access.
+      // Read-only seller identity access supports trust strip verification checks.
+      allow read: if isOwner(userId) ||
+        isAdmin() ||
+        (isAuthenticated() && (
+          resource.data.selectedRole == 'seller' ||
+          resource.data.selectedRole == 'franchise'
+        ));
+
       allow create: if isOwner(userId);
-      
-      // Update: Only own profile
-      allow update: if isOwner(userId);
-      
-      // Delete: Never
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
+
+      // Notification preferences under users/{uid}/preferences/notifications
+      match /preferences/{prefId} {
+        allow read, create, update: if isOwner(userId) || isAdmin();
+        allow delete: if false;
+      }
     }
-    
+
     // ============================================
-    // MEMBERS COLLECTION - Member financial data
+    // MEMBERS COLLECTION - Member profile/benefit data
     // ============================================
     match /members/{memberId} {
-      // Read: Own member data or admin
       allow read: if isOwner(memberId) || isAdmin();
-      
-      // Create: Only own member record during signup
+      allow create, update: if isOwner(memberId) || isAdmin();
+      allow delete: if false;
+    }
 
-      allow create: if isOwner(memberId);
+    // ============================================
+    // CART ITEMS COLLECTION - User shopping cart
+    // ============================================
+    match /cartItems/{cartItemId} {
+      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
+
+    // ============================================
+    // FAVORITES COLLECTION - User favorites
+    // ============================================
+    match /favorites/{favoriteId} {
+      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    }
+
+    // ============================================
+    // NOTIFICATIONS - User scoped notifications
+    // ============================================
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.userId || isAdmin()
+      );
+    }
+
+    // ============================================
+    // ORDERS - Buyer/user scoped orders
+    // ============================================
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.buyerId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.buyerId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.buyerId == request.auth.uid ||
+        isAdmin() ||
+        isSeller()
+      );
+
+      allow delete: if false;
+    }
+
+    // ============================================
+    // ACTIVITY LOGS - User history and analytics events
+    // ============================================
+    match /activityLogs/{activityId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isAdmin()
+      );
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ============================================
+    // OPERATIONAL INTELLIGENCE AGGREGATES
+    // ============================================
+    match /analyticsDaily/{docId} {
+      allow read: if isAuthenticated() && isOperationalRole();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /anomalyAlerts/{alertId} {
+      allow read: if isAuthenticated() && isOperationalRole();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /intelligenceRuns/{runId} {
+      allow read: if isAuthenticated() && isOperationalRole();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ============================================
+    // GLOBAL SETTINGS - shared UI settings document
+    // ============================================
+    match /global_settings/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ============================================
+    // DEFAULT DENY
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

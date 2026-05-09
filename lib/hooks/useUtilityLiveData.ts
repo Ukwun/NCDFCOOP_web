@@ -163,35 +163,43 @@ export function useUtilityLiveData(userId: string, role: UtilityRole): UtilityLi
       );
     }
 
-    const anomaliesQ = query(
-      collection(db, COLLECTIONS.ANOMALY_ALERTS),
-      where('status', '==', 'open')
-    );
+    const needsOperationalIntelligence =
+      role === USER_ROLES.INSTITUTIONAL_BUYER || role === USER_ROLES.SELLER;
 
-    unsubs.push(
-      onSnapshot(
-        anomaliesQ,
-        (snap) => {
-          setOpenAnomalyCount(snap.size);
-        },
-        () => {
-          setOpenAnomalyCount(0);
-        }
-      )
-    );
+    if (needsOperationalIntelligence) {
+      const anomaliesQ = query(
+        collection(db, COLLECTIONS.ANOMALY_ALERTS),
+        where('status', '==', 'open')
+      );
 
-    const analyticsQ = collection(db, COLLECTIONS.ANALYTICS_DAILY);
-    unsubs.push(
-      onSnapshot(
-        analyticsQ,
-        (snap) => {
-          setAnalyticsDailyCount(snap.size);
-        },
-        () => {
-          setAnalyticsDailyCount(0);
-        }
-      )
-    );
+      unsubs.push(
+        onSnapshot(
+          anomaliesQ,
+          (snap) => {
+            setOpenAnomalyCount(snap.size);
+          },
+          () => {
+            setOpenAnomalyCount(0);
+          }
+        )
+      );
+
+      const analyticsQ = collection(db, COLLECTIONS.ANALYTICS_DAILY);
+      unsubs.push(
+        onSnapshot(
+          analyticsQ,
+          (snap) => {
+            setAnalyticsDailyCount(snap.size);
+          },
+          () => {
+            setAnalyticsDailyCount(0);
+          }
+        )
+      );
+    } else {
+      setOpenAnomalyCount(0);
+      setAnalyticsDailyCount(0);
+    }
 
     setLoading(false);
 

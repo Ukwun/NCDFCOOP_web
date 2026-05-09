@@ -4,9 +4,11 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { useMemberData } from '@/lib/hooks/useMemberData';
+import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
 import { addToCart } from '@/lib/services/cartService';
 import ProductCard from './ProductCard';
 import GlobalUtilityLayer from './GlobalUtilityLayer';
+import TrustSignalsStrip from './TrustSignalsStrip';
 
 const MEMBER_PRODUCTS = [
   {
@@ -87,6 +89,7 @@ export default function MemberHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { data: memberData } = useMemberData(user?.uid || '');
+  const liveData = useUtilityLiveData(user?.uid || '', 'member');
 
   const summary = useMemo(() => {
     const tier = (memberData?.tier || 'bronze').toUpperCase();
@@ -103,7 +106,17 @@ export default function MemberHomeScreen() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <GlobalUtilityLayer
           role="member"
-          kpiSummary={`Tier ${summary.tier} • ${summary.points.toLocaleString()} points • ${summary.discount}% active discount`}
+          kpiSummary={`Tier ${summary.tier} • ${summary.points.toLocaleString()} points • ${summary.discount}% active discount • Alerts ${liveData.unreadAlertCount}`}
+          liveData={liveData}
+        />
+
+        <TrustSignalsStrip
+          verifiedSuppliersCount={liveData.verifiedSuppliersCount}
+          suppliersObservedCount={liveData.suppliersObservedCount}
+          transactionProtectionRate={liveData.transactionProtectionRate}
+          deliveryConfidenceRate={liveData.deliveryConfidenceRate}
+          slaRiskCount={liveData.slaRiskCount}
+          complianceDriftLevel={liveData.complianceDriftLevel}
         />
 
         <section className="rounded-2xl bg-gradient-to-r from-[#0D3D63] via-[#0E527F] to-[#1576A9] text-white p-6 sm:p-8 shadow-sm">
@@ -149,7 +162,7 @@ export default function MemberHomeScreen() {
           <article className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Projected Value Saved</p>
             <p className="text-2xl font-bold text-[#0D3D63] dark:text-[#7FC2EA] mt-1">₦{summary.projectedValue.toLocaleString()}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Based on your purchase history.</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Protection rate: {liveData.transactionProtectionRate}%</p>
           </article>
         </section>
 

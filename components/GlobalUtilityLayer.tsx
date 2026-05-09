@@ -4,12 +4,14 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
+import { UtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
 
 type UtilityRole = 'member' | 'institutional_buyer' | 'seller';
 
 interface GlobalUtilityLayerProps {
   role: UtilityRole;
   kpiSummary?: string;
+  liveData?: UtilityLiveData;
 }
 
 interface UtilityCard {
@@ -29,7 +31,29 @@ function titleCase(value: string | undefined) {
     .join(' ');
 }
 
-export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLayerProps) {
+function riskBadge(level: UtilityLiveData['complianceDriftLevel'] | undefined) {
+  if (level === 'high') {
+    return {
+      label: 'Drift High',
+      classes: 'text-red-700 bg-red-100 border-red-200',
+      pulse: true,
+    };
+  }
+  if (level === 'medium') {
+    return {
+      label: 'Drift Medium',
+      classes: 'text-amber-700 bg-amber-100 border-amber-200',
+      pulse: true,
+    };
+  }
+  return {
+    label: 'Drift Low',
+    classes: 'text-emerald-700 bg-emerald-100 border-emerald-200',
+    pulse: false,
+  };
+}
+
+export default function GlobalUtilityLayer({ role, kpiSummary, liveData }: GlobalUtilityLayerProps) {
   const router = useRouter();
   const { user, currentRole, switchRole } = useAuth();
   const [switchingRole, setSwitchingRole] = useState(false);
@@ -43,7 +67,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
           id: 'kyc',
           title: 'KYC Status',
           description: 'Identity and cooperative compliance checks.',
-          status: 'Pending Review',
+          status: `Status: ${String(liveData?.kycStatus || 'unknown').toUpperCase()}`,
           actionLabel: 'Review KYC',
           actionRoute: '/account',
         },
@@ -51,7 +75,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
           id: 'wallet-alerts',
           title: 'Wallet Alerts',
           description: 'Monitor credit, debit, and payment risk notifications.',
-          status: '2 New Alerts',
+          status: `${liveData?.unreadAlertCount ?? 0} New Alerts`,
           actionLabel: 'Open Alerts',
           actionRoute: '/notifications',
         },
@@ -59,7 +83,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
           id: 'investment',
           title: 'Investment Notifications',
           description: 'Member opportunities, dividends, and offer campaigns.',
-          status: 'Active Campaign',
+          status: `${liveData?.investmentNotificationCount ?? 0} Active Notifications`,
           actionLabel: 'View Opportunities',
           actionRoute: '/member-benefits',
         },
@@ -72,7 +96,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
           id: 'compliance-reports',
           title: 'Compliance Reports',
           description: 'Audit status for procurement and regulated categories.',
-          status: '3 Reports Ready',
+          status: `${liveData?.complianceReportsCount ?? 0} Reports Ready`,
           actionLabel: 'Open Reports',
           actionRoute: '/wholesale/orders',
         },
@@ -80,7 +104,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
           id: 'institutional-alerts',
           title: 'Institutional Alerts',
           description: 'Policy, SLA, and supply risk alerts for your account.',
-          status: '1 Priority Alert',
+          status: `${liveData?.institutionalAlertCount ?? 0} Priority Alerts`,
           actionLabel: 'View Alerts',
           actionRoute: '/notifications',
         },
@@ -88,7 +112,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
           id: 'team-management',
           title: 'Team Management',
           description: 'Control buyer roles, permissions, and access flows.',
-          status: '4 Team Members',
+          status: `${liveData?.teamSize ?? 0} Team Members`,
           actionLabel: 'Manage Team',
           actionRoute: '/settings',
         },
@@ -100,7 +124,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
         id: 'leads',
         title: 'Leads',
         description: 'Inbound demand signals and buyer interest snapshots.',
-        status: '12 Active Leads',
+        status: 'Live lead feed available',
         actionLabel: 'View Leads',
         actionRoute: '/seller/orders',
       },
@@ -108,7 +132,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
         id: 'sales-alerts',
         title: 'Sales Alerts',
         description: 'Order surges, conversion spikes, and stock pressure.',
-        status: '2 Critical Alerts',
+        status: `${liveData?.institutionalAlertCount ?? 0} Sales Alerts`,
         actionLabel: 'Open Alerts',
         actionRoute: '/notifications',
       },
@@ -116,12 +140,14 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
         id: 'commission',
         title: 'Commission Updates',
         description: 'Settlement progress, payout windows, and reconciliations.',
-        status: 'Next Payout: 48h',
+        status: 'Settlement feed active',
         actionLabel: 'View Settlement',
         actionRoute: '/seller',
       },
     ];
-  }, [role]);
+  }, [liveData, role]);
+
+  const drift = riskBadge(liveData?.complianceDriftLevel);
 
   const handleQuickRoleSwitch = async () => {
     if (switchingRole) return;
@@ -163,19 +189,30 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
       <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           <button onClick={() => router.push('/account')} className="utility-btn">Profile Access</button>
-          <button onClick={() => router.push('/notifications')} className="utility-btn">Notifications</button>
+          <button onClick={() => router.push('/notifications')} className="utility-btn utility-badge-wrap">
+            Notifications
+            {(liveData?.unreadNotificationCount || 0) > 0 && (
+              <span className="utility-badge">{liveData?.unreadNotificationCount}</span>
+            )}
+          </button>
           <button onClick={handleQuickRoleSwitch} className="utility-btn" disabled={switchingRole}>
             {switchingRole ? 'Switching...' : 'Role Switcher'}
           </button>
           <button onClick={() => router.push('/member-transparency')} className="utility-btn">Help Center</button>
-          <button onClick={() => router.push('/member-transparency')} className="utility-btn">Compliance Status</button>
+          <button onClick={() => router.push('/member-transparency')} className="utility-btn utility-badge-wrap">
+            Compliance Status
+            <span className={`inline-flex items-center gap-1 text-[10px] ml-1 px-1.5 py-0.5 rounded-full border ${drift.classes}`}>
+              {drift.pulse && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />}
+              {drift.label}
+            </span>
+          </button>
           <button onClick={() => router.push('/settings')} className="utility-btn">Settings</button>
         </div>
       </div>
 
       <div className="px-4 sm:px-6 py-5 grid grid-cols-1 md:grid-cols-3 gap-4">
         {roleCards.map((card) => (
-          <article key={card.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
+          <article key={card.id} className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{card.title}</p>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-2 min-h-[40px]">{card.description}</p>
             <p className="text-sm font-semibold text-[#0E4B78] dark:text-[#73B6E8] mb-3">{card.status}</p>
@@ -191,6 +228,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
 
       <style jsx>{`
         .utility-btn {
+          position: relative;
           padding: 10px 12px;
           border-radius: 10px;
           border: 1px solid #dbe3ec;
@@ -209,6 +247,29 @@ export default function GlobalUtilityLayer({ role, kpiSummary }: GlobalUtilityLa
           opacity: 0.65;
           cursor: not-allowed;
           transform: none;
+        }
+        .utility-badge-wrap {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+        .utility-badge {
+          min-width: 18px;
+          height: 18px;
+          border-radius: 9999px;
+          background: #dc2626;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          padding: 0 5px;
+          line-height: 18px;
+          animation: pulse-badge 1.5s infinite;
+        }
+        @keyframes pulse-badge {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.08); }
+          100% { transform: scale(1); }
         }
       `}</style>
     </section>

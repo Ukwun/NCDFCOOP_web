@@ -14,3 +14,4 @@ export { useSellerProducts } from './useSellerProducts';
 export { useSellerInquiries } from './useSellerInquiries';
 export { useFlashDeals } from './useFlashDeals';
 export { useMemberData } from './useMemberData';
+export { useUtilityLiveData } from './useUtilityLiveData';

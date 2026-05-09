@@ -3,9 +3,11 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
+import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
 import { addToCart } from '@/lib/services/cartService';
 import ProductCard from './ProductCard';
 import GlobalUtilityLayer from './GlobalUtilityLayer';
+import TrustSignalsStrip from './TrustSignalsStrip';
 
 const WHOLESALE_PRODUCTS = [
   {
@@ -85,22 +87,38 @@ const WHOLESALE_PRODUCTS = [
 export default function WholesaleBuyerHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const liveData = useUtilityLiveData(user?.uid || '', 'institutional_buyer');
 
   const wholesaleSummary = useMemo(() => {
     const monthlyProcurement = 4250000;
-    const fulfillmentRate = 96;
-    const openRfqs = 7;
-    const complianceGrade = 'A-';
+    const fulfillmentRate = liveData.deliveryConfidenceRate || 0;
+    const openRfqs = liveData.slaRiskCount;
+    const complianceGrade =
+      liveData.complianceDriftLevel === 'high'
+        ? 'C'
+        : liveData.complianceDriftLevel === 'medium'
+        ? 'B'
+        : 'A';
 
     return { monthlyProcurement, fulfillmentRate, openRfqs, complianceGrade };
-  }, []);
+  }, [liveData.complianceDriftLevel, liveData.deliveryConfidenceRate, liveData.slaRiskCount]);
 
   return (
     <div className="min-h-screen bg-[#F4F7FA] dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <GlobalUtilityLayer
           role="institutional_buyer"
-          kpiSummary={`Fulfillment ${wholesaleSummary.fulfillmentRate}% • Open RFQs ${wholesaleSummary.openRfqs} • Compliance ${wholesaleSummary.complianceGrade}`}
+          kpiSummary={`Fulfillment ${wholesaleSummary.fulfillmentRate}% • SLA Risk ${wholesaleSummary.openRfqs} • Compliance ${wholesaleSummary.complianceGrade}`}
+          liveData={liveData}
+        />
+
+        <TrustSignalsStrip
+          verifiedSuppliersCount={liveData.verifiedSuppliersCount}
+          suppliersObservedCount={liveData.suppliersObservedCount}
+          transactionProtectionRate={liveData.transactionProtectionRate}
+          deliveryConfidenceRate={liveData.deliveryConfidenceRate}
+          slaRiskCount={liveData.slaRiskCount}
+          complianceDriftLevel={liveData.complianceDriftLevel}
         />
 
         <section className="rounded-2xl bg-gradient-to-r from-[#164A2E] via-[#1E7F4E] to-[#2A9B61] text-white p-6 sm:p-8 shadow-sm">

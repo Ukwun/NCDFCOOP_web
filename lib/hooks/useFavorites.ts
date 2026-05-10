@@ -126,15 +126,17 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
         setFavorites((prev) => prev.filter((f) => f.productId !== productId));
         setCount((prev) => prev - 1);
 
-        const newIds = new Set(favoriteIds);
-        newIds.delete(productId);
-        setFavoriteIds(newIds);
+        setFavoriteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(productId);
+          return next;
+        });
       } catch (err) {
         console.error('Failed to remove favorite:', err);
         throw err;
       }
     },
-    [userId, favoriteIds]
+    [userId]
   );
 
   const toggleFavorite = useCallback(

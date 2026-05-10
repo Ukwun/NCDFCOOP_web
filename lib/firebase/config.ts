@@ -24,13 +24,16 @@ if (!isFirebaseConfigValid && typeof window !== 'undefined') {
   );
 }
 
-// Initialize Firebase - only if we have the required config and are on client
+// Initialize Firebase for both client components and server route handlers.
+// The modular SDK safely reuses the existing app when getApps() already has one.
 let app: any = null;
 
-if (typeof window !== 'undefined' && isFirebaseConfigValid) {
+if (isFirebaseConfigValid) {
   try {
     app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
-    console.log('Firebase initialized successfully');
+    if (typeof window !== 'undefined') {
+      console.log('Firebase initialized successfully');
+    }
   } catch (error) {
     console.error('Firebase initialization error:', error);
   }

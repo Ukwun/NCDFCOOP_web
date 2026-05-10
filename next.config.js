@@ -18,6 +18,12 @@ const nextConfig = {
     deviceSizes: [320, 480, 640, 800, 1024, 1280, 1536],
     imageSizes: [64, 96, 128, 160, 192, 224, 256, 320, 384, 448, 512],
     minimumCacheTTL: 2592000, // 30 days
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+      },
+    ],
   },
 
   // 📦 Code Splitting & Build Optimization

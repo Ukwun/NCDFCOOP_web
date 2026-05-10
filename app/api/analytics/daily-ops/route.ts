@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CommerceIntelligenceService } from '@/lib/services/commerceIntelligenceService';
+import { ServerCommerceIntelligenceService } from '@/lib/services/serverCommerceIntelligenceService';
 
 function isAuthorized(request: NextRequest): boolean {
   const expected = process.env.COMMERCE_INTELLIGENCE_CRON_TOKEN;
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const summary = await CommerceIntelligenceService.runDailyAggregation();
+    const summary = await ServerCommerceIntelligenceService.runDailyAggregation();
 
     return NextResponse.json(
       {

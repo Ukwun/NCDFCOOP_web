@@ -3,21 +3,24 @@
 export const dynamic = 'force-dynamic';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getProducts, searchProducts } from '@/lib/services/productService';
 import { addToCart } from '@/lib/services/cartService';
 import ProductList from '@/components/ProductList';
 import { Product } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { resolveProductOwnership } from '@/lib/utils/productOwnership';
 
 export default function ProductsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'ncdf' | 'seller'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'popular' | 'rating'>('newest');
   const [error, setError] = useState<string | null>(null);
 
@@ -39,8 +42,34 @@ export default function ProductsPage() {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    const queryTerm = searchParams.get('q')?.trim() || '';
+
+    const applyQuery = async () => {
+      if (!queryTerm) return;
+
+      try {
+        setSearchTerm(queryTerm);
+        setIsLoading(true);
+        const result = await searchProducts(queryTerm);
+        setProducts(result);
+      } catch (err) {
+        console.error('Error applying search query:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    applyQuery();
+  }, [searchParams]);
+
   const displayedProducts = useMemo(() => {
-    const cloned = [...products];
+    const filtered = products.filter((product) => {
+      if (sourceFilter === 'all') return true;
+      return resolveProductOwnership(product) === sourceFilter;
+    });
+
+    const cloned = [...filtered];
 
     switch (sortBy) {
       case 'price-low':
@@ -66,7 +95,16 @@ export default function ProductsPage() {
     }
 
     return cloned;
-  }, [products, sortBy]);
+  }, [products, sourceFilter, sortBy]);
+
+  const sourceCounts = useMemo(() => {
+    const ncdf = products.filter((product) => resolveProductOwnership(product) === 'ncdf').length;
+    return {
+      all: products.length,
+      ncdf,
+      seller: products.length - ncdf,
+    };
+  }, [products]);
 
   const handleAddToCart = async (product: Product, quantity: number) => {
     if (!user) {
@@ -120,14 +158,14 @@ export default function ProductsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 style={{ ...AppTextStyles.h1, color: AppColors.textPrimary, marginBottom: AppSpacing.md }}>Browse Products</h1>
           <p style={{ ...AppTextStyles.bodyLarge, color: AppColors.textSecondary }}>
-            Explore verified products from trusted sellers.
+            Browse NCDF Direct inventory and trusted marketplace seller products in one commerce surface.
           </p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
             <div className="flex-1">
               <div className="flex gap-2">
                 <input
@@ -165,6 +203,39 @@ export default function ProductsPage() {
             </select>
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <button
+              onClick={() => setSourceFilter('all')}
+              className={`px-3 py-2 text-sm rounded-full border transition-colors ${
+                sourceFilter === 'all'
+                  ? 'bg-gray-900 text-white border-gray-900 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-100'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600'
+              }`}
+            >
+              All Sources ({sourceCounts.all})
+            </button>
+            <button
+              onClick={() => setSourceFilter('ncdf')}
+              className={`px-3 py-2 text-sm rounded-full border transition-colors ${
+                sourceFilter === 'ncdf'
+                  ? 'bg-[#0E4B78] text-white border-[#0E4B78]'
+                  : 'bg-white dark:bg-gray-800 text-[#0E4B78] dark:text-[#7FC2EA] border-[#0E4B78]/40'
+              }`}
+            >
+              NCDF Direct ({sourceCounts.ncdf})
+            </button>
+            <button
+              onClick={() => setSourceFilter('seller')}
+              className={`px-3 py-2 text-sm rounded-full border transition-colors ${
+                sourceFilter === 'seller'
+                  ? 'bg-[#0B6B3A] text-white border-[#0B6B3A]'
+                  : 'bg-white dark:bg-gray-800 text-[#0B6B3A] dark:text-[#7FD4A9] border-[#0B6B3A]/40'
+              }`}
+            >
+              Marketplace Sellers ({sourceCounts.seller})
+            </button>
+          </div>
+
           {error && (
             <div className="p-4 rounded-lg text-white mb-6" style={{ backgroundColor: '#E53E3E' }}>
               {error}
@@ -177,7 +248,13 @@ export default function ProductsPage() {
           isLoading={isLoading}
           onAddToCart={handleAddToCart}
           onViewDetails={handleViewDetails}
-          title="All Products"
+          title={
+            sourceFilter === 'all'
+              ? 'All Products'
+              : sourceFilter === 'ncdf'
+                ? 'NCDF Direct Products'
+                : 'Marketplace Seller Products'
+          }
           showPagination={true}
           itemsPerPage={12}
         />

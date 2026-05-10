@@ -1,6 +1,16 @@
-import { collection, writeBatch, doc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { getApps, initializeApp } from 'firebase/app';
+import {
+  collection as clientCollection,
+  doc as clientDoc,
+  getFirestore as getClientFirestore,
+  setDoc as clientSetDoc,
+} from 'firebase/firestore/lite';
+
+// Keep seed data portable across Admin SDK and client SDK fallbacks.
+const Timestamp = {
+  fromDate: (date: Date) => date,
+};
 
 // Real product data for Nigeria's agricultural/grocery marketplace
 const seedProducts = [
@@ -241,31 +251,29 @@ const seedProducts = [
 
 export async function POST() {
   try {
-    // Guard: Check if already seeded (prevent duplicates)
-    // In production, you'd want better checks
-
-    if (!db) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Firebase not initialized',
-        }),
-        { status: 500 }
-      );
-    }
-
-    const batch = writeBatch(db);
+    // Use Firebase client SDK for seeding (works with authenticated context)
     let addedCount = 0;
 
-    // Add each product to Firestore
+    const firebaseConfig = {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+    };
+
+    const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
+    const clientDb = getClientFirestore(app);
+
     for (const product of seedProducts) {
-      const docRef = doc(collection(db, COLLECTIONS.PRODUCTS), product.id);
-      batch.set(docRef, product);
+      const docRef = clientDoc(clientCollection(clientDb, COLLECTIONS.PRODUCTS), product.id);
+      await clientSetDoc(docRef, {
+        ...product,
+        createdAt: new Date(),
+      });
       addedCount++;
     }
-
-    // Commit the batch
-    await batch.commit();
 
     return new Response(
       JSON.stringify({

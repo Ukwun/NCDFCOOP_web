@@ -209,6 +209,44 @@ export default function SellerDashboardHomeScreen() {
           </div>
         </div>
 
+        <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-gray-800 p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-emerald-900 dark:text-emerald-200">Personalized Discovery</h2>
+              <p className="text-sm text-emerald-800 dark:text-gray-300">Seller-focused opportunities prioritized by revenue velocity and lead quality.</p>
+            </div>
+            <button
+              onClick={() => router.push('/seller/orders')}
+              className="px-4 py-2 rounded-lg bg-[#0B6B3A] hover:bg-[#095234] text-white text-sm font-medium"
+            >
+              Open Sales Pipeline
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Top-Performing Products</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Discover listings with the strongest conversion and repeat demand patterns.</p>
+              <button onClick={() => router.push('/seller/products')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">View Product Leaders</button>
+            </article>
+            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Sales Opportunities</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Spot order windows and demand spikes you can capture this week.</p>
+              <button onClick={() => router.push('/offers')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">Open Opportunity Feed</button>
+            </article>
+            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Lead Suggestions</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Prioritized buyer leads generated from inquiry and intent behavior.</p>
+              <button onClick={() => router.push('/seller/inquiries')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">Review Lead Suggestions</button>
+            </article>
+            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Commission Opportunities</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Track routes where margin and payout potential are highest.</p>
+              <button onClick={() => router.push('/seller/earnings')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">View Commission Insights</button>
+            </article>
+          </div>
+        </section>
+
         {/* Seller Analytics */}
                 {/* Realistic Order Segmentation & Escrow Status */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">

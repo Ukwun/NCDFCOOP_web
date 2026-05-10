@@ -39,6 +39,27 @@ service cloud.firestore {
         currentRole() == 'institutional_buyer';
     }
 
+    function isStaff() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentRole() == 'staff';
+    }
+
+    function isOperator() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentRole() == 'operator';
+    }
+
+    function isTrustedAnalyticsRole() {
+      return isAdmin() || isStaff() || isOperator();
+    }
+
+    function canReadUserScopedAggregate() {
+      return isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+    }
+
     function isOperationalRole() {
       return isAdmin() || isSeller() || isInstitutionalBuyer();
     }
@@ -98,8 +119,39 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
       allow create: if isAuthenticated() && (
-        request.auth.uid == request.resource.data.userId || isAdmin()
+        request.auth.uid == request.resource.data.userId ||
+        isAdmin() ||
+        (
+          request.resource.data.type == 'message' &&
+          (
+            request.resource.data.data.buyerId == request.auth.uid ||
+            request.resource.data.data.sellerId == request.auth.uid
+          )
+        )
       );
+    }
+
+    // ============================================
+    // INQUIRIES - Buyer to seller quote/chat workflow
+    // ============================================
+    match /inquiries/{inquiryId} {
+      allow read: if isAuthenticated() && (
+        resource.data.buyerId == request.auth.uid ||
+        resource.data.sellerId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if isAuthenticated() && (
+        request.resource.data.buyerId == request.auth.uid || isAdmin()
+      );
+
+      allow update: if isAuthenticated() && (
+        resource.data.buyerId == request.auth.uid ||
+        resource.data.sellerId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow delete: if false;
     }
 
     // ============================================
@@ -152,7 +204,7 @@ service cloud.firestore {
     // ============================================
     match /activityLogs/{activityId} {
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || isAdmin()
+        resource.data.userId == request.auth.uid || isTrustedAnalyticsRole()
       );
 
       allow create: if isAuthenticated() &&
@@ -165,17 +217,17 @@ service cloud.firestore {
     // OPERATIONAL INTELLIGENCE AGGREGATES
     // ============================================
     match /analyticsDaily/{docId} {
-      allow read: if isAuthenticated() && isOperationalRole();
+      allow read: if isTrustedAnalyticsRole() || canReadUserScopedAggregate();
       allow create, update, delete: if isAdmin();
     }
 
     match /anomalyAlerts/{alertId} {
-      allow read: if isAuthenticated() && isOperationalRole();
+      allow read: if isTrustedAnalyticsRole() || canReadUserScopedAggregate();
       allow create, update, delete: if isAdmin();
     }
 
     match /intelligenceRuns/{runId} {
-      allow read: if isAuthenticated() && isOperationalRole();
+      allow read: if isTrustedAnalyticsRole() || canReadUserScopedAggregate();
       allow create, update, delete: if isAdmin();
     }
 

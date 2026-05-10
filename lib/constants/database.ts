@@ -34,6 +34,7 @@ export const USER_ROLES = {
   INSTITUTIONAL_BUYER: 'institutional_buyer',
   ADMIN: 'admin',
   STAFF: 'staff',
+  OPERATOR: 'operator',
 } as const;
 
 export const MEMBER_TIERS = {

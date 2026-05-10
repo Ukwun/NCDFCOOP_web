@@ -37,6 +37,43 @@ export interface ActivityLog {
   };
 }
 
+function sanitizeForFirestore<T>(value: T): T {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeForFirestore(item))
+      .filter((item) => item !== undefined) as unknown as T;
+  }
+
+  if (typeof value !== 'object') {
+    return value;
+  }
+
+  const proto = Object.getPrototypeOf(value);
+  const isPlainObject = proto === Object.prototype || proto === null;
+  if (!isPlainObject) {
+    return value;
+  }
+
+  const cleaned: Record<string, unknown> = {};
+  Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+    if (val === undefined) return;
+    const sanitized = sanitizeForFirestore(val);
+    if (sanitized !== undefined) {
+      cleaned[key] = sanitized;
+    }
+  });
+
+  return cleaned as T;
+}
+
+function hasKeys(value?: Record<string, unknown>): boolean {
+  return !!value && Object.keys(value).length > 0;
+}
+
 /**
  * Log a user activity
  */
@@ -55,16 +92,26 @@ export async function logActivity(
 
     const activityId = `${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    const activity: ActivityLog = {
+    const sanitizedEventData = sanitizeForFirestore(eventData) as ActivityLog['eventData'];
+    const sanitizedUserMetadata = sanitizeForFirestore(userMetadata) as ActivityLog['userMetadata'] | undefined;
+    const sanitizedDeviceInfo = sanitizeForFirestore(deviceInfo) as ActivityLog['deviceInfo'] | undefined;
+
+    const activity: Record<string, unknown> = {
       id: activityId,
       userId,
       eventType: normalizeEventType(eventType),
       rawEventType: eventType,
-      eventData,
-      userMetadata,
+      eventData: sanitizedEventData,
       timestamp: Timestamp.now(),
-      deviceInfo,
     };
+
+    if (hasKeys(sanitizedUserMetadata as Record<string, unknown> | undefined)) {
+      activity.userMetadata = sanitizedUserMetadata;
+    }
+
+    if (hasKeys(sanitizedDeviceInfo as Record<string, unknown> | undefined)) {
+      activity.deviceInfo = sanitizedDeviceInfo;
+    }
 
     await setDoc(doc(db, COLLECTIONS.ACTIVITY_LOGS, activityId), activity);
   } catch (error) {

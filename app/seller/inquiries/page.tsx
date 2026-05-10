@@ -1,80 +1,65 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-
-interface Inquiry {
-  id: string;
-  inquiryNumber: string;
-  buyer: string;
-  product: string;
-  quantity: string;
-  budget: number;
-  deliveryDate: string;
-  status: 'new' | 'quoted' | 'accepted' | 'rejected';
-  message?: string;
-  receivedDate: string;
-}
+import { useAuth } from '@/lib/auth/authContext';
+import { ToastContainer, useToastNotifications } from '@/lib/ui/loadingStates';
+import { createNotification } from '@/lib/services/notificationService';
+import {
+  InquiryRecord,
+  InquiryStatus,
+  subscribeSellerInquiries,
+  updateInquiryStatus,
+} from '@/lib/services/inquiryService';
 
 export default function SellerInquiriesPage() {
   const router = useRouter();
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [inquiries, setInquiries] = useState<Inquiry[]>([
-    {
-      id: '1',
-      inquiryNumber: 'INQ-2026-0521',
-      buyer: 'Lagos Wholesale Foods',
-      product: 'Premium Milled Rice',
-      quantity: '100 bags (25kg each)',
-      budget: 1200000,
-      deliveryDate: 'Apr 5, 2026',
-      status: 'new',
-      message:
-        'Need high-quality rice with fast delivery. Want to establish long-term supply relationship.',
-      receivedDate: 'Mar 21, 2026',
-    },
-    {
-      id: '2',
-      inquiryNumber: 'INQ-2026-0520',
-      buyer: 'Artisan Food Co',
-      product: 'Organic Cocoa Powder',
-      quantity: '50 kg',
-      budget: 210000,
-      deliveryDate: 'Apr 10, 2026',
-      status: 'quoted',
-      receivedDate: 'Mar 20, 2026',
-    },
-    {
-      id: '3',
-      inquiryNumber: 'INQ-2026-0519',
-      buyer: 'Community Store Network',
-      product: 'Fresh Ginger Root',
-      quantity: '200 kg',
-      budget: 700000,
-      deliveryDate: 'Apr 1, 2026',
-      status: 'accepted',
-      receivedDate: 'Mar 19, 2026',
-    },
-    {
-      id: '4',
-      inquiryNumber: 'INQ-2026-0518',
-      buyer: 'Organic Wellness Ltd',
-      product: 'Pure Shea Butter',
-      quantity: '100 liters',
-      budget: 680000,
-      deliveryDate: 'Apr 8, 2026',
-      status: 'rejected',
-      receivedDate: 'Mar 18, 2026',
-    },
-  ]);
+  const { user, loading, currentRole } = useAuth();
 
-  const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'quoted' | 'accepted'>('all');
+  const [inquiries, setInquiries] = useState<InquiryRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedInquiry, setSelectedInquiry] = useState<InquiryRecord | null>(null);
   const [quoteAmount, setQuoteAmount] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const toast = useToastNotifications();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/welcome');
+      return;
+    }
+
+    if (!loading && currentRole !== 'seller') {
+      router.push('/home');
+      return;
+    }
+
+    if (!user?.uid || currentRole !== 'seller') return;
+
+    setIsLoading(true);
+    setError(null);
+
+    const unsubscribe = subscribeSellerInquiries(
+      user.uid,
+      (rows) => {
+        setInquiries(rows);
+        setIsLoading(false);
+      },
+      (err) => {
+        console.error('Error loading inquiries:', err);
+        setError('Failed to load inquiries in real time');
+        setInquiries([]);
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [loading, user, currentRole]);
 
   const filteredInquiries =
-    filterStatus === 'all'
-      ? inquiries
-      : inquiries.filter((i) => i.status === filterStatus);
+    filterStatus === 'all' ? inquiries : inquiries.filter((i) => i.status === filterStatus);
 
   const stats = {
     total: inquiries.length,
@@ -83,7 +68,7 @@ export default function SellerInquiriesPage() {
     accepted: inquiries.filter((i) => i.status === 'accepted').length,
   };
 
-  const getStatusColor = (status: Inquiry['status']) => {
+  const getStatusColor = (status: InquiryRecord['status']) => {
     switch (status) {
       case 'new':
         return 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200';
@@ -92,94 +77,134 @@ export default function SellerInquiriesPage() {
       case 'accepted':
         return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200';
       case 'rejected':
+      default:
         return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
     }
   };
 
-  const submitQuote = (inquiryId: string) => {
-    if (!quoteAmount) {
-      alert('Please enter a quote amount');
+  const formatDate = (seconds?: number) => {
+    if (!seconds) return 'Just now';
+    return new Date(seconds * 1000).toLocaleString();
+  };
+
+  const updateStatus = async (inquiry: InquiryRecord, status: InquiryStatus) => {
+    try {
+      setIsSaving(true);
+      await updateInquiryStatus(inquiry.id, status);
+
+      await createNotification(inquiry.buyerId, {
+        title: `Inquiry update: ${inquiry.productName}`,
+        message: `Your inquiry ${inquiry.inquiryNumber} is now ${status}.`,
+        type: 'message',
+        read: false,
+        data: {
+          inquiryId: inquiry.id,
+          productId: inquiry.productId,
+          link: '/inquiries',
+        },
+      });
+
+      setSelectedInquiry(null);
+      toast.success(`Inquiry marked as ${status}`);
+    } catch (err) {
+      console.error('Error updating inquiry status:', err);
+      toast.error('Failed to update inquiry status');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const submitQuote = async () => {
+    if (!selectedInquiry) return;
+
+    const parsed = Number(quoteAmount);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      toast.warning('Please enter a valid quote amount');
       return;
     }
 
-    setInquiries((prev) =>
-      prev.map((i) =>
-        i.id === inquiryId ? { ...i, status: 'quoted' as const } : i
-      )
-    );
+    try {
+      setIsSaving(true);
+      await updateInquiryStatus(selectedInquiry.id, 'quoted', parsed);
 
-    setSelectedInquiry(null);
-    setQuoteAmount('');
-    alert('Quote submitted successfully!');
+      await createNotification(selectedInquiry.buyerId, {
+        title: `Quote received: ${selectedInquiry.productName}`,
+        message: `Seller quoted ₦${parsed.toLocaleString()} for inquiry ${selectedInquiry.inquiryNumber}.`,
+        type: 'message',
+        read: false,
+        data: {
+          inquiryId: selectedInquiry.id,
+          productId: selectedInquiry.productId,
+          link: '/inquiries',
+        },
+      });
+
+      setSelectedInquiry(null);
+      setQuoteAmount('');
+      toast.success('Quote sent successfully');
+    } catch (err) {
+      console.error('Error sending quote:', err);
+      toast.error('Failed to send quote');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const updateInquiryStatus = (inquiryId: string, status: Inquiry['status']) => {
-    setInquiries((prev) =>
-      prev.map((i) => (i.id === inquiryId ? { ...i, status } : i))
+  if (loading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600 dark:text-gray-300">Loading inquiries...</div>
+      </div>
     );
-    setSelectedInquiry(null);
-  };
+  }
+
+  if (!user || currentRole !== 'seller') {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="text-2xl hover:text-blue-600"
-          >
+          <button onClick={() => router.back()} className="text-2xl hover:text-blue-600">
             ←
           </button>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-              💬 Bulk Inquiries
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Respond to bulk purchase requests from buyers
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">💬 Bulk Inquiries</h1>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">Respond to real buyer inquiry and chat requests</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Stats */}
+        {error ? (
+          <div className="rounded-lg bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200 p-4">{error}</div>
+        ) : null}
+
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border-l-4 border-blue-500">
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">Total Inquiries</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {stats.total}
-            </p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
           </div>
-
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border-l-4 border-red-500">
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">New</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {stats.new}
-            </p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.new}</p>
           </div>
-
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border-l-4 border-yellow-500">
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">Quoted</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {stats.quoted}
-            </p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.quoted}</p>
           </div>
-
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border-l-4 border-green-500">
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">Accepted</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              {stats.accepted}
-            </p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.accepted}</p>
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex gap-2 flex-wrap">
           {['all', 'new', 'quoted', 'accepted'].map((status) => (
             <button
               key={status}
-              onClick={() => setFilterStatus(status)}
+              onClick={() => setFilterStatus(status as 'all' | 'new' | 'quoted' | 'accepted')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 filterStatus === status
                   ? 'bg-blue-600 text-white'
@@ -191,167 +216,116 @@ export default function SellerInquiriesPage() {
           ))}
         </div>
 
-        {/* Inquiries List */}
-        <div className="space-y-4">
-          {filteredInquiries.map((inquiry) => (
-            <div
-              key={inquiry.id}
-              className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
-                <div>
-                  <p className="font-bold text-gray-900 dark:text-white">
-                    {inquiry.inquiryNumber}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {inquiry.buyer} • {inquiry.receivedDate}
-                  </p>
+        {filteredInquiries.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center text-gray-600 dark:text-gray-300">
+            No inquiries yet.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredInquiries.map((inquiry) => (
+              <div key={inquiry.id} className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
+                  <div>
+                    <p className="font-bold text-gray-900 dark:text-white">{inquiry.inquiryNumber}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {inquiry.buyerName} • {formatDate(inquiry.createdAt?.seconds)}
+                    </p>
+                  </div>
+                  <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(inquiry.status)}`}>
+                    {inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
+                  </span>
                 </div>
 
-                <span
-                  className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(
-                    inquiry.status
-                  )}`}
-                >
-                  {inquiry.status.charAt(0).toUpperCase() +
-                    inquiry.status.slice(1)}
-                </span>
-              </div>
-
-              {/* Inquiry Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Product</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {inquiry.product}
-                  </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Product</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{inquiry.productName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Type</p>
+                    <p className="font-medium text-gray-900 dark:text-white capitalize">{inquiry.kind}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Quantity Requested</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{inquiry.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Budget</p>
+                    <p className="font-medium text-gray-900 dark:text-white">₦{inquiry.budget.toLocaleString()}</p>
+                  </div>
                 </div>
 
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Quantity Requested
-                  </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {inquiry.quantity}
-                  </p>
-                </div>
+                {inquiry.message ? (
+                  <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">"{inquiry.message}"</p>
+                  </div>
+                ) : null}
 
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Budget
-                  </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    ₦{inquiry.budget.toLocaleString()}
-                  </p>
-                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {inquiry.status === 'new' ? (
+                    <>
+                      <button
+                        onClick={() => setSelectedInquiry(inquiry)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
+                      >
+                        Send Quote
+                      </button>
+                      <button
+                        onClick={() => updateStatus(inquiry, 'rejected')}
+                        disabled={isSaving}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-60"
+                      >
+                        Cannot Fulfill
+                      </button>
+                    </>
+                  ) : null}
 
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Needed By
-                  </p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {inquiry.deliveryDate}
-                  </p>
-                </div>
-              </div>
-
-              {inquiry.message && (
-                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    "{inquiry.message}"
-                  </p>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 flex-wrap">
-                {inquiry.status === 'new' && (
-                  <>
+                  {inquiry.status === 'quoted' ? (
                     <button
-                      onClick={() => setSelectedInquiry(inquiry)}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
-                    >
-                      Send Quote
-                    </button>
-                    <button
-                      onClick={() =>
-                        updateInquiryStatus(inquiry.id, 'rejected')
-                      }
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      Cannot Fulfill
-                    </button>
-                  </>
-                )}
-
-                {inquiry.status === 'quoted' && (
-                  <>
-                    <button
-                      onClick={() =>
-                        updateInquiryStatus(inquiry.id, 'accepted')
-                      }
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+                      onClick={() => updateStatus(inquiry, 'accepted')}
+                      disabled={isSaving}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium disabled:opacity-60"
                     >
                       Confirm Order
                     </button>
-                    <button
-                      onClick={() => setSelectedInquiry(inquiry)}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
-                    >
-                      Edit Quote
-                    </button>
-                  </>
-                )}
+                  ) : null}
 
-                <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700">
-                  Contact Buyer →
-                </button>
+                  <button
+                    onClick={() => router.push('/notifications')}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Contact Buyer →
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Quote Modal */}
-      {selectedInquiry && (
+      {selectedInquiry ? (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              Send Quote
-            </h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Send Quote</h3>
 
             <div className="space-y-4">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Inquiry
-                </p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedInquiry.inquiryNumber}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Inquiry</p>
+                <p className="font-medium text-gray-900 dark:text-white">{selectedInquiry.inquiryNumber}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Product
-                </p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedInquiry.product}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Product</p>
+                <p className="font-medium text-gray-900 dark:text-white">{selectedInquiry.productName}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  Quantity
-                </p>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {selectedInquiry.quantity}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Quantity</p>
+                <p className="font-medium text-gray-900 dark:text-white">{selectedInquiry.quantity}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Your Quote Price (₦) *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Your Quote Price (₦) *</label>
                 <input
                   type="number"
                   value={quoteAmount}
@@ -359,13 +333,6 @@ export default function SellerInquiriesPage() {
                   placeholder="Enter your total price"
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
                 />
-              </div>
-
-              <div className="p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Tip:</strong> Include all costs (production, packaging,
-                  delivery). Competitive quotes are more likely to be accepted.
-                </p>
               </div>
             </div>
 
@@ -380,15 +347,18 @@ export default function SellerInquiriesPage() {
                 Cancel
               </button>
               <button
-                onClick={() => submitQuote(selectedInquiry.id)}
-                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                onClick={submitQuote}
+                disabled={isSaving}
+                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-60"
               >
-                Send Quote
+                {isSaving ? 'Sending...' : 'Send Quote'}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
+
+      <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
     </div>
   );
 }

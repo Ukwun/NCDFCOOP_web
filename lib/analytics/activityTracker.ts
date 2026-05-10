@@ -17,6 +17,39 @@ export interface ActivityLog {
   ip?: string;
 }
 
+function sanitizeForFirestore<T>(value: T): T {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeForFirestore(item))
+      .filter((item) => item !== undefined) as unknown as T;
+  }
+
+  if (typeof value !== 'object') {
+    return value;
+  }
+
+  const proto = Object.getPrototypeOf(value);
+  const isPlainObject = proto === Object.prototype || proto === null;
+  if (!isPlainObject) {
+    return value;
+  }
+
+  const cleaned: Record<string, unknown> = {};
+  Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+    if (val === undefined) return;
+    const sanitized = sanitizeForFirestore(val);
+    if (sanitized !== undefined) {
+      cleaned[key] = sanitized;
+    }
+  });
+
+  return cleaned as T;
+}
+
 /**
  * Track user activity in Firestore
  */
@@ -35,7 +68,7 @@ export async function trackActivity(action: string, details: Record<string, any>
 
     const activity: ActivityLog = {
       action: normalizeEventType(action),
-      details,
+      details: sanitizeForFirestore(details),
       timestamp: Timestamp.now(),
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
     };
@@ -44,7 +77,8 @@ export async function trackActivity(action: string, details: Record<string, any>
       activity.userId = userId;
     }
 
-    await addDoc(collection(db, COLLECTIONS.ACTIVITY_LOGS), activity);
+    const sanitizedActivity = sanitizeForFirestore(activity);
+    await addDoc(collection(db, COLLECTIONS.ACTIVITY_LOGS), sanitizedActivity);
   } catch (error) {
     console.warn('Activity tracking error:', error);
     // Don't throw - tracking failures shouldn't break the app

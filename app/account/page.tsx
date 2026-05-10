@@ -114,6 +114,28 @@ export default function AccountPage() {
               </button>
               <button
                 className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                onClick={() => router.push('/inquiries')}
+              >
+                💬 Inquiry History
+              </button>
+              {currentRole === USER_ROLES.MEMBER && (
+                <button
+                  className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                  onClick={() => router.push('/member/analytics')}
+                >
+                  📊 My Analytics
+                </button>
+              )}
+              {(currentRole === USER_ROLES.ADMIN || currentRole === USER_ROLES.STAFF || currentRole === USER_ROLES.OPERATOR) && (
+                <button
+                  className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                  onClick={() => router.push('/analytics')}
+                >
+                  📈 Operations Analytics
+                </button>
+              )}
+              <button
+                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                 onClick={() => router.push('/settings')}
               >
                 ⚙️ Settings

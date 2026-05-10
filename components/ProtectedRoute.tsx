@@ -19,23 +19,25 @@ export function ProtectedRoute({
   const router = useRouter();
   const { user, loading, onboardingCompleted, roleSelectionComplete } = useAuth();
 
+  const nextRoute = !loading
+    ? getNextRoute(user, onboardingCompleted, roleSelectionComplete, currentPath)
+    : null;
+  const hasRoleAccess = !requiredRoles || hasRequiredRole(user?.roles || [], requiredRoles);
+
   useEffect(() => {
     if (loading) return;
 
     // Check if user needs to complete workflow steps
-    const nextRoute = getNextRoute(user, onboardingCompleted, roleSelectionComplete, currentPath);
     if (nextRoute) {
       router.push(nextRoute);
       return;
     }
 
     // Check if user has required role for this route
-    if (requiredRoles && user?.roles) {
-      if (!hasRequiredRole(user.roles, requiredRoles)) {
-        router.push('/access-denied');
-      }
+    if (!hasRoleAccess) {
+      router.push('/access-denied');
     }
-  }, [user, loading, onboardingCompleted, roleSelectionComplete, requiredRoles, currentPath, router]);
+  }, [loading, nextRoute, hasRoleAccess, router]);
 
   if (loading) {
     return (
@@ -49,6 +51,10 @@ export function ProtectedRoute({
 
   if (!user) {
     return null; // Will redirect in useEffect
+  }
+
+  if (nextRoute || !hasRoleAccess) {
+    return null; // Do not mount protected children while redirecting
   }
 
   return <>{children}</>;

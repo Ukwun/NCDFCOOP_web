@@ -130,7 +130,7 @@ export class RecommendationEngine {
       cutoffDate.setDate(cutoffDate.getDate() - timeWindowDays);
       const cutoffTs = Timestamp.fromDate(cutoffDate);
 
-      const q = query(
+      const indexedQuery = query(
         collection(db, COLLECTIONS.ACTIVITY_LOGS),
         where('activityType', '==', 'purchase_complete'),
         where('timestamp', '>=', cutoffTs),
@@ -138,8 +138,27 @@ export class RecommendationEngine {
         limit(10000)
       );
 
-      const snapshot = await getDocs(q);
-      const activities = snapshot.docs.map((doc) => doc.data());
+      let activities: any[] = [];
+      try {
+        const snapshot = await getDocs(indexedQuery);
+        activities = snapshot.docs.map((doc) => doc.data());
+      } catch (error) {
+        if (!this.isMissingIndexError(error)) {
+          throw error;
+        }
+
+        const fallbackQuery = query(
+          collection(db, COLLECTIONS.ACTIVITY_LOGS),
+          where('activityType', '==', 'purchase_complete'),
+          limit(10000)
+        );
+
+        const snapshot = await getDocs(fallbackQuery);
+        activities = snapshot.docs
+          .map((doc) => doc.data())
+          .filter((activity: any) => this.toTimestampMs(activity?.timestamp) >= cutoffTs.toMillis())
+          .sort((a: any, b: any) => this.toTimestampMs(b?.timestamp) - this.toTimestampMs(a?.timestamp));
+      }
 
       // Count purchases by product
       const productPurchaseCount: Record<string, any> = {};

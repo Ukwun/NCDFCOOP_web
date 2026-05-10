@@ -7,6 +7,11 @@ import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { useFavorites, useActivityTracking } from '@/lib/hooks';
 import { useAuth } from '@/lib/auth/authContext';
 import { Heart } from 'lucide-react';
+import {
+  ownershipBadgeClasses,
+  ownershipLabel,
+  resolveProductOwnership,
+} from '@/lib/utils/productOwnership';
 
 interface ProductCardProps {
   product: Product;
@@ -34,6 +39,7 @@ export default function ProductCard({
   const discountedPrice = product.price || 0;
   const originalPrice = product.originalPrice || 0;
   const discountValue = originalPrice - (product.price || 0);
+  const ownershipType = resolveProductOwnership(product);
 
   const handleAddToCart = async () => {
     if (!onAddToCart) return;
@@ -116,16 +122,21 @@ export default function ProductCard({
 
       {/* Content */}
       <div className="p-4 flex flex-col flex-grow">
-        {/* Seller Name with Logo */}
-        <div
-          className="text-xs font-semibold mb-2 px-2 py-1 inline-flex items-center gap-1 rounded-full"
-          style={{
-            backgroundColor: '#F0F0F0',
-            color: AppColors.textSecondary,
-          }}
-        >
-          <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="inline h-4 w-auto align-middle mr-1" style={{marginRight: '4px'}} />
-          {product.sellerName}
+        {/* Ownership + Seller */}
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${ownershipBadgeClasses(ownershipType)}`}>
+            {ownershipLabel(ownershipType)}
+          </div>
+          <div
+            className="text-xs font-semibold px-2 py-1 inline-flex items-center gap-1 rounded-full"
+            style={{
+              backgroundColor: '#F0F0F0',
+              color: AppColors.textSecondary,
+            }}
+          >
+            <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="inline h-4 w-auto align-middle mr-1" style={{marginRight: '4px'}} />
+            {product.sellerName || 'NCDFCOOP'}
+          </div>
         </div>
 
         {/* Product Name */}
@@ -292,10 +303,10 @@ export default function ProductCard({
                 await toggleFavorite(product.id, {
                   productName: product.name,
                   productPrice: discountedPrice,
-                  productImage: product.thumbnail || product.images[0],
-                  productCategory: product.category,
-                  sellerId: product.sellerId,
-                  sellerName: product.sellerName,
+                  productImage: product.thumbnail || product.images?.[0] || '',
+                  productCategory: product.category || 'general',
+                  sellerId: product.sellerId || 'unknown-seller',
+                  sellerName: product.sellerName || 'Unknown Seller',
                 });
               }
             }}

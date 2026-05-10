@@ -14,13 +14,15 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useIntelligentTracking } from '@/lib/hooks/useIntelligentTracking';
 import {
   ConversionMetrics,
   CartAbandonmentMetrics,
   ProductPopularity,
   PeakHours,
+  IntentLayerTelemetryBreakdown,
+  IntentLayerRoleStats,
 } from '@/lib/services/analyticsService';
 import { DetectedIssue } from '@/lib/services/issueDetectionService';
 
@@ -41,6 +43,9 @@ export function AnalyticsDashboard({
   const [topProducts, setTopProducts] = useState<ProductPopularity[]>([]);
   const [peakHours, setPeakHours] = useState<PeakHours[]>([]);
   const [issues, setIssues] = useState<DetectedIssue[]>([]);
+  const [intentTelemetry, setIntentTelemetry] = useState<IntentLayerTelemetryBreakdown | null>(null);
+  const [intentRoleFilter, setIntentRoleFilter] = useState<'all' | 'member' | 'institutional_buyer' | 'seller'>('all');
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Hooks
@@ -50,6 +55,7 @@ export function AnalyticsDashboard({
     getProductPopularity,
     getPeakHours,
     detectAllIssues,
+    getIntentLayerTelemetry,
   } = useIntelligentTracking({
     enableAnalytics: true,
   });
@@ -86,13 +92,14 @@ export function AnalyticsDashboard({
       setLoading(true);
       const { startDate, endDate } = getDateRange();
 
-      const [metrics, cartAbandon, products, hours, detectedIssues] =
+      const [metrics, cartAbandon, products, hours, detectedIssues, intentBreakdown] =
         await Promise.all([
           getConversionMetrics(startDate, endDate),
           getCartAbandonmentMetrics(startDate, endDate),
           getProductPopularity('purchases', 10),
           getPeakHours(startDate, endDate),
           detectAllIssues(startDate, endDate),
+          getIntentLayerTelemetry(startDate, endDate, 10),
         ]);
 
       setConversionMetrics(metrics);
@@ -100,6 +107,8 @@ export function AnalyticsDashboard({
       setTopProducts(products);
       setPeakHours(hours);
       setIssues(detectedIssues);
+      setIntentTelemetry(intentBreakdown);
+      setLastUpdatedAt(new Date());
     } catch (error) {
       console.error('Error loading analytics:', error);
     } finally {
@@ -117,6 +126,60 @@ export function AnalyticsDashboard({
 
     return () => clearInterval(interval);
   }, [timeRange, refreshInterval]);
+
+  const roleButtonClass = (role: 'all' | 'member' | 'institutional_buyer' | 'seller') => {
+    const isActive = intentRoleFilter === role;
+    return `px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+      isActive
+        ? 'bg-indigo-600 text-white'
+        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+    }`;
+  };
+
+  const roleDisplayName = (role: string) => {
+    if (role === 'institutional_buyer') return 'Wholesale';
+    if (role === 'member') return 'Member';
+    if (role === 'seller') return 'Seller';
+    return role;
+  };
+
+  const filteredRoleStats = useMemo(() => {
+    const rows = intentTelemetry?.roleStats || [];
+    if (intentRoleFilter === 'all') return rows;
+    return rows.filter((row) => row.role === intentRoleFilter);
+  }, [intentRoleFilter, intentTelemetry?.roleStats]);
+
+  const filteredTopIntents = useMemo(() => {
+    const rows = intentTelemetry?.topIntents || [];
+    if (intentRoleFilter === 'all') return rows;
+    return rows.filter((row) => row.role === intentRoleFilter);
+  }, [intentRoleFilter, intentTelemetry?.topIntents]);
+
+  const filteredFunnel = useMemo(() => {
+    if (intentRoleFilter === 'all') {
+      return intentTelemetry?.funnel || {
+        typedCount: 0,
+        clickedCount: 0,
+        landedCount: 0,
+        typedToClickedRate: 0,
+        clickedToLandedRate: 0,
+        typedToLandedRate: 0,
+      };
+    }
+
+    const roleRow = (intentTelemetry?.roleStats || []).find(
+      (row) => row.role === intentRoleFilter
+    ) as IntentLayerRoleStats | undefined;
+
+    return {
+      typedCount: roleRow?.typedCount || 0,
+      clickedCount: roleRow?.clickedCount || 0,
+      landedCount: roleRow?.landedCount || 0,
+      typedToClickedRate: roleRow?.typedToClickedRate || 0,
+      clickedToLandedRate: roleRow?.clickedToLandedRate || 0,
+      typedToLandedRate: roleRow?.typedToLandedRate || 0,
+    };
+  }, [intentRoleFilter, intentTelemetry?.funnel, intentTelemetry?.roleStats]);
 
   if (loading && !conversionMetrics) {
     return (
@@ -200,6 +263,147 @@ export function AnalyticsDashboard({
           </div>
           <p className="text-xs text-gray-500 mt-2">
             Based on abandoned carts
+          </p>
+        </div>
+      </div>
+
+      {/* Intent Layer Telemetry */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">
+              Intent Layer Telemetry
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Tracks search intent interactions across roles from typed to click to landed destination.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIntentRoleFilter('all')}
+              className={roleButtonClass('all')}
+            >
+              All Roles
+            </button>
+            <button
+              type="button"
+              onClick={() => setIntentRoleFilter('member')}
+              className={roleButtonClass('member')}
+            >
+              Member
+            </button>
+            <button
+              type="button"
+              onClick={() => setIntentRoleFilter('institutional_buyer')}
+              className={roleButtonClass('institutional_buyer')}
+            >
+              Wholesale
+            </button>
+            <button
+              type="button"
+              onClick={() => setIntentRoleFilter('seller')}
+              className={roleButtonClass('seller')}
+            >
+              Seller
+            </button>
+            <button
+              type="button"
+              onClick={loadData}
+              className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+              disabled={loading}
+            >
+              {loading ? 'Refreshing...' : 'Refresh Now'}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+              <p className="text-xs uppercase text-indigo-700 font-semibold tracking-wide">Typed</p>
+              <p className="text-2xl font-bold text-indigo-900 mt-1">{filteredFunnel.typedCount}</p>
+            </div>
+            <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+              <p className="text-xs uppercase text-amber-700 font-semibold tracking-wide">Clicked</p>
+              <p className="text-2xl font-bold text-amber-900 mt-1">{filteredFunnel.clickedCount}</p>
+              <p className="text-xs text-amber-700 mt-1">{filteredFunnel.typedToClickedRate.toFixed(1)}% from typed</p>
+            </div>
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-xs uppercase text-emerald-700 font-semibold tracking-wide">Landed</p>
+              <p className="text-2xl font-bold text-emerald-900 mt-1">{filteredFunnel.landedCount}</p>
+              <p className="text-xs text-emerald-700 mt-1">{filteredFunnel.clickedToLandedRate.toFixed(1)}% from clicked</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Typed</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Clicked</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Landed</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Typed→Clicked</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Clicked→Landed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRoleStats.map((row) => (
+                  <tr key={row.role} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{roleDisplayName(row.role)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{row.typedCount}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{row.clickedCount}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{row.landedCount}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{row.typedToClickedRate.toFixed(1)}%</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{row.clickedToLandedRate.toFixed(1)}%</td>
+                  </tr>
+                ))}
+                {filteredRoleStats.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-500">
+                      No role telemetry available for the selected filter.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Intent</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Clicks</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Landings</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Intent Conversion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTopIntents.map((intent) => (
+                  <tr key={`${intent.role}-${intent.intentId}`} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{intent.intentLabel}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{roleDisplayName(intent.role)}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{intent.clicks}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{intent.landings}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{intent.conversionRate.toFixed(1)}%</td>
+                  </tr>
+                ))}
+                {filteredTopIntents.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
+                      No intent click telemetry captured yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Total intent telemetry events: {intentTelemetry?.totalTrackedEvents || 0}
           </p>
         </div>
       </div>
@@ -388,7 +592,7 @@ export function AnalyticsDashboard({
 
       {/* Refresh Indicator */}
       <div className="text-center text-xs text-gray-500">
-        Last updated: {new Date().toLocaleTimeString()}
+        Last updated: {(lastUpdatedAt || new Date()).toLocaleTimeString()}
       </div>
     </div>
   );

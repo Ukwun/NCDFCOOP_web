@@ -42,15 +42,22 @@ export async function addToFavorites(
   try {
     const favoriteId = `${userId}_${productId}`;
 
-    const favorite: FavoriteItem = {
+    // Sanitize productData to remove undefined values (Firestore requirement)
+    const sanitizedData: any = {
       id: favoriteId,
       userId,
       productId,
       addedAt: Timestamp.now(),
-      ...productData,
     };
 
-    await setDoc(doc(db, COLLECTIONS.FAVORITES, favoriteId), favorite);
+    // Only include defined fields
+    Object.entries(productData).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        sanitizedData[key] = value;
+      }
+    });
+
+    await setDoc(doc(db, COLLECTIONS.FAVORITES, favoriteId), sanitizedData);
   } catch (error) {
     console.error('Error adding to favorites:', error);
     throw error;

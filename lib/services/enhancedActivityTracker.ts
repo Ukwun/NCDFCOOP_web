@@ -129,6 +129,39 @@ export interface EnhancedActivityLog {
   };
 }
 
+function sanitizeForFirestore<T>(value: T): T {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => sanitizeForFirestore(item))
+      .filter((item) => item !== undefined) as unknown as T;
+  }
+
+  if (typeof value !== 'object') {
+    return value;
+  }
+
+  const proto = Object.getPrototypeOf(value);
+  const isPlainObject = proto === Object.prototype || proto === null;
+  if (!isPlainObject) {
+    return value;
+  }
+
+  const cleaned: Record<string, unknown> = {};
+  Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+    if (val === undefined) return;
+    const sanitized = sanitizeForFirestore(val);
+    if (sanitized !== undefined) {
+      cleaned[key] = sanitized;
+    }
+  });
+
+  return cleaned as T;
+}
+
 /**
  * Enhanced activity tracker class with comprehensive metrics collection
  */
@@ -662,7 +695,8 @@ export class EnhancedActivityTracker {
    */
   private async logActivity(activity: Partial<EnhancedActivityLog>) {
     try {
-      await addDoc(collection(db, COLLECTIONS.ACTIVITY_LOGS), activity);
+      const sanitizedActivity = sanitizeForFirestore(activity);
+      await addDoc(collection(db, COLLECTIONS.ACTIVITY_LOGS), sanitizedActivity);
     } catch (error) {
       console.warn('Activity logging failed:', error);
       // Don't break app on logging failures

@@ -48,7 +48,9 @@ export function useIntelligentTracking(
     trackPageView: trackPageViewOnMount = true,
   } = options;
 
-  const { user } = useAuth();
+  const { user, currentRole } = useAuth();
+  const isMemberSession = currentRole === 'member';
+  const scopedUserId = isMemberSession ? user?.uid : undefined;
   const trackerRef = useRef<EnhancedActivityTracker | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -126,33 +128,33 @@ export function useIntelligentTracking(
   const getConversionMetrics = useCallback(
     async (startDate: Date, endDate: Date) => {
       if (!enableAnalytics) return null;
-      return AnalyticsService.getConversionMetrics(startDate, endDate);
+      return AnalyticsService.getConversionMetrics(startDate, endDate, scopedUserId);
     },
-    [enableAnalytics]
+    [enableAnalytics, scopedUserId]
   );
 
   const getCartAbandonmentMetrics = useCallback(
     async (startDate: Date, endDate: Date) => {
       if (!enableAnalytics) return null;
-      return AnalyticsService.getCartAbandonmentMetrics(startDate, endDate);
+      return AnalyticsService.getCartAbandonmentMetrics(startDate, endDate, scopedUserId);
     },
-    [enableAnalytics]
+    [enableAnalytics, scopedUserId]
   );
 
   const getProductPopularity = useCallback(
     async (metric: 'views' | 'cart' | 'purchases' = 'views', topN: number = 20) => {
       if (!enableAnalytics) return [];
-      return AnalyticsService.getProductPopularity(metric, topN);
+      return AnalyticsService.getProductPopularity(metric, topN, scopedUserId);
     },
-    [enableAnalytics]
+    [enableAnalytics, scopedUserId]
   );
 
   const getPeakHours = useCallback(
     async (startDate: Date, endDate: Date) => {
       if (!enableAnalytics) return [];
-      return AnalyticsService.getPeakHours(startDate, endDate);
+      return AnalyticsService.getPeakHours(startDate, endDate, scopedUserId);
     },
-    [enableAnalytics]
+    [enableAnalytics, scopedUserId]
   );
 
   const getUserBehavior = useCallback(
@@ -163,13 +165,22 @@ export function useIntelligentTracking(
     [enableAnalytics]
   );
 
+  const getIntentLayerTelemetry = useCallback(
+    async (startDate: Date, endDate: Date, topN: number = 8) => {
+      if (!enableAnalytics) return null;
+      return AnalyticsService.getIntentLayerTelemetry(startDate, endDate, topN, scopedUserId);
+    },
+    [enableAnalytics, scopedUserId]
+  );
+
   // Issue detection hooks
   const detectAllIssues = useCallback(
     async (startDate: Date, endDate: Date): Promise<DetectedIssue[]> => {
       if (!enableAnalytics) return [];
+      if (isMemberSession) return [];
       return IssueDetectionService.detectAllIssues(startDate, endDate);
     },
-    [enableAnalytics]
+    [enableAnalytics, isMemberSession]
   );
 
   // Direct tracking methods
@@ -408,6 +419,7 @@ export function useIntelligentTracking(
     getProductPopularity,
     getPeakHours,
     getUserBehavior,
+    getIntentLayerTelemetry,
 
     // Issue detection
     detectAllIssues,

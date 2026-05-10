@@ -9,7 +9,7 @@ import ProductCard from './ProductCard';
 import GlobalUtilityLayer from './GlobalUtilityLayer';
 import TrustSignalsStrip from './TrustSignalsStrip';
 
-const WHOLESALE_PRODUCTS = [
+const WHOLESALE_NCDF_DIRECT_PRODUCTS = [
   {
     id: 'wholesale-p1',
     name: 'Bulk Garri Crates',
@@ -21,6 +21,7 @@ const WHOLESALE_PRODUCTS = [
     stock: 120,
     sellerId: 'wholesale-network-1',
     sellerName: 'NCDF Bulk Grain Desk',
+    ownershipType: 'NCDF_DIRECT',
     rating: 4.8,
     reviews: 204,
     images: ['/images/Bag of garri1.png'],
@@ -28,6 +29,28 @@ const WHOLESALE_PRODUCTS = [
     unit: 'crate',
     createdAt: new Date(),
   },
+  {
+    id: 'wholesale-p5',
+    name: 'Institutional Rice Distribution Pack',
+    description: 'Platform-operated rice inventory optimized for compliance and fulfillment.',
+    price: 105000,
+    originalPrice: 124000,
+    discount: 15,
+    category: 'Grains',
+    stock: 145,
+    sellerId: 'ncdf-wholesale-supply',
+    sellerName: 'NCDF Institutional Supply',
+    ownershipType: 'NCDF_DIRECT',
+    rating: 4.9,
+    reviews: 267,
+    images: ['/images/rice-institutional.png'],
+    thumbnail: '/images/rice-institutional.png',
+    unit: 'batch',
+    createdAt: new Date(),
+  },
+];
+
+const WHOLESALE_MARKETPLACE_SELLER_PRODUCTS = [
   {
     id: 'wholesale-p2',
     name: 'Institutional Palm Oil Pack',
@@ -39,6 +62,7 @@ const WHOLESALE_PRODUCTS = [
     stock: 85,
     sellerId: 'wholesale-network-2',
     sellerName: 'Agro Supply Core',
+    ownershipType: 'MARKETPLACE_SELLER',
     rating: 4.7,
     reviews: 158,
     images: ['/images/Palm Oil.png'],
@@ -57,6 +81,7 @@ const WHOLESALE_PRODUCTS = [
     stock: 93,
     sellerId: 'wholesale-network-3',
     sellerName: 'FarmersDirect B2B',
+    ownershipType: 'MARKETPLACE_SELLER',
     rating: 4.6,
     reviews: 117,
     images: ['/images/Cassava Flour.png'],
@@ -75,6 +100,7 @@ const WHOLESALE_PRODUCTS = [
     stock: 64,
     sellerId: 'wholesale-network-4',
     sellerName: 'Protein Logistics Hub',
+    ownershipType: 'MARKETPLACE_SELLER',
     rating: 4.7,
     reviews: 139,
     images: ['/images/Eggs (30pc).png'],
@@ -148,6 +174,39 @@ export default function WholesaleBuyerHomeScreen() {
           </div>
         </section>
 
+        <section className="rounded-2xl border border-[#BFE3CC] dark:border-gray-700 bg-[#EFFAF3] dark:bg-gray-800 p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-[#164A2E] dark:text-[#8FD8AE]">Personalized Discovery</h2>
+              <p className="text-sm text-[#2A6A48] dark:text-gray-300">Institutional-grade discovery feed focused on execution outcomes.</p>
+            </div>
+            <button
+              onClick={() => router.push('/wholesale/orders')}
+              className="px-4 py-2 rounded-lg bg-[#164A2E] hover:bg-[#0F3521] text-white text-sm font-medium"
+            >
+              Open Procurement Flow
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <article className="rounded-xl bg-white dark:bg-gray-900 border border-[#D2EEDB] dark:border-gray-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-[#3D7557] dark:text-gray-400">Institutional Opportunities</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Large-volume opportunities aligned with your procurement priorities.</p>
+              <button onClick={() => router.push('/wholesale/bulk-investments')} className="mt-3 text-sm font-semibold text-[#164A2E] dark:text-[#8FD8AE] hover:underline">View Opportunities</button>
+            </article>
+            <article className="rounded-xl bg-white dark:bg-gray-900 border border-[#D2EEDB] dark:border-gray-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-[#3D7557] dark:text-gray-400">Portfolio Analytics</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Review order-value concentration and category exposure trends.</p>
+              <button onClick={() => router.push('/wholesale/portfolio')} className="mt-3 text-sm font-semibold text-[#164A2E] dark:text-[#8FD8AE] hover:underline">Open Portfolio View</button>
+            </article>
+            <article className="rounded-xl bg-white dark:bg-gray-900 border border-[#D2EEDB] dark:border-gray-700 p-4">
+              <p className="text-xs uppercase tracking-wide text-[#3D7557] dark:text-gray-400">Market Reports</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Signal-rich snapshots of supply, pricing pressure, and fulfillment stability.</p>
+              <button onClick={() => router.push('/wholesale/analytics')} className="mt-3 text-sm font-semibold text-[#164A2E] dark:text-[#8FD8AE] hover:underline">Read Market Reports</button>
+            </article>
+          </div>
+        </section>
+
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <article className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Monthly Procurement</p>
@@ -170,23 +229,64 @@ export default function WholesaleBuyerHomeScreen() {
         <section className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Institutional Supply Picks</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Curated for recurring wholesale demand and operational continuity.</p>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">NCDF Direct Picks</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Platform-operated inventory optimized for institutional procurement and compliance.</p>
             </div>
             <button
               onClick={() => router.push('/wholesale/orders')}
               className="px-4 py-2 rounded-lg bg-[#164A2E] hover:bg-[#0F3521] text-white text-sm font-medium"
             >
-              Open Procurement Queue
+              Open NCDF Wholesale Catalog
             </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {WHOLESALE_PRODUCTS.map((product) => (
+            {WHOLESALE_NCDF_DIRECT_PRODUCTS.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product as any}
-                onViewDetails={(productId) => router.push(`/products/${productId}`)}
+                onViewDetails={() => router.push('/products')}
+                onAddToCart={async (prod, quantity) => {
+                  if (!user) {
+                    router.push('/signin');
+                    return;
+                  }
+
+                  const effectiveQty = Math.max(10, quantity);
+                  await addToCart(
+                    user.uid,
+                    prod.id,
+                    prod.name,
+                    prod.price,
+                    prod.thumbnail || prod.images?.[0] || '',
+                    effectiveQty
+                  );
+                }}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Marketplace Seller Picks</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Vetted marketplace sellers offering competitive wholesale quantities and pricing.</p>
+            </div>
+            <button
+              onClick={() => router.push('/products')}
+              className="px-4 py-2 rounded-lg bg-[#0B6B3A] hover:bg-[#095234] text-white text-sm font-medium"
+            >
+              Open Marketplace
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {WHOLESALE_MARKETPLACE_SELLER_PRODUCTS.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product as any}
+                onViewDetails={() => router.push('/products')}
                 onAddToCart={async (prod, quantity) => {
                   if (!user) {
                     router.push('/signin');

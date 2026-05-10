@@ -29,6 +29,7 @@ export async function createProduct(
     const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), {
       ...productData,
       sellerId,
+      ownershipType: 'seller',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       rating: 0,

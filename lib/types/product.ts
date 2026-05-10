@@ -2,6 +2,8 @@
 
 import { Timestamp } from 'firebase/firestore';
 
+export type ProductOwnershipType = 'ncdf' | 'seller';
+
 export interface Product {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ export interface Product {
   stock: number;
   sellerId: string;
   sellerName?: string;
+  ownershipType?: ProductOwnershipType;
   rating?: number;
   reviews?: number;
   minOrder?: number;

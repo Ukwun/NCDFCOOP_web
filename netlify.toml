@@ -19,11 +19,9 @@
   # Next.js functions configuration
   directory = ".next/server"
 
-# Rewrite rules for Next.js routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[[scheduled_functions]]
+  name = "daily-intelligence"
+  cron = "0 3 * * *"
 
 # Cache settings
 [[headers]]

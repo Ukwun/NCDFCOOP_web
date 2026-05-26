@@ -27,7 +27,7 @@ interface UseFavoritesOptions {
 export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [count, setCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(autoFetch && Boolean(userId));
   const [error, setError] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
@@ -54,7 +54,14 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
 
   // Real-time listener for favorites
   useEffect(() => {
-    if (!userId || !autoFetch) return;
+    if (!userId || !autoFetch) {
+      setFavorites([]);
+      setCount(0);
+      setFavoriteIds(new Set());
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     fetchFavorites();
 

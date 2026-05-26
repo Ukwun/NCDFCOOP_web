@@ -106,7 +106,7 @@ export default function MembershipPaymentPage() {
 
       setSuccess(true);
       closePaymentModal();
-      router.push("/member");
+      router.push("/member/investments");
     } catch {
       setError("Payment was completed, but membership activation failed. Please contact support.");
     } finally {

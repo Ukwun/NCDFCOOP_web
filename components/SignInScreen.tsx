@@ -224,7 +224,7 @@ export default function SignInScreen() {
             </label>
             <button
               type="button"
-              onClick={() => router.push('/forgot-password')}
+              onClick={() => router.push('/auth/forgot-password')}
               disabled={isLoading}
               style={{
                 background: 'none',

@@ -388,7 +388,7 @@ export default function SellerDashboardPage() {
               backgroundColor: AppColors.surface,
               borderColor: AppColors.border,
             }}
-            onClick={() => router.push('/seller/analytics')}
+            onClick={() => router.push('/analytics')}
           >
             <div
               className="p-6 border-b"

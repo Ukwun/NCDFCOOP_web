@@ -48,7 +48,7 @@ export default function MembershipPayment() {
         });
         setSuccess(true);
         closePaymentModal();
-        router.push("/member-home");
+        router.push("/member/investments");
       } catch (err) {
         setError("Failed to activate membership. Please contact support.");
       } finally {

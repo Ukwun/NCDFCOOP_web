@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
 import RoleIntentSearch from '@/components/RoleIntentSearch';
+import { useFavorites } from '@/lib/hooks';
 
 interface NavItem {
   id: string;
@@ -174,21 +175,16 @@ export default function EnhancedNavigation() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [cartCount, setCartCount] = useState(0);
-  const [favoritesCount, setFavoritesCount] = useState(0);
+  const { count: favoritesCount } = useFavorites({ userId: user?.uid || '', autoFetch: !!user?.uid });
 
   useEffect(() => {
     if (!user?.uid || !db) {
       setCartCount(0);
-      setFavoritesCount(0);
       return;
     }
 
     const cartQuery = query(
       collection(db, COLLECTIONS.CART_ITEMS),
-      where('userId', '==', user.uid)
-    );
-    const favoritesQuery = query(
-      collection(db, COLLECTIONS.FAVORITES),
       where('userId', '==', user.uid)
     );
 
@@ -202,19 +198,8 @@ export default function EnhancedNavigation() {
       }
     );
 
-    const unsubscribeFavorites = onSnapshot(
-      favoritesQuery,
-      (snapshot) => {
-        setFavoritesCount(snapshot.size);
-      },
-      () => {
-        setFavoritesCount(0);
-      }
-    );
-
     return () => {
       unsubscribeCart();
-      unsubscribeFavorites();
     };
   }, [user?.uid]);
 

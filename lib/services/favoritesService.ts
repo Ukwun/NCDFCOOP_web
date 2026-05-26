@@ -18,6 +18,15 @@ import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 
 const FAVORITES_STORAGE_PREFIX = 'coop_commerce_favorites_';
+export const FAVORITES_CHANGED_EVENT = 'coop-commerce:favorites-changed';
+
+function notifyFavoritesChanged(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent(FAVORITES_CHANGED_EVENT));
+}
 
 function readBrowserFavorites(userId: string): FavoriteItem[] {
   if (typeof window === 'undefined') {
@@ -99,6 +108,7 @@ export async function addToFavorites(
     });
 
     await setDoc(doc(db, COLLECTIONS.FAVORITES, favoriteId), sanitizedData);
+    notifyFavoritesChanged();
   } catch (error) {
     console.error('Error adding to favorites:', error);
     if (typeof window !== 'undefined') {
@@ -114,6 +124,7 @@ export async function addToFavorites(
         } as FavoriteItem,
         ...existing,
       ]);
+      notifyFavoritesChanged();
       return;
     }
 
@@ -136,6 +147,7 @@ export async function removeFromFavorites(userId: string, productId: string): Pr
 
     const favoriteId = `${userId}_${productId}`;
     await deleteDoc(doc(db, COLLECTIONS.FAVORITES, favoriteId));
+    notifyFavoritesChanged();
   } catch (error) {
     console.error('Error removing from favorites:', error);
     if (typeof window !== 'undefined') {
@@ -143,6 +155,7 @@ export async function removeFromFavorites(userId: string, productId: string): Pr
         userId,
         readBrowserFavorites(userId).filter((item) => item.productId !== productId)
       );
+      notifyFavoritesChanged();
       return;
     }
 
@@ -262,10 +275,12 @@ export async function clearAllFavorites(userId: string): Promise<void> {
         await deleteDoc(doc(db, COLLECTIONS.FAVORITES, favorite.id));
       }
     }
+    notifyFavoritesChanged();
   } catch (error) {
     console.error('Error clearing favorites:', error);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(`${FAVORITES_STORAGE_PREFIX}${userId}`);
+      notifyFavoritesChanged();
       return;
     }
 

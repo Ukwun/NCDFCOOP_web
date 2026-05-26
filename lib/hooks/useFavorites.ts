@@ -16,6 +16,7 @@ import {
   removeFromFavorites,
   clearAllFavorites,
   FavoriteItem,
+  FAVORITES_CHANGED_EVENT,
 } from '@/lib/services';
 
 interface UseFavoritesOptions {
@@ -55,8 +56,9 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
   useEffect(() => {
     if (!userId || !autoFetch) return;
 
+    fetchFavorites();
+
     if (!db) {
-      fetchFavorites();
       return;
     }
 
@@ -89,10 +91,23 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
       setError(null);
     }, (err) => {
       setError('Failed to load favorites');
-      setLoading(false);
+      fetchFavorites();
     });
 
     return () => unsubscribe();
+  }, [userId, autoFetch, fetchFavorites]);
+
+  useEffect(() => {
+    if (!userId || !autoFetch || typeof window === 'undefined') return;
+
+    const handleFavoritesChanged = () => {
+      fetchFavorites();
+    };
+
+    window.addEventListener(FAVORITES_CHANGED_EVENT, handleFavoritesChanged);
+    return () => {
+      window.removeEventListener(FAVORITES_CHANGED_EVENT, handleFavoritesChanged);
+    };
   }, [userId, autoFetch, fetchFavorites]);
 
   const addFavorite = useCallback(

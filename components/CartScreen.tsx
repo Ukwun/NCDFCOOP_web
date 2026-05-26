@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { getUserCart, removeFromCart, updateCartItemQuantity } from '@/lib/services/cartService';
+import { CART_CHANGED_EVENT, getUserCart, removeFromCart, updateCartItemQuantity } from '@/lib/services/cartService';
 import { Cart } from '@/lib/types/product';
 import PaystackPaymentButton from '@/components/PaystackPaymentButton';
 import OptimizedImage from '@/components/OptimizedImage';
@@ -24,16 +24,21 @@ export default function CartScreen() {
 
   // Fetch cart on mount and when user changes
   useEffect(() => {
+    let active = true;
+
     const fetchCart = async () => {
       try {
         setLoading(true);
         setError(null);
         if (user?.uid) {
           const userCart = await getUserCart(user.uid);
-          setCart(userCart);
+          if (active) {
+            setCart(userCart);
+          }
         } else {
           // Use mock data if no user
-          setCart({
+          if (active) {
+            setCart({
             userId: '',
             items: [
               {
@@ -62,13 +67,17 @@ export default function CartScreen() {
             shipping: 500,
             total: 10712.5,
             updatedAt: new Date(),
-          });
+            });
+          }
         }
       } catch (err) {
         console.error('Error fetching cart:', err);
-        setError('Failed to load cart. Please try again.');
+        if (active) {
+          setError('Failed to load cart. Please try again.');
+        }
         // Fallback to mock data
-        setCart({
+        if (active) {
+          setCart({
           userId: user?.uid || '',
           items: [
             {
@@ -97,13 +106,31 @@ export default function CartScreen() {
           shipping: 500,
           total: 10712.5,
           updatedAt: new Date(),
-        });
+          });
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchCart();
+
+    const handleCartChanged = () => {
+      fetchCart();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
+    }
+
+    return () => {
+      active = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+      }
+    };
   }, [user]);
 
   const handleRemoveItem = async (productId: string) => {

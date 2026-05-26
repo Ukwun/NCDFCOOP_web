@@ -33,6 +33,7 @@ import { db } from '@/lib/firebase/config';
 import { useBuyerOrders } from '@/lib/hooks/useBuyerOrders';
 import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { CART_CHANGED_EVENT, getCartItemCount } from '@/lib/services/cartService';
 
 interface FeatureItem {
   id: string;
@@ -160,9 +161,43 @@ export default function WholesaleBuyerProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!user?.uid || !db) {
+    if (!user?.uid) {
       setCartCount(0);
       return;
+    }
+
+    let active = true;
+
+    const refreshCartCount = async () => {
+      try {
+        const count = await getCartItemCount(user.uid);
+        if (active) {
+          setCartCount(count);
+        }
+      } catch {
+        if (active) {
+          setCartCount(0);
+        }
+      }
+    };
+
+    refreshCartCount();
+
+    const handleCartChanged = () => {
+      refreshCartCount();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
+    }
+
+    if (!db) {
+      return () => {
+        active = false;
+        if (typeof window !== 'undefined') {
+          window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+        }
+      };
     }
 
     const cartQuery = query(
@@ -176,11 +211,17 @@ export default function WholesaleBuyerProfilePage() {
         setCartCount(snapshot.size);
       },
       () => {
-        setCartCount(0);
+        refreshCartCount();
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+      }
+    };
   }, [user?.uid]);
 
   const unreadMessages = liveData.unreadNotificationCount + liveData.unreadAlertCount;

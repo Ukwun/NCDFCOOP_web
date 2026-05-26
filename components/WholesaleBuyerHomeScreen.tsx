@@ -6,7 +6,7 @@ import { Bell, Boxes, ChartBar, ChevronRight, CircleCheck, Filter, Minus, Plus, 
 import { useAuth } from '@/lib/auth/authContext';
 import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
 import { useBuyerOrders } from '@/lib/hooks/useBuyerOrders';
-import { addToCart, getUserCart } from '@/lib/services/cartService';
+import { addToCart, CART_CHANGED_EVENT, getUserCart } from '@/lib/services/cartService';
 
 interface WholesaleProduct {
   id: string;
@@ -158,10 +158,30 @@ export default function WholesaleBuyerHomeScreen() {
 
   useEffect(() => {
     refreshCartSummary();
-    if (!user?.uid) return;
+
+    const handleCartChanged = () => {
+      refreshCartSummary();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
+    }
+
+    if (!user?.uid) {
+      return () => {
+        if (typeof window !== 'undefined') {
+          window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+        }
+      };
+    }
 
     const interval = setInterval(refreshCartSummary, 15000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+      }
+    };
   }, [user?.uid]);
 
   const categories = useMemo(() => {

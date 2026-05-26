@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
-import { FlutterwaveButton, closePaymentModal } from "flutterwave-react-v3";
+import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 
@@ -21,7 +21,7 @@ export default function MembershipPayment() {
   }
 
   const config = {
-    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_KEY,
+    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || process.env.NEXT_PUBLIC_FLUTTERWAVE_KEY,
     tx_ref: `NCDFCOOP_MEMBERSHIP_${user.uid}_${Date.now()}`,
     amount: 5000, // Membership fee (₦5,000 as example)
     currency: "NGN",
@@ -66,7 +66,7 @@ export default function MembershipPayment() {
       {success ? (
         <div className="text-green-600 font-semibold">Membership activated! Welcome to NCDFCOOP 🎉</div>
       ) : (
-        <FlutterwaveButton
+        <FlutterWaveButton
           {...config}
           text={loading ? "Processing..." : "Pay ₦5,000 to Join"}
           disabled={loading}

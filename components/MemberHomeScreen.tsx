@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useMemberData } from '@/lib/hooks/useMemberData';
 import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
@@ -13,6 +15,73 @@ import GlobalUtilityLayer from '@/components/GlobalUtilityLayer';
 import TrustSignalsStrip from './TrustSignalsStrip';
 import { resolveProductOwnership } from '@/lib/utils/productOwnership';
 
+function fallbackImageForCategory(category?: string): string {
+  const key = (category || '').toLowerCase();
+  if (key.includes('vegetable')) return '/images/Tomatoes1.png';
+  if (key.includes('grain')) return '/images/Buck wheat1.png';
+  if (key.includes('oil')) return '/images/Groundnut oil1.png';
+  if (key.includes('spice')) return '/images/Spices hamper1.png';
+  if (key.includes('dairy')) return '/images/One crate eggs1.png';
+  return '/images/Groceries1.png';
+}
+
+function sanitizeProductImage(url: string | undefined, category?: string): string {
+  const fallback = fallbackImageForCategory(category);
+  if (!url || url.includes('via.placeholder.com')) return fallback;
+  return url;
+}
+
+const FALLBACK_CATEGORY_PANEL = [
+  { name: 'Agriculture, Food & Beverage', count: 126 },
+  { name: 'Raw Materials', count: 84 },
+  { name: 'Packaging & Logistics', count: 42 },
+  { name: 'Household Essentials', count: 67 },
+  { name: 'Member Cooperative Specials', count: 23 },
+];
+
+const FALLBACK_FREQUENT_SEARCHES = [
+  {
+    id: 'fallback-garri',
+    name: 'Fortified Garri Bulk Pack',
+    category: 'Agriculture, Food & Beverage',
+    price: 18400,
+    rating: 4.6,
+    reviews: 312,
+    image: '/images/Bag of garri1.png',
+    href: '/products?q=fortified%20garri',
+  },
+  {
+    id: 'fallback-rice',
+    name: 'Parboiled Rice 25kg Institutional',
+    category: 'Agriculture, Food & Beverage',
+    price: 31900,
+    rating: 4.7,
+    reviews: 221,
+    image: '/images/Buck wheat1.png',
+    href: '/products?q=parboiled%20rice%2025kg',
+  },
+  {
+    id: 'fallback-spaghetti',
+    name: 'Premium Spaghetti Carton Deal',
+    category: 'Household Essentials',
+    price: 22600,
+    rating: 4.4,
+    reviews: 188,
+    image: '/images/Household1.png',
+    href: '/products?q=spaghetti%20carton',
+  },
+  {
+    id: 'fallback-oil',
+    name: 'Red Palm Oil 25L Wholesale',
+    category: 'Raw Materials',
+    price: 27500,
+    rating: 4.5,
+    reviews: 163,
+    image: '/images/Groundnut oil1.png',
+    href: '/products?q=red%20palm%20oil',
+  },
+];
+
 export default function MemberHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -20,6 +89,12 @@ export default function MemberHomeScreen() {
   const liveData = useUtilityLiveData(user?.uid || '', 'member');
   const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
+  const [marketPulseTime, setMarketPulseTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setMarketPulseTime(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -60,23 +135,148 @@ export default function MemberHomeScreen() {
     return { tier, points, discount, spent, projectedValue };
   }, [memberData]);
 
+  const sanitizedCatalogProducts = useMemo(() => {
+    return catalogProducts.map((product) => {
+      const safeThumbnail = sanitizeProductImage(product.thumbnail, product.category);
+      const safeImages =
+        product.images && product.images.length > 0
+          ? product.images.map((img) => sanitizeProductImage(img, product.category))
+          : [safeThumbnail];
+
+      return {
+        ...product,
+        thumbnail: safeThumbnail,
+        images: safeImages,
+      };
+    });
+  }, [catalogProducts]);
+
   const ncdfDirectProducts = useMemo(() => {
-    return catalogProducts
+    return sanitizedCatalogProducts
       .filter((product) => resolveProductOwnership(product) === 'ncdf')
       .sort((a, b) => (b.rating || 0) * 10 + (b.reviews || 0) - ((a.rating || 0) * 10 + (a.reviews || 0)))
       .slice(0, 4);
-  }, [catalogProducts]);
+  }, [sanitizedCatalogProducts]);
 
   const marketplaceProducts = useMemo(() => {
-    return catalogProducts
+    return sanitizedCatalogProducts
       .filter((product) => resolveProductOwnership(product) === 'seller')
       .sort((a, b) => (b.rating || 0) * 10 + (b.reviews || 0) - ((a.rating || 0) * 10 + (a.reviews || 0)))
       .slice(0, 4);
-  }, [catalogProducts]);
+  }, [sanitizedCatalogProducts]);
+
+  const categoryPanel = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const product of sanitizedCatalogProducts) {
+      const key = (product.category || 'Other').trim();
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 7);
+  }, [sanitizedCatalogProducts]);
+
+  const frequentlySearched = useMemo(() => {
+    return [...sanitizedCatalogProducts]
+      .sort((a, b) => {
+        const scoreB = (b.reviews || 0) * 2 + (b.rating || 0) * 10;
+        const scoreA = (a.reviews || 0) * 2 + (a.rating || 0) * 10;
+        return scoreB - scoreA;
+      })
+      .slice(0, 8);
+  }, [sanitizedCatalogProducts]);
+
+  const displayCategoryPanel = categoryPanel.length > 0 ? categoryPanel : FALLBACK_CATEGORY_PANEL;
+  const displayFrequentlySearched = frequentlySearched.length > 0
+    ? frequentlySearched.map((product) => ({
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        price: Number(product.price || 0),
+        rating: product.rating || 4.0,
+        reviews: product.reviews || 0,
+        image: product.thumbnail || product.images?.[0] || '/images/Bag of garri1.png',
+        href: `/products/${product.id}`,
+      }))
+    : FALLBACK_FREQUENT_SEARCHES;
 
   return (
     <div className="min-h-screen bg-[#F4F7FA] dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Marketplace Pulse</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Frequently searched product lanes, refreshed {marketPulseTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            <Link
+              href="/products"
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              Open full marketplace
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[270px_1fr]">
+            <aside className="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Product Categories</p>
+              <div className="space-y-1">
+                {displayCategoryPanel.map((cat) => (
+                  <Link
+                    key={cat.name}
+                    href={`/products?category=${encodeURIComponent(cat.name)}`}
+                    className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm text-gray-800 hover:bg-white dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    <span className="truncate pr-2">{cat.name}</span>
+                    <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      {cat.count}
+                      <ChevronRight size={14} />
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </aside>
+
+            <div className="overflow-x-auto">
+              <div className="flex min-w-max gap-3 pb-2">
+                {displayFrequentlySearched.map((product) => (
+                  <Link
+                    key={product.id}
+                    href={product.href}
+                    className="w-[210px] overflow-hidden rounded-xl border border-gray-200 bg-white text-left hover:shadow-md dark:border-gray-700 dark:bg-gray-900"
+                  >
+                    <div className="h-28 w-full bg-gray-100 dark:bg-gray-700">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="space-y-1 p-3">
+                      <p className="line-clamp-1 text-sm font-semibold text-gray-900 dark:text-white">{product.name}</p>
+                      <p className="line-clamp-1 text-xs text-gray-500 dark:text-gray-400">{product.category}</p>
+                      <p className="text-sm font-bold text-[#0B6B3A]">₦{Number(product.price || 0).toLocaleString()}</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {(product.reviews || 0).toLocaleString()} searches • {product.rating?.toFixed(1) || '4.0'}★
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+
+                {!catalogLoading && displayFrequentlySearched.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600 dark:border-gray-600 dark:text-gray-300">
+                    Search trend cards are temporarily unavailable.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <GlobalUtilityLayer
           role="member"
           kpiSummary={`Tier ${summary.tier} • ${summary.points.toLocaleString()} points • ${summary.discount}% active discount • Alerts ${liveData.unreadAlertCount}`}
@@ -103,18 +303,18 @@ export default function MemberHomeScreen() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 min-w-[280px]">
-              <button onClick={() => router.push('/my-rewards')} className="px-4 py-3 rounded-xl bg-white text-[#0D3D63] font-semibold text-sm hover:bg-[#EAF2FA] transition-colors">
+              <Link href="/my-rewards" className="px-4 py-3 rounded-xl bg-white text-[#0D3D63] font-semibold text-sm hover:bg-[#EAF2FA] transition-colors text-center">
                 Rewards Center
-              </button>
-              <button onClick={() => router.push('/offers')} className="px-4 py-3 rounded-xl bg-[#1E88C2] text-white font-semibold text-sm hover:bg-[#1977AB] transition-colors">
+              </Link>
+              <Link href="/offers" className="px-4 py-3 rounded-xl bg-[#1E88C2] text-white font-semibold text-sm hover:bg-[#1977AB] transition-colors text-center">
                 Active Offers
-              </button>
-              <button onClick={() => router.push('/orders')} className="px-4 py-3 rounded-xl bg-[#1E88C2] text-white font-semibold text-sm hover:bg-[#1977AB] transition-colors">
+              </Link>
+              <Link href="/orders" className="px-4 py-3 rounded-xl bg-[#1E88C2] text-white font-semibold text-sm hover:bg-[#1977AB] transition-colors text-center">
                 Track Orders
-              </button>
-              <button onClick={() => router.push('/products')} className="px-4 py-3 rounded-xl bg-white text-[#0D3D63] font-semibold text-sm hover:bg-[#EAF2FA] transition-colors">
+              </Link>
+              <Link href="/products" className="px-4 py-3 rounded-xl bg-white text-[#0D3D63] font-semibold text-sm hover:bg-[#EAF2FA] transition-colors text-center">
                 Marketplace
-              </button>
+              </Link>
             </div>
           </div>
         </section>
@@ -125,34 +325,34 @@ export default function MemberHomeScreen() {
               <h2 className="text-xl font-semibold text-[#0D3D63] dark:text-[#7FC2EA]">Personalized Discovery</h2>
               <p className="text-sm text-[#2F5F82] dark:text-gray-300">Adaptive member intelligence that updates your next best financial and shopping actions.</p>
             </div>
-            <button
-              onClick={() => router.push('/member/analytics')}
+            <Link
+              href="/member/analytics"
               className="px-4 py-2 rounded-lg bg-[#0D3D63] hover:bg-[#0A304D] text-white text-sm font-medium"
             >
               Open My Telemetry
-            </button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <article className="rounded-xl bg-white dark:bg-gray-900 border border-[#C9E4F4] dark:border-gray-700 p-4">
               <p className="text-xs uppercase tracking-wide text-[#4B7291] dark:text-gray-400">Recommended Savings Plans</p>
               <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Personalized plans tuned to your spending rhythm and rewards behavior.</p>
-              <button onClick={() => router.push('/my-rewards')} className="mt-3 text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">Explore Savings Plans</button>
+              <Link href="/my-rewards" className="mt-3 inline-block text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">Explore Savings Plans</Link>
             </article>
             <article className="rounded-xl bg-white dark:bg-gray-900 border border-[#C9E4F4] dark:border-gray-700 p-4">
               <p className="text-xs uppercase tracking-wide text-[#4B7291] dark:text-gray-400">Featured Investments</p>
               <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">High-confidence opportunities prioritized for cooperative members.</p>
-              <button onClick={() => router.push('/member/investments')} className="mt-3 text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">View Investments</button>
+              <Link href="/member/investments" className="mt-3 inline-block text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">View Investments</Link>
             </article>
             <article className="rounded-xl bg-white dark:bg-gray-900 border border-[#C9E4F4] dark:border-gray-700 p-4">
               <p className="text-xs uppercase tracking-wide text-[#4B7291] dark:text-gray-400">Financial Education</p>
               <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Practical learning modules to improve budgeting and long-term value creation.</p>
-              <button onClick={() => router.push('/member-benefits')} className="mt-3 text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">Open Learning Hub</button>
+              <Link href="/member-benefits" className="mt-3 inline-block text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">Open Learning Hub</Link>
             </article>
             <article className="rounded-xl bg-white dark:bg-gray-900 border border-[#C9E4F4] dark:border-gray-700 p-4">
               <p className="text-xs uppercase tracking-wide text-[#4B7291] dark:text-gray-400">Portfolio Growth Insights</p>
               <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Live insight snapshots from your intent, order, and engagement telemetry.</p>
-              <button onClick={() => router.push('/member/analytics')} className="mt-3 text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">Review Growth Insights</button>
+              <Link href="/member/analytics" className="mt-3 inline-block text-sm font-semibold text-[#0D3D63] dark:text-[#7FC2EA] hover:underline">Review Growth Insights</Link>
             </article>
           </div>
         </section>
@@ -166,9 +366,9 @@ export default function MemberHomeScreen() {
           <article className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Points Balance</p>
             <p className="text-2xl font-bold text-[#0D3D63] dark:text-[#7FC2EA] mt-1">{summary.points.toLocaleString()}</p>
-            <button onClick={() => router.push('/my-rewards')} className="mt-3 text-sm font-medium text-[#0E4B78] dark:text-[#7FC2EA] hover:underline">
+            <Link href="/my-rewards" className="mt-3 inline-block text-sm font-medium text-[#0E4B78] dark:text-[#7FC2EA] hover:underline">
               Redeem Points
-            </button>
+            </Link>
           </article>
           <article className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Projected Value Saved</p>
@@ -183,12 +383,12 @@ export default function MemberHomeScreen() {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">NCDF Direct Picks</h2>
               <p className="text-sm text-gray-600 dark:text-gray-300">First-party NCDF inventory curated for member value and fulfillment reliability.</p>
             </div>
-            <button
-              onClick={() => router.push('/member-products')}
+            <Link
+              href="/member-products"
               className="px-4 py-2 rounded-lg bg-[#0E4B78] hover:bg-[#0A3B5F] text-white text-sm font-medium"
             >
               Open NCDF Catalog
-            </button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -234,12 +434,12 @@ export default function MemberHomeScreen() {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Marketplace Seller Picks</h2>
               <p className="text-sm text-gray-600 dark:text-gray-300">Third-party sellers competing on value and assortment inside the same ecosystem.</p>
             </div>
-            <button
-              onClick={() => router.push('/products')}
+            <Link
+              href="/products"
               className="px-4 py-2 rounded-lg bg-[#0B6B3A] hover:bg-[#095234] text-white text-sm font-medium"
             >
               Open Marketplace
-            </button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

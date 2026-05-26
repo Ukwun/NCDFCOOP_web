@@ -87,7 +87,7 @@ const ROLE_INTENTS: SearchIntent[] = [
     title: 'Accounts',
     queryLabel: 'accounts',
     description: 'Institutional account controls and profile management',
-    href: '/account',
+    href: '/wholesale/profile',
     keywords: ['wholesale', 'accounts', 'profile', 'team', 'settings'],
   },
   {

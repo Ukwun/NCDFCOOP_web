@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, Suspense, useState } from 'react';
+import Link from 'next/link';
 import SocialSignInButtons from './SocialSignInButtons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
@@ -369,39 +370,27 @@ function SignUpContent() {
             />
             <span>
               I agree to the{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  /* Handle terms link */
-                }}
+              <Link
+                href="/terms"
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
                   color: AppColors.primary,
                   cursor: 'pointer',
                   textDecoration: 'underline',
                 }}
               >
                 Terms & Conditions
-              </button>
+              </Link>
               {' and '}
-              <button
-                type="button"
-                onClick={() => {
-                  /* Handle privacy link */
-                }}
+              <Link
+                href="/privacy"
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
                   color: AppColors.primary,
                   cursor: 'pointer',
                   textDecoration: 'underline',
                 }}
               >
                 Privacy Policy
-              </button>
+              </Link>
             </span>
           </label>
 

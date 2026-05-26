@@ -1,0 +1,224 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/authContext";
+import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
+
+const MEMBERSHIP_FEE = 5000;
+
+function formatNaira(amount: number): string {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export default function MembershipPaymentPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [liveNow, setLiveNow] = useState<string>("--:--:--");
+
+  useEffect(() => {
+    const tick = () => {
+      setLiveNow(
+        new Date().toLocaleTimeString("en-NG", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })
+      );
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const txRef = useMemo(() => {
+    if (!user) return "";
+    return `NCDFCOOP_MEMBERSHIP_${user.uid}_${Date.now()}`;
+  }, [user]);
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white px-4 py-10">
+        <div className="mx-auto max-w-lg rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <Link
+              href="/membership"
+              className="rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              ← Back
+            </Link>
+            <Link
+              href="/inquiries"
+              className="rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Help
+            </Link>
+          </div>
+
+          <h1 className="text-2xl font-bold text-gray-900">Membership Payment</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Sign in to securely complete your membership activation.
+          </p>
+
+          <div className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
+            Membership fee: <strong>{formatNaira(MEMBERSHIP_FEE)}</strong>
+          </div>
+
+          <Link
+            href="/signin?next=/membership/payment"
+            className="mt-6 block w-full rounded-xl bg-emerald-700 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-emerald-800"
+          >
+            Sign In To Continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const flutterwavePublicKey =
+    process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || process.env.NEXT_PUBLIC_FLUTTERWAVE_KEY;
+
+  const onPaymentSuccess = async () => {
+    setError("");
+    setLoading(true);
+
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        role: "member",
+        membershipStatus: "active",
+        membershipTier: "Bronze",
+        membershipCode: `NCDF-${user.uid.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`,
+        membershipPaidAt: new Date().toISOString(),
+      });
+
+      setSuccess(true);
+      closePaymentModal();
+      router.push("/member");
+    } catch {
+      setError("Payment was completed, but membership activation failed. Please contact support.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-lime-50 px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-xl space-y-5">
+        <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <Link
+              href="/membership"
+              className="rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              aria-label="Back to membership"
+            >
+              ← Back
+            </Link>
+
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              Live {liveNow}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href="/inquiries"
+                className="rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                aria-label="Open support chat"
+              >
+                💬
+              </Link>
+              <Link
+                href="/settings"
+                className="rounded-full border border-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                aria-label="Open account settings"
+              >
+                ⚙️
+              </Link>
+            </div>
+          </div>
+
+          <h1 className="text-2xl font-bold text-gray-900">Complete Membership Payment</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            Activate your NCDFCOOP member account instantly after successful payment.
+          </p>
+
+          <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-emerald-900">Membership Plan</p>
+                <p className="text-xs text-emerald-800">One-time activation, no hidden charges</p>
+              </div>
+              <p className="text-xl font-bold text-emerald-900">{formatNaira(MEMBERSHIP_FEE)}</p>
+            </div>
+          </div>
+
+          {error ? (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+          ) : null}
+
+          {success ? (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
+              Membership activated successfully. Redirecting...
+            </div>
+          ) : null}
+
+          {!flutterwavePublicKey ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Payment is temporarily unavailable because Flutterwave is not configured.
+            </div>
+          ) : (
+            <FlutterWaveButton
+              public_key={flutterwavePublicKey}
+              tx_ref={txRef}
+              amount={MEMBERSHIP_FEE}
+              currency="NGN"
+              payment_options="card,ussd,banktransfer"
+              customer={{
+                email: user.email || "",
+                name: user.displayName || "NCDFCOOP Member",
+              }}
+              customizations={{
+                title: "NCDFCOOP Membership Payment",
+                description: "Unlock exclusive member benefits",
+                logo: "/images/logo/NCDFCOOPLOGO.png",
+              }}
+              callback={onPaymentSuccess}
+              onClose={() => undefined}
+              text={loading ? "Processing..." : `Pay ${formatNaira(MEMBERSHIP_FEE)} Now`}
+              disabled={loading}
+              className="mt-5 w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-70"
+            />
+          )}
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <Link
+              href="/membership"
+              className="rounded-xl border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Review Benefits
+            </Link>
+            <Link
+              href="/home"
+              className="rounded-xl border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

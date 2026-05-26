@@ -29,6 +29,28 @@ export function ProtectedRoute({
 
     // Check if user needs to complete workflow steps
     if (nextRoute) {
+      if (nextRoute === '/role-selection' && currentPath !== '/role-selection') {
+        const operationalPrefixes = [
+          '/wholesale',
+          '/delivery',
+          '/seller',
+          '/cart',
+          '/checkout',
+          '/orders',
+          '/analytics',
+          '/inquiries',
+          '/products',
+        ];
+
+        const isOperationalPage = operationalPrefixes.some((prefix) => currentPath.startsWith(prefix));
+        const redirectTarget = isOperationalPage
+          ? `/role-selection?reason=role_required&from=${encodeURIComponent(currentPath)}`
+          : nextRoute;
+
+        router.push(redirectTarget);
+        return;
+      }
+
       router.push(nextRoute);
       return;
     }

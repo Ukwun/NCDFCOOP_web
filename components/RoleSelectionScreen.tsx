@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 
@@ -57,11 +57,32 @@ const ROLE_OPTIONS: RoleOption[] = [
 
 export default function RoleSelectionScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { selectRole } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+
+  const guidanceMessage = useMemo(() => {
+    const reason = searchParams.get('reason');
+    const from = searchParams.get('from');
+
+    if (reason !== 'role_required' || !from) return null;
+
+    const normalized = from.replace(/^\/+/, '').replace(/\?.*$/, '');
+    const routeLabel = normalized
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' > ');
+
+    if (!routeLabel) {
+      return 'Select your primary role to continue in operational pages.';
+    }
+
+    return `Select your primary role to continue to ${routeLabel}.`;
+  }, [searchParams]);
 
   const handleSelectRole = async (roleId: string) => {
     if (isLoading) return;
@@ -107,6 +128,30 @@ export default function RoleSelectionScreen() {
           What's your main purpose on NCDFCOOP?
         </div>
       </div>
+
+      {/* Redirect Guidance */}
+      {guidanceMessage && (
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '1000px',
+            marginBottom: AppSpacing.lg,
+            padding: AppSpacing.md,
+            backgroundColor: 'rgba(22, 74, 46, 0.08)',
+            borderLeft: `4px solid ${AppColors.roles.wholesaleBuyer}`,
+            borderRadius: AppSpacing.xs,
+          }}
+        >
+          <div
+            style={{
+              ...AppTextStyles.labelLarge,
+              color: AppColors.textPrimary,
+            }}
+          >
+            {guidanceMessage}
+          </div>
+        </div>
+      )}
 
       {/* Error Message */}
       {error && (

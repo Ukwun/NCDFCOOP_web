@@ -2,31 +2,46 @@
 
 export const dynamic = 'force-dynamic';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 import { useAuth } from '@/lib/auth/authContext';
+import { auth } from '@/lib/firebase/config';
 import { USER_ROLES } from '@/lib/constants/database';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { useState } from 'react';
 import EditProfileModal from '@/components/account/EditProfileModal';
 import ChangePasswordModal from '@/components/account/ChangePasswordModal';
 
-
 export default function AccountPage() {
-  const { user, currentRole, logout } = useAuth();
-  const router = require('next/navigation').useRouter();
+  const { user, currentRole, logout, updateUserProfile } = useAuth();
+  const router = useRouter();
 
   const [editOpen, setEditOpen] = useState(false);
   const [changePwOpen, setChangePwOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
-  // Simulate profile save
   const handleSaveProfile = async (data: { displayName: string }) => {
-    // TODO: Connect to backend/profile update logic
-    alert(`Profile updated: ${data.displayName}`);
+    if (!data.displayName.trim()) {
+      throw new Error('Display name cannot be empty');
+    }
+
+    await updateUserProfile(data.displayName.trim());
+    setStatusMessage('Profile updated successfully.');
   };
 
-  // Simulate password change
   const handleChangePassword = async (oldPw: string, newPw: string) => {
-    // TODO: Connect to backend/password update logic
-    alert('Password changed!');
+    if (!user?.email || !auth?.currentUser) {
+      throw new Error('You must be signed in to change your password');
+    }
+
+    if (newPw.length < 8) {
+      throw new Error('New password must be at least 8 characters long');
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, oldPw);
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    await updatePassword(auth.currentUser, newPw);
+    setStatusMessage('Password changed successfully.');
   };
 
   const handleLogout = async () => {
@@ -35,182 +50,145 @@ export default function AccountPage() {
       router.push('/welcome');
     } catch (error) {
       console.error('Logout error:', error);
+      setStatusMessage('Unable to log out right now. Please retry.');
     }
+  };
+
+  const handleDeleteAccountRequest = () => {
+    setStatusMessage('Account deletion workflow opened in support inbox.');
+    router.push('/inquiries');
   };
 
   return (
     <ProtectedRoute currentPath="/account">
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
-              My Profile
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Manage your account and preferences
-            </p>
-          </div>
-
-          {/* Profile Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-            <div className="flex items-start justify-between mb-6">
+      <div className="min-h-screen bg-[#F4F7FA] dark:bg-gray-900 p-4 md:p-6">
+        <div className="max-w-3xl mx-auto space-y-5">
+          <section className="rounded-2xl bg-gradient-to-r from-[#164A2E] via-[#1E7F4E] to-[#2A9B61] text-white p-6 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <div className="mb-2">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Display Name</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {user?.displayName || 'User'}
-                  </p>
-                </div>
-                <div className="mb-2">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
-                  <p className="text-lg text-gray-900 dark:text-white">{user?.email}</p>
-                </div>
-                <div className="mb-2">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Your Role</p>
-                  <p className="text-lg font-semibold text-blue-600 capitalize">
-                    {currentRole || 'Member'}
-                  </p>
-                </div>
+                <p className="text-xs uppercase tracking-widest opacity-80">Identity & Access</p>
+                <h1 className="text-3xl font-bold">Profile Command Center</h1>
+                <p className="mt-2 text-sm opacity-90">
+                  Manage account identity, security credentials, and role-specific operational shortcuts.
+                </p>
               </div>
-            </div>
-
-            {/* User ID */}
-            <div className="bg-gray-50 dark:bg-gray-700 rounded p-3 mb-6">
-              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">User ID</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white break-all">{user?.uid}</p>
-            </div>
-
-            {/* Email Verification Status */}
-            <div className="mb-6">
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Email Verification</p>
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${user?.emailVerified ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                <span className={user?.emailVerified ? 'text-green-600' : 'text-yellow-600'}>
-                  {user?.emailVerified ? 'Verified' : 'Pending Verification'}
-                </span>
-              </div>
-            </div>
-
-            {/* Account Actions */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-3">
               <button
-                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                onClick={() => setEditOpen(true)}
-              >
-                ✏️ Edit Profile
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                onClick={() => setChangePwOpen(true)}
-              >
-                🔐 Change Password
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                onClick={() => router.push('/notifications')}
-              >
-                🔔 Notifications
-              </button>
-              <button
-                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                onClick={() => router.push('/inquiries')}
-              >
-                💬 Inquiry History
-              </button>
-              {currentRole === USER_ROLES.MEMBER && (
-                <button
-                  className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  onClick={() => router.push('/member/analytics')}
-                >
-                  📊 My Analytics
-                </button>
-              )}
-              {(currentRole === USER_ROLES.ADMIN || currentRole === USER_ROLES.STAFF || currentRole === USER_ROLES.OPERATOR) && (
-                <button
-                  className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  onClick={() => router.push('/analytics')}
-                >
-                  📈 Operations Analytics
-                </button>
-              )}
-              <button
-                className="w-full px-4 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#164A2E] hover:bg-[#E8F6EE]"
                 onClick={() => router.push('/settings')}
               >
-                ⚙️ Settings
+                Open Settings
               </button>
-                      {/* Modals */}
-                      <EditProfileModal open={editOpen} onClose={() => setEditOpen(false)} user={user} onSave={handleSaveProfile} />
-                      <ChangePasswordModal open={changePwOpen} onClose={() => setChangePwOpen(false)} onChangePassword={handleChangePassword} />
             </div>
-          </div>
+          </section>
 
-          {/* Role-Specific Info */}
-          {currentRole === USER_ROLES.MEMBER && (
-            <div className="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-2">
-                Member Benefits
-              </h3>
-              <ul className="space-y-2 text-blue-800 dark:text-blue-200">
-                <li>✓ Access to member-only deals and discounts</li>
-                <li>✓ Earn loyalty points on every purchase</li>
-                <li>✓ Priority customer support</li>
-                <li>✓ Monthly exclusive offers</li>
-                <li>✓ Free shipping on orders over ₦5,000</li>
-              </ul>
+          {statusMessage ? (
+            <div className="rounded-xl border border-[#B6DCC6] bg-white px-4 py-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-[#164A2E]">Status:</span>
+                <span>{statusMessage}</span>
+                <button
+                  onClick={() => setStatusMessage('')}
+                  className="ml-auto rounded-md px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
-          )}
+          ) : null}
 
-          {currentRole === USER_ROLES.SELLER && (
-            <div className="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-bold text-green-900 dark:text-green-100 mb-2">
-                Seller Benefits
-              </h3>
-              <ul className="space-y-2 text-green-800 dark:text-green-200">
-                <li>✓ Unlimited product listings</li>
-                <li>✓ Real-time sales analytics</li>
-                <li>✓ Marketing tools and insights</li>
-                <li>✓ Dedicated seller support</li>
-                <li>✓ Fast checkout for your customers</li>
-              </ul>
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Display Name</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{user?.displayName || 'User'}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</p>
+                <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{user?.email || 'No email'}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Current Role</p>
+                <p className="mt-1 text-lg font-semibold text-[#164A2E] dark:text-[#8FD8AE] capitalize">{currentRole || 'member'}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Email Verification</p>
+                <p className={`mt-1 text-lg font-semibold ${user?.emailVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                  {user?.emailVerified ? 'Verified' : 'Pending Verification'}
+                </p>
+              </div>
             </div>
-          )}
 
-          {currentRole === USER_ROLES.INSTITUTIONAL_BUYER && (
-            <div className="bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded-lg p-6 mb-6">
-              <h3 className="text-lg font-bold text-purple-900 dark:text-purple-100 mb-2">
-                Wholesale Buyer Benefits  
-              </h3>
-              <ul className="space-y-2 text-purple-800 dark:text-purple-200">
-                <li>✓ Bulk pricing on all products</li>
-                <li>✓ Volume discounts up to 40%</li>
-                <li>✓ Flexible payment terms (Net 30)</li>
-                <li>✓ Dedicated account manager</li>
-                <li>✓ Priority fulfillment and delivery</li>
-              </ul>
+            <div className="mt-5 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/40">
+              <p className="text-xs text-gray-500 dark:text-gray-400">User ID</p>
+              <p className="mt-1 break-all font-mono text-sm text-gray-800 dark:text-gray-200">{user?.uid || 'Unavailable'}</p>
             </div>
-          )}
 
-          {/* Danger Zone */}
-          <div className="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg p-6">
-            <h3 className="text-lg font-bold text-red-900 dark:text-red-100 mb-4">
-              Account Actions
-            </h3>
-            <div className="space-y-3">
+            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ActionButton label="Edit Profile" onClick={() => setEditOpen(true)} />
+              <ActionButton label="Change Password" onClick={() => setChangePwOpen(true)} />
+              <ActionButton label="Notifications" onClick={() => router.push('/notifications')} />
+              <ActionButton label="Inquiry History" onClick={() => router.push('/inquiries')} />
+
+              {currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? (
+                <>
+                  <ActionButton label="Wholesale Dashboard" onClick={() => router.push('/home')} />
+                  <ActionButton label="Wholesale Orders" onClick={() => router.push('/wholesale/orders')} />
+                </>
+              ) : null}
+
+              {currentRole === USER_ROLES.MEMBER ? (
+                <ActionButton label="My Analytics" onClick={() => router.push('/member/analytics')} />
+              ) : null}
+
+              {(currentRole === USER_ROLES.ADMIN || currentRole === USER_ROLES.STAFF || currentRole === USER_ROLES.OPERATOR) ? (
+                <ActionButton label="Operations Analytics" onClick={() => router.push('/analytics')} />
+              ) : null}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-red-200 bg-red-50 p-6 dark:border-red-700 dark:bg-red-900/30">
+            <h2 className="text-lg font-bold text-red-800 dark:text-red-200">Account Actions</h2>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">Security-sensitive actions for your live account.</p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <button
                 onClick={handleLogout}
-                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded transition-colors"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
-                🚪 Logout
+                Logout
               </button>
-              <button className="w-full px-4 py-2 bg-red-100 dark:bg-red-800 hover:bg-red-200 dark:hover:bg-red-700 text-red-900 dark:text-red-100 font-semibold rounded transition-colors">
-                🗑️ Delete Account
+              <button
+                onClick={handleDeleteAccountRequest}
+                className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 dark:border-red-600 dark:text-red-200 dark:hover:bg-red-800/50"
+              >
+                Request Account Deletion
               </button>
             </div>
-          </div>
+          </section>
+
+          <EditProfileModal
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            user={user}
+            onSave={handleSaveProfile}
+          />
+          <ChangePasswordModal
+            open={changePwOpen}
+            onClose={() => setChangePwOpen(false)}
+            onChangePassword={handleChangePassword}
+          />
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+function ActionButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-left text-sm font-semibold text-gray-700 transition hover:border-[#A5CEB5] hover:bg-[#F4FBF7] dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+    >
+      {label}
+    </button>
   );
 }

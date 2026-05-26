@@ -29,6 +29,10 @@ export interface Offer {
  */
 export async function getActiveOffers(): Promise<Offer[]> {
   try {
+    if (!db) {
+      return [];
+    }
+
     const q = query(
       collection(db, COLLECTIONS.OFFERS),
       where('status', '==', 'active'),
@@ -51,6 +55,10 @@ export async function getActiveOffers(): Promise<Offer[]> {
  */
 export async function getOffersForTier(tier: string): Promise<Offer[]> {
   try {
+    if (!db) {
+      return [];
+    }
+
     const q = query(
       collection(db, COLLECTIONS.OFFERS),
       where('status', '==', 'active'),
@@ -73,6 +81,10 @@ export async function getOffersForTier(tier: string): Promise<Offer[]> {
  */
 export async function getProducts(limit: number = 20): Promise<Product[]> {
   try {
+    if (!db) {
+      return [];
+    }
+
     const q = query(
       collection(db, COLLECTIONS.PRODUCTS),
       orderBy('createdAt', 'desc')
@@ -94,6 +106,10 @@ export async function getProducts(limit: number = 20): Promise<Product[]> {
  */
 export async function getProduct(productId: string): Promise<Product | null> {
   try {
+    if (!db) {
+      return null;
+    }
+
     const docSnap = await getDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
     return docSnap.exists()
       ? ({
@@ -112,6 +128,10 @@ export async function getProduct(productId: string): Promise<Product | null> {
  */
 export async function getProductsByCategory(category: string): Promise<Product[]> {
   try {
+    if (!db) {
+      return [];
+    }
+
     const q = query(
       collection(db, COLLECTIONS.PRODUCTS),
       where('category', '==', category),

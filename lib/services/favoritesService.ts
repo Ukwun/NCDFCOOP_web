@@ -40,6 +40,10 @@ export async function addToFavorites(
   productData: Omit<FavoriteItem, 'id' | 'userId' | 'productId' | 'addedAt'>
 ): Promise<void> {
   try {
+    if (!db) {
+      throw new Error('Firestore is not initialized');
+    }
+
     const favoriteId = `${userId}_${productId}`;
 
     // Sanitize productData to remove undefined values (Firestore requirement)
@@ -69,6 +73,10 @@ export async function addToFavorites(
  */
 export async function removeFromFavorites(userId: string, productId: string): Promise<void> {
   try {
+    if (!db) {
+      throw new Error('Firestore is not initialized');
+    }
+
     const favoriteId = `${userId}_${productId}`;
     await deleteDoc(doc(db, COLLECTIONS.FAVORITES, favoriteId));
   } catch (error) {
@@ -82,6 +90,10 @@ export async function removeFromFavorites(userId: string, productId: string): Pr
  */
 export async function isProductFavorited(userId: string, productId: string): Promise<boolean> {
   try {
+    if (!db) {
+      return false;
+    }
+
     const favoriteId = `${userId}_${productId}`;
     const snapshot = await getDocs(query(collection(db, COLLECTIONS.FAVORITES), where('id', '==', favoriteId)));
     return snapshot.size > 0;
@@ -96,6 +108,10 @@ export async function isProductFavorited(userId: string, productId: string): Pro
  */
 export async function getUserFavorites(userId: string, limit: number = 100): Promise<FavoriteItem[]> {
   try {
+    if (!db) {
+      return [];
+    }
+
     const q = query(
       collection(db, COLLECTIONS.FAVORITES),
       where('userId', '==', userId),
@@ -123,6 +139,10 @@ export async function getFavoritesByCategory(
   category: string
 ): Promise<FavoriteItem[]> {
   try {
+    if (!db) {
+      return [];
+    }
+
     const q = query(
       collection(db, COLLECTIONS.FAVORITES),
       where('userId', '==', userId),
@@ -145,6 +165,10 @@ export async function getFavoritesByCategory(
  */
 export async function getFavoritesCount(userId: string): Promise<number> {
   try {
+    if (!db) {
+      return 0;
+    }
+
     const q = query(collection(db, COLLECTIONS.FAVORITES), where('userId', '==', userId));
     const snapshot = await getDocs(q);
     return snapshot.size;
@@ -159,6 +183,10 @@ export async function getFavoritesCount(userId: string): Promise<number> {
  */
 export async function clearAllFavorites(userId: string): Promise<void> {
   try {
+    if (!db) {
+      return;
+    }
+
     const favorites = await getUserFavorites(userId, 1000);
 
     for (const favorite of favorites) {
@@ -177,6 +205,10 @@ export async function clearAllFavorites(userId: string): Promise<void> {
  */
 export async function getAverageFavoritePrice(userId: string): Promise<number> {
   try {
+    if (!db) {
+      return 0;
+    }
+
     const favorites = await getUserFavorites(userId, 1000);
 
     if (favorites.length === 0) {

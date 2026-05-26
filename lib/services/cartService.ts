@@ -20,6 +20,10 @@ export async function addToCart(
   quantity: number = 1
 ): Promise<void> {
   try {
+    if (!db) {
+      throw new Error('Firestore is not initialized');
+    }
+
     const cartItemId = `${userId}_${productId}`;
     const cartItem: CartItem = {
       id: cartItemId,
@@ -44,6 +48,10 @@ export async function addToCart(
  */
 export async function removeFromCart(userId: string, productId: string): Promise<void> {
   try {
+    if (!db) {
+      throw new Error('Firestore is not initialized');
+    }
+
     const cartItemId = `${userId}_${productId}`;
     await deleteDoc(doc(db, COLLECTIONS.CART_ITEMS, cartItemId));
   } catch (error) {
@@ -57,6 +65,10 @@ export async function removeFromCart(userId: string, productId: string): Promise
  */
 export async function updateCartItemQuantity(userId: string, productId: string, quantity: number): Promise<void> {
   try {
+    if (!db) {
+      throw new Error('Firestore is not initialized');
+    }
+
     const cartItemId = `${userId}_${productId}`;
     if (quantity <= 0) {
       await removeFromCart(userId, productId);
@@ -76,6 +88,18 @@ export async function updateCartItemQuantity(userId: string, productId: string, 
  */
 export async function getUserCart(userId: string): Promise<Cart> {
   try {
+    if (!db) {
+      return {
+        userId,
+        items: [],
+        subtotal: 0,
+        tax: 0,
+        shipping: 0,
+        total: 0,
+        updatedAt: new Date(),
+      };
+    }
+
     const q = query(collection(db, COLLECTIONS.CART_ITEMS), where('userId', '==', userId));
     const snapshot = await getDocs(q);
 
@@ -131,6 +155,10 @@ export async function getUserCart(userId: string): Promise<Cart> {
  */
 export async function clearCart(userId: string): Promise<void> {
   try {
+    if (!db) {
+      return;
+    }
+
     const q = query(collection(db, COLLECTIONS.CART_ITEMS), where('userId', '==', userId));
     const snapshot = await getDocs(q);
 

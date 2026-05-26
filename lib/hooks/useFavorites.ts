@@ -53,7 +53,7 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
 
   // Real-time listener for favorites
   useEffect(() => {
-    if (!userId || !autoFetch) return;
+    if (!userId || !autoFetch || !db) return;
 
     const q = query(
       collection(db, 'favorites'),

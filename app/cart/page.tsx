@@ -36,6 +36,11 @@ export default function CartPage() {
       router.push('/welcome');
       return;
     }
+    if (!db) {
+      setError('Cart data is temporarily unavailable.');
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
 

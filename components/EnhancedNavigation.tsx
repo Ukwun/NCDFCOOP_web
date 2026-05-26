@@ -178,7 +178,7 @@ export default function EnhancedNavigation() {
   const [favoritesCount, setFavoritesCount] = useState(0);
 
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user?.uid || !db) {
       setCartCount(0);
       setFavoritesCount(0);
       return;

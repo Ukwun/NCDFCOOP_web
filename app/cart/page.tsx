@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase/config';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth/authContext';
-import { getUserCart, removeFromCart, updateCartItemQuantity, clearCart } from '@/lib/services/cartService';
+import { getUserCart, removeFromCart, updateCartItemQuantity, clearCart, CART_CHANGED_EVENT } from '@/lib/services/cartService';
 import { Cart } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
@@ -36,13 +36,45 @@ export default function CartPage() {
       router.push('/welcome');
       return;
     }
-    if (!db) {
-      setError('Cart data is temporarily unavailable.');
-      setIsLoading(false);
-      return;
-    }
+
+    let active = true;
+
+    const refreshCart = async () => {
+      try {
+        const latest = await getUserCart(user.uid);
+        if (active) {
+          setCart(latest);
+          setError(null);
+          setIsLoading(false);
+        }
+      } catch {
+        if (active) {
+          setError('Failed to load cart');
+          setIsLoading(false);
+        }
+      }
+    };
+
     setIsLoading(true);
     setError(null);
+    refreshCart();
+
+    const handleCartChanged = () => {
+      refreshCart();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
+    }
+
+    if (!db) {
+      return () => {
+        active = false;
+        if (typeof window !== 'undefined') {
+          window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+        }
+      };
+    }
 
     // Listen to cartItems for this user
     const q = fsQuery(collection(db, 'cartItems'), where('userId', '==', user.uid));
@@ -91,10 +123,16 @@ export default function CartPage() {
         setIsLoading(false);
       }
     }, (err) => {
-      setError('Failed to load cart');
-      setIsLoading(false);
+      refreshCart();
     });
-    return () => unsubscribe();
+
+    return () => {
+      active = false;
+      unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+      }
+    };
   }, [user, authLoading, router]);
 
   useEffect(() => {

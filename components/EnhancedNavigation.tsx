@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase/config';
 import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
 import RoleIntentSearch from '@/components/RoleIntentSearch';
 import { useFavorites } from '@/lib/hooks';
+import { getCartItemCount, CART_CHANGED_EVENT } from '@/lib/services/cartService';
 
 interface NavItem {
   id: string;
@@ -178,9 +179,43 @@ export default function EnhancedNavigation() {
   const { count: favoritesCount } = useFavorites({ userId: user?.uid || '', autoFetch: !!user?.uid });
 
   useEffect(() => {
-    if (!user?.uid || !db) {
+    if (!user?.uid) {
       setCartCount(0);
       return;
+    }
+
+    let active = true;
+
+    const refreshCartCount = async () => {
+      try {
+        const count = await getCartItemCount(user.uid);
+        if (active) {
+          setCartCount(count);
+        }
+      } catch {
+        if (active) {
+          setCartCount(0);
+        }
+      }
+    };
+
+    refreshCartCount();
+
+    const handleCartChanged = () => {
+      refreshCartCount();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
+    }
+
+    if (!db) {
+      return () => {
+        active = false;
+        if (typeof window !== 'undefined') {
+          window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+        }
+      };
     }
 
     const cartQuery = query(
@@ -194,12 +229,16 @@ export default function EnhancedNavigation() {
         setCartCount(snapshot.size);
       },
       () => {
-        setCartCount(0);
+        refreshCartCount();
       }
     );
 
     return () => {
+      active = false;
       unsubscribeCart();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
+      }
     };
   }, [user?.uid]);
 

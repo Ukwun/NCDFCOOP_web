@@ -9,6 +9,15 @@ import { COLLECTIONS } from '@/lib/constants/database';
 import { Cart, CartItem } from '@/lib/types/product';
 
 const CART_STORAGE_PREFIX = 'coop_commerce_cart_';
+export const CART_CHANGED_EVENT = 'coop-commerce:cart-changed';
+
+function notifyCartChanged(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent(CART_CHANGED_EVENT));
+}
 
 function readBrowserCart(userId: string): CartItem[] {
   if (typeof window === 'undefined') {
@@ -67,6 +76,7 @@ export async function addToCart(
       }
 
       writeBrowserCart(userId, items);
+      notifyCartChanged();
       return;
     }
 
@@ -83,6 +93,7 @@ export async function addToCart(
     };
 
     await setDoc(doc(db, COLLECTIONS.CART_ITEMS, cartItemId), cartItem);
+    notifyCartChanged();
   } catch (error) {
     console.error('Error adding to cart:', error);
     if (typeof window !== 'undefined') {
@@ -107,6 +118,7 @@ export async function addToCart(
       }
 
       writeBrowserCart(userId, items);
+      notifyCartChanged();
       return;
     }
 
@@ -125,11 +137,13 @@ export async function removeFromCart(userId: string, productId: string): Promise
         userId,
         readBrowserCart(userId).filter((item) => item.id !== cartItemId)
       );
+      notifyCartChanged();
       return;
     }
 
     const cartItemId = `${userId}_${productId}`;
     await deleteDoc(doc(db, COLLECTIONS.CART_ITEMS, cartItemId));
+    notifyCartChanged();
   } catch (error) {
     console.error('Error removing from cart:', error);
     if (typeof window !== 'undefined') {
@@ -138,6 +152,7 @@ export async function removeFromCart(userId: string, productId: string): Promise
         userId,
         readBrowserCart(userId).filter((item) => item.id !== cartItemId)
       );
+      notifyCartChanged();
       return;
     }
 
@@ -162,6 +177,7 @@ export async function updateCartItemQuantity(userId: string, productId: string, 
         item.id === cartItemId ? { ...item, quantity } : item
       );
       writeBrowserCart(userId, nextItems);
+      notifyCartChanged();
       return;
     }
 
@@ -172,6 +188,7 @@ export async function updateCartItemQuantity(userId: string, productId: string, 
       await updateDoc(doc(db, COLLECTIONS.CART_ITEMS, cartItemId), {
         quantity,
       });
+      notifyCartChanged();
     }
   } catch (error) {
     console.error('Error updating cart item:', error);
@@ -187,6 +204,7 @@ export async function updateCartItemQuantity(userId: string, productId: string, 
         userId,
         items.map((item) => (item.id === cartItemId ? { ...item, quantity } : item))
       );
+      notifyCartChanged();
       return;
     }
 
@@ -294,6 +312,7 @@ export async function clearCart(userId: string): Promise<void> {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(`${CART_STORAGE_PREFIX}${userId}`);
       }
+      notifyCartChanged();
       return;
     }
 
@@ -302,10 +321,12 @@ export async function clearCart(userId: string): Promise<void> {
 
     const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
+    notifyCartChanged();
   } catch (error) {
     console.error('Error clearing cart:', error);
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(`${CART_STORAGE_PREFIX}${userId}`);
+      notifyCartChanged();
       return;
     }
 

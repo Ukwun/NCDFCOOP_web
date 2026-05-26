@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Product } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
@@ -26,8 +27,10 @@ export default function ProductCard({
   onViewDetails,
   isLoading,
 }: ProductCardProps) {
+  const router = useRouter();
   const { user } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const { isFavorited, toggleFavorite } = useFavorites({
     userId: user?.uid || '',
   });
@@ -299,7 +302,15 @@ export default function ProductCard({
           {/* Favorite Button */}
           <button
             onClick={async () => {
-              if (user) {
+              if (!user) {
+                router.push('/signin?reason=favorite');
+                return;
+              }
+
+              if (isTogglingFavorite) return;
+
+              setIsTogglingFavorite(true);
+              try {
                 await toggleFavorite(product.id, {
                   productName: product.name,
                   productPrice: discountedPrice,
@@ -308,6 +319,8 @@ export default function ProductCard({
                   sellerId: product.sellerId || 'unknown-seller',
                   sellerName: product.sellerName || 'Unknown Seller',
                 });
+              } finally {
+                setIsTogglingFavorite(false);
               }
             }}
             className="px-3 py-2.5 rounded-lg border-2 transition-all duration-300 hover:scale-110 active:scale-95"
@@ -316,7 +329,8 @@ export default function ProductCard({
               backgroundColor: isFavorited(product.id) ? '#FFE8E8' : 'transparent',
             }}
             title={user ? (isFavorited(product.id) ? 'Remove from favorites' : 'Add to favorites') : 'Sign in to favorite'}
-            disabled={!user}
+            disabled={isTogglingFavorite}
+            aria-pressed={isFavorited(product.id)}
           >
             <Heart
               size={18}

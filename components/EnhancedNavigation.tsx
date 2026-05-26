@@ -48,7 +48,6 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/member/investments',
         matchPrefixes: ['/member/investments', '/member-benefits', '/member-products', '/my-rewards', '/member-voting', '/member-transparency'],
       },
-      { id: 'profile', label: 'Profile', icon: '👤', href: '/account' },
     ],
   },
   [USER_ROLES.INSTITUTIONAL_BUYER]: {

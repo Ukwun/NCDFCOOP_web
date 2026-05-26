@@ -31,6 +31,7 @@ export default function ProductCard({
   const { user } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [recentCartLabel, setRecentCartLabel] = useState<string | null>(null);
   const { isFavorited, toggleFavorite } = useFavorites({
     userId: user?.uid || '',
   });
@@ -39,9 +40,14 @@ export default function ProductCard({
   });
 
   const discountPercentage = product.discount || 0;
-  const discountedPrice = product.price || 0;
+  const discountedPrice = product.price && product.price > 0
+    ? product.price
+    : product.originalPrice && product.originalPrice > 0
+      ? Math.max(100, Math.round(product.originalPrice * 0.85))
+      : 0;
   const originalPrice = product.originalPrice || 0;
-  const discountValue = originalPrice - (product.price || 0);
+  const discountValue = originalPrice > discountedPrice ? originalPrice - discountedPrice : 0;
+  const cartPrice = discountedPrice > 0 ? discountedPrice : originalPrice > 0 ? originalPrice : 0;
   const ownershipType = resolveProductOwnership(product);
 
   const handleAddToCart = async () => {
@@ -49,8 +55,16 @@ export default function ProductCard({
     setIsAdding(true);
     try {
       // Track add to cart
-      await trackAddToCart(product.id, 1, discountedPrice);
-      await onAddToCart(product, 1);
+      await trackAddToCart(product.id, 1, cartPrice);
+      await onAddToCart(
+        {
+          ...product,
+          price: cartPrice,
+        },
+        1
+      );
+      setRecentCartLabel('Added');
+      window.setTimeout(() => setRecentCartLabel(null), 1500);
     } catch (error) {
       console.error('Failed to add to cart:', error);
     } finally {
@@ -287,7 +301,7 @@ export default function ProductCard({
               disabled={isAdding || isLoading}
               title="Add product to shopping cart"
             >
-              {isAdding ? '⏳ Adding...' : '🛒 Add to Cart'}
+              {isAdding ? '⏳ Adding...' : recentCartLabel ? '✓ Added' : '🛒 Add to Cart'}
             </button>
           ) : (
             <button
@@ -332,11 +346,15 @@ export default function ProductCard({
             disabled={isTogglingFavorite}
             aria-pressed={isFavorited(product.id)}
           >
-            <Heart
-              size={18}
-              fill={isFavorited(product.id) ? '#E53E3E' : 'none'}
-              color={isFavorited(product.id) ? '#E53E3E' : AppColors.primary}
-            />
+            {isTogglingFavorite ? (
+              <span className="text-[11px] font-bold text-gray-500">...</span>
+            ) : (
+              <Heart
+                size={18}
+                fill={isFavorited(product.id) ? '#E53E3E' : 'none'}
+                color={isFavorited(product.id) ? '#E53E3E' : AppColors.primary}
+              />
+            )}
           </button>
         </div>
 

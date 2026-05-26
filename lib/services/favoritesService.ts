@@ -17,6 +17,31 @@ import {
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 
+const FAVORITES_STORAGE_PREFIX = 'coop_commerce_favorites_';
+
+function readBrowserFavorites(userId: string): FavoriteItem[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(`${FAVORITES_STORAGE_PREFIX}${userId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as FavoriteItem[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeBrowserFavorites(userId: string, items: FavoriteItem[]): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(`${FAVORITES_STORAGE_PREFIX}${userId}`, JSON.stringify(items));
+}
+
 export interface FavoriteItem {
   id?: string;
   userId: string;
@@ -41,7 +66,19 @@ export async function addToFavorites(
 ): Promise<void> {
   try {
     if (!db) {
-      throw new Error('Firestore is not initialized');
+      const favoriteId = `${userId}_${productId}`;
+      const existing = readBrowserFavorites(userId).filter((item) => item.productId !== productId);
+      writeBrowserFavorites(userId, [
+        {
+          id: favoriteId,
+          userId,
+          productId,
+          addedAt: new Date() as any,
+          ...productData,
+        } as FavoriteItem,
+        ...existing,
+      ]);
+      return;
     }
 
     const favoriteId = `${userId}_${productId}`;
@@ -64,6 +101,22 @@ export async function addToFavorites(
     await setDoc(doc(db, COLLECTIONS.FAVORITES, favoriteId), sanitizedData);
   } catch (error) {
     console.error('Error adding to favorites:', error);
+    if (typeof window !== 'undefined') {
+      const favoriteId = `${userId}_${productId}`;
+      const existing = readBrowserFavorites(userId).filter((item) => item.productId !== productId);
+      writeBrowserFavorites(userId, [
+        {
+          id: favoriteId,
+          userId,
+          productId,
+          addedAt: new Date() as any,
+          ...productData,
+        } as FavoriteItem,
+        ...existing,
+      ]);
+      return;
+    }
+
     throw error;
   }
 }
@@ -74,13 +127,25 @@ export async function addToFavorites(
 export async function removeFromFavorites(userId: string, productId: string): Promise<void> {
   try {
     if (!db) {
-      throw new Error('Firestore is not initialized');
+      writeBrowserFavorites(
+        userId,
+        readBrowserFavorites(userId).filter((item) => item.productId !== productId)
+      );
+      return;
     }
 
     const favoriteId = `${userId}_${productId}`;
     await deleteDoc(doc(db, COLLECTIONS.FAVORITES, favoriteId));
   } catch (error) {
     console.error('Error removing from favorites:', error);
+    if (typeof window !== 'undefined') {
+      writeBrowserFavorites(
+        userId,
+        readBrowserFavorites(userId).filter((item) => item.productId !== productId)
+      );
+      return;
+    }
+
     throw error;
   }
 }
@@ -91,7 +156,7 @@ export async function removeFromFavorites(userId: string, productId: string): Pr
 export async function isProductFavorited(userId: string, productId: string): Promise<boolean> {
   try {
     if (!db) {
-      return false;
+      return readBrowserFavorites(userId).some((item) => item.productId === productId);
     }
 
     const favoriteId = `${userId}_${productId}`;
@@ -99,7 +164,7 @@ export async function isProductFavorited(userId: string, productId: string): Pro
     return snapshot.size > 0;
   } catch (error) {
     console.error('Error checking favorite status:', error);
-    return false;
+    return readBrowserFavorites(userId).some((item) => item.productId === productId);
   }
 }
 
@@ -109,7 +174,7 @@ export async function isProductFavorited(userId: string, productId: string): Pro
 export async function getUserFavorites(userId: string, limit: number = 100): Promise<FavoriteItem[]> {
   try {
     if (!db) {
-      return [];
+      return readBrowserFavorites(userId).slice(0, limit);
     }
 
     const q = query(
@@ -127,7 +192,7 @@ export async function getUserFavorites(userId: string, limit: number = 100): Pro
       .slice(0, limit);
   } catch (error) {
     console.error('Error fetching favorites:', error);
-    return [];
+    return readBrowserFavorites(userId).slice(0, limit);
   }
 }
 
@@ -140,7 +205,7 @@ export async function getFavoritesByCategory(
 ): Promise<FavoriteItem[]> {
   try {
     if (!db) {
-      return [];
+      return readBrowserFavorites(userId).filter((item) => item.productCategory === category);
     }
 
     const q = query(
@@ -156,7 +221,7 @@ export async function getFavoritesByCategory(
     } as FavoriteItem));
   } catch (error) {
     console.error('Error fetching favorites by category:', error);
-    return [];
+    return readBrowserFavorites(userId).filter((item) => item.productCategory === category);
   }
 }
 
@@ -166,7 +231,7 @@ export async function getFavoritesByCategory(
 export async function getFavoritesCount(userId: string): Promise<number> {
   try {
     if (!db) {
-      return 0;
+      return readBrowserFavorites(userId).length;
     }
 
     const q = query(collection(db, COLLECTIONS.FAVORITES), where('userId', '==', userId));
@@ -174,7 +239,7 @@ export async function getFavoritesCount(userId: string): Promise<number> {
     return snapshot.size;
   } catch (error) {
     console.error('Error getting favorites count:', error);
-    return 0;
+    return readBrowserFavorites(userId).length;
   }
 }
 
@@ -184,6 +249,9 @@ export async function getFavoritesCount(userId: string): Promise<number> {
 export async function clearAllFavorites(userId: string): Promise<void> {
   try {
     if (!db) {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(`${FAVORITES_STORAGE_PREFIX}${userId}`);
+      }
       return;
     }
 
@@ -196,6 +264,11 @@ export async function clearAllFavorites(userId: string): Promise<void> {
     }
   } catch (error) {
     console.error('Error clearing favorites:', error);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(`${FAVORITES_STORAGE_PREFIX}${userId}`);
+      return;
+    }
+
     throw error;
   }
 }
@@ -206,7 +279,12 @@ export async function clearAllFavorites(userId: string): Promise<void> {
 export async function getAverageFavoritePrice(userId: string): Promise<number> {
   try {
     if (!db) {
-      return 0;
+      const favorites = readBrowserFavorites(userId);
+      if (favorites.length === 0) {
+        return 0;
+      }
+      const totalPrice = favorites.reduce((sum, item) => sum + item.productPrice, 0);
+      return totalPrice / favorites.length;
     }
 
     const favorites = await getUserFavorites(userId, 1000);
@@ -219,6 +297,12 @@ export async function getAverageFavoritePrice(userId: string): Promise<number> {
     return totalPrice / favorites.length;
   } catch (error) {
     console.error('Error calculating average favorite price:', error);
-    return 0;
+    const favorites = readBrowserFavorites(userId);
+    if (favorites.length === 0) {
+      return 0;
+    }
+
+    const totalPrice = favorites.reduce((sum, item) => sum + item.productPrice, 0);
+    return totalPrice / favorites.length;
   }
 }

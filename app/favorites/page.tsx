@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth/authContext";
 import ProductCard from "@/components/ProductCard";
 import { useFavorites } from "@/lib/hooks";
 import { addToCart } from '@/lib/services/cartService';
+import { Heart } from 'lucide-react';
 
 export default function FavoritesPage() {
   const { user } = useAuth();
@@ -13,7 +14,22 @@ export default function FavoritesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-6">Your Favorites</h1>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-[#E53E3E] shadow-sm dark:bg-gray-900/70 dark:text-[#FF8A8A]">
+              <Heart size={14} fill="currentColor" />
+              Favorites
+            </div>
+            <h1 className="mt-3 text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Your Favorites</h1>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              {favorites.length} item{favorites.length === 1 ? '' : 's'} saved for quick repeat shopping.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Saved Items</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{favorites.length}</p>
+          </div>
+        </div>
         {loading ? (
           <div className="text-center py-12 text-gray-500">Loading...</div>
         ) : favorites.length === 0 ? (
@@ -38,13 +54,10 @@ export default function FavoritesPage() {
                   reviews: 0,
                 }}
                 onAddToCart={async (prod, quantity) => {
-                  if (!user) {
-                    alert('Please sign in to add items to your cart.');
-                    return;
-                  }
                   try {
+                    const cartUserId = user?.uid || 'guest';
                     await addToCart(
-                      user.uid,
+                      cartUserId,
                       prod.id,
                       prod.name,
                       prod.price,

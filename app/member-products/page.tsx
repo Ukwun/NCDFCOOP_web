@@ -142,13 +142,10 @@ export default function MemberProductsPage() {
                   originalPrice: product.price,
                 }}
                 onAddToCart={async (prod, quantity) => {
-                  if (!_user) {
-                    alert('Please sign in to add items to your cart.');
-                    return;
-                  }
                   try {
+                    const cartUserId = _user?.uid || 'guest';
                     await addToCart(
-                      _user.uid,
+                      cartUserId,
                       prod.id,
                       prod.name,
                       prod.price,

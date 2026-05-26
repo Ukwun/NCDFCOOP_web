@@ -323,15 +323,11 @@ export default function ProductDetailPage() {
   const inquiryItemSubtotal = (product ? getEffectivePrice(product) : 0) * inquiryQuantity;
 
   const addProductToCart = async (targetProduct: Product, targetQuantity: number) => {
-    if (!user) {
-      router.push('/welcome');
-      return false;
-    }
-
     const safePrice = getEffectivePrice(targetProduct);
+    const cartUserId = user?.uid || 'guest';
 
     await addToCart(
-      user.uid,
+      cartUserId,
       targetProduct.id,
       targetProduct.name,
       safePrice,

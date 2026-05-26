@@ -107,14 +107,10 @@ export default function ProductsPage() {
   }, [products]);
 
   const handleAddToCart = async (product: Product, quantity: number) => {
-    if (!user) {
-      router.push('/welcome');
-      return;
-    }
-
     try {
+      const cartUserId = user?.uid || 'guest';
       await addToCart(
-        user.uid,
+        cartUserId,
         product.id,
         product.name,
         product.price,

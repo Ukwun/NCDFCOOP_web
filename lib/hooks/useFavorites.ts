@@ -53,7 +53,12 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
 
   // Real-time listener for favorites
   useEffect(() => {
-    if (!userId || !autoFetch || !db) return;
+    if (!userId || !autoFetch) return;
+
+    if (!db) {
+      fetchFavorites();
+      return;
+    }
 
     const q = query(
       collection(db, 'favorites'),
@@ -88,7 +93,7 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
     });
 
     return () => unsubscribe();
-  }, [userId, autoFetch]);
+  }, [userId, autoFetch, fetchFavorites]);
 
   const addFavorite = useCallback(
     async (productId: string, productData: Omit<FavoriteItem, 'id' | 'userId' | 'productId' | 'addedAt'>) => {

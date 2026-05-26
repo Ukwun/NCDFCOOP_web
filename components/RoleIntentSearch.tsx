@@ -51,7 +51,7 @@ const ROLE_INTENTS: SearchIntent[] = [
     title: 'Savings Plans',
     queryLabel: 'savings plans',
     description: 'Member savings plans and cooperative savings tools',
-    href: '/member-savings',
+    href: '/member/investments',
     keywords: ['member', 'savings', 'plans', 'deposit', 'goal'],
   },
   {

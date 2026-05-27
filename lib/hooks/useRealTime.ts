@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { realTimeOrderService } from '@/lib/services/realTimeOrderService';
-import { Order } from '@/lib/types/order';
+import { Order } from '@/lib/types/product';
 
 /**
  * Hook to listen to user's orders in real-time

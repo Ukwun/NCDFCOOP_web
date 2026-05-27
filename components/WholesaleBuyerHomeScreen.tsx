@@ -285,7 +285,7 @@ export default function WholesaleBuyerHomeScreen() {
     <div className="min-h-screen bg-[#F4F7FA] dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
         <div className="flex items-center gap-3 overflow-x-auto pb-1">
-          <ModeTab label="Discover" isActive={false} onClick={() => router.push('/home')} />
+          <ModeTab label="Discover" isActive={false} onClick={() => router.push('/products')} />
           <ModeTab label="Wholesale" isActive onClick={() => {}} />
           <ModeTab label="Orders" isActive={false} onClick={() => router.push('/wholesale/orders')} />
         </div>

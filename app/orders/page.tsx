@@ -151,11 +151,11 @@ export default function OrdersPage() {
     };
 
     if (!authLoading && user) {
-      fetchOrders();
+      fetchOrdersFallback();
     } else if (!authLoading && !user) {
       router.push('/welcome');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, realTimeOrders, isLoading]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

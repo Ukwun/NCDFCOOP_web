@@ -167,9 +167,9 @@ export default function SellerDashboardHomeScreen() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      {/* Header - Profile access is handled by EnhancedNavigation in global layout */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-16 z-10 md:top-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div>
             <div className="inline-block px-3 py-1 bg-[#0B6B3A] text-white text-xs font-semibold rounded-full mb-2">
               🏪 SELLER DASHBOARD
@@ -179,12 +179,6 @@ export default function SellerDashboardHomeScreen() {
             </h1>
             <p className="text-gray-600 dark:text-gray-400 text-sm">{businessName}</p>
           </div>
-          <button
-            onClick={() => router.push('/account')}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <span className="text-2xl">👤</span>
-          </button>
         </div>
       </div>
 

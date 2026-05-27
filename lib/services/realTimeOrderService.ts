@@ -5,7 +5,7 @@
 
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, onSnapshot, Unsubscribe, getDocs } from 'firebase/firestore';
-import { Order } from '@/lib/types/order';
+import { Order } from '@/lib/types/product';
 
 class RealTimeOrderService {
   private unsubscribers: Map<string, Unsubscribe> = new Map();
@@ -29,9 +29,9 @@ class RealTimeOrderService {
           const orders = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-          })) as Order[];
+          }) as Order);
 
-          // Sort by timestamp descending (newest first)
+          // Sort by createdAt descending (newest first)
           orders.sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt as any).getTime() : 0;
             const bTime = b.createdAt ? new Date(b.createdAt as any).getTime() : 0;
@@ -74,7 +74,7 @@ class RealTimeOrderService {
           const orders = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-          })) as Order[];
+          }) as Order);
 
           orders.sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt as any).getTime() : 0;
@@ -188,8 +188,8 @@ class RealTimeOrderService {
             .map((doc) => ({
               id: doc.id,
               ...doc.data(),
-            }))
-            .sort((a, b) => {
+            }) as any)
+            .sort((a: any, b: any) => {
               const aTime = a.timestamp ? new Date(a.timestamp as any).getTime() : 0;
               const bTime = b.timestamp ? new Date(b.timestamp as any).getTime() : 0;
               return bTime - aTime;
@@ -266,8 +266,8 @@ class RealTimeOrderService {
             .map((doc) => ({
               id: doc.id,
               ...doc.data(),
-            }))
-            .sort((a, b) => {
+            }) as any)
+            .sort((a: any, b: any) => {
               const aTime = a.createdAt ? new Date(a.createdAt as any).getTime() : 0;
               const bTime = b.createdAt ? new Date(b.createdAt as any).getTime() : 0;
               return bTime - aTime;

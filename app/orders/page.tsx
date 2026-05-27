@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getUserOrders } from '@/lib/services/orderService';
+import { useRealTimeOrders } from '@/lib/hooks/useRealTime';
 import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import Image from 'next/image';
@@ -14,20 +15,44 @@ import { toDate } from '@/lib/utils/dateHelper';
 export default function OrdersPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  
+  // Use real-time orders hook for live updates
+  const { orders: realTimeOrders, isLoading: rtIsLoading, error: rtError } = useRealTimeOrders(user?.uid);
+  
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Update local state when real-time orders change
   useEffect(() => {
-    const fetchOrders = async () => {
-      if (!user) return;
+    if (realTimeOrders.length > 0) {
+      setOrders(realTimeOrders);
+      setIsLoading(false);
+      setError(null);
+    } else if (!rtIsLoading && realTimeOrders.length === 0) {
+      // Only set empty if we're done loading and there really are no orders
+      setOrders([]);
+      setIsLoading(false);
+    }
+    if (rtError) {
+      setError(rtError.message);
+    }
+  }, [realTimeOrders, rtIsLoading, rtError]);
+
+  // Fallback: fetch orders if real-time fails
+  useEffect(() => {
+    const fetchOrdersFallback = async () => {
+      if (!user || realTimeOrders.length > 0) return;
 
       try {
+        if (isLoading) return; // Don't refetch if already loading
         setIsLoading(true);
         setError(null);
 
         const userOrders = await getUserOrders(user.uid);
-        setOrders(userOrders);
+        if (userOrders.length > 0) {
+          setOrders(userOrders);
+        }
       } catch (err) {
         console.error('Error fetching orders:', err);
         // Fallback to mock orders instead of blank page
@@ -190,14 +215,21 @@ export default function OrdersPage() {
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <h1
-            style={{
-              ...AppTextStyles.h1,
-              color: AppColors.textPrimary,
-            }}
-          >
-            My Orders
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1
+              style={{
+                ...AppTextStyles.h1,
+                color: AppColors.textPrimary,
+              }}
+            >
+              My Orders
+            </h1>
+            {/* Real-time indicator */}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full" style={{ backgroundColor: '#D1FAE5' }}>
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span style={{ fontSize: '12px', fontWeight: '600', color: '#10B981' }}>Live Updates</span>
+            </div>
+          </div>
           <button
             onClick={() => router.push('/products')}
             className="px-6 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"

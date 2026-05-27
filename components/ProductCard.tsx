@@ -13,6 +13,7 @@ import {
   ownershipLabel,
   resolveProductOwnership,
 } from '@/lib/utils/productOwnership';
+import { addToCart } from '@/lib/services/cartService';
 
 interface ProductCardProps {
   product: Product;
@@ -51,18 +52,26 @@ export default function ProductCard({
   const ownershipType = resolveProductOwnership(product);
 
   const handleAddToCart = async () => {
-    if (!onAddToCart) return;
+    if (!user) {
+      router.push('/signin?reason=cart');
+      return;
+    }
+    if (cartPrice <= 0) return;
     setIsAdding(true);
     try {
-      // Track add to cart
       await trackAddToCart(product.id, 1, cartPrice);
-      await onAddToCart(
-        {
-          ...product,
-          price: cartPrice,
-        },
-        1
-      );
+      if (onAddToCart) {
+        await onAddToCart({ ...product, price: cartPrice }, 1);
+      } else {
+        await addToCart(
+          user.uid,
+          product.id,
+          product.name,
+          cartPrice,
+          product.thumbnail || product.images?.[0] || '',
+          1
+        );
+      }
       setRecentCartLabel('Added');
       window.setTimeout(() => setRecentCartLabel(null), 1500);
     } catch (error) {

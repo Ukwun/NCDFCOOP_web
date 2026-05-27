@@ -404,10 +404,7 @@ export default function MemberHomeScreen() {
                   }
 
                   const safePrice = Number(prod.price);
-                  if (!Number.isFinite(safePrice)) {
-                    alert('This product has incomplete pricing data and cannot be added to cart yet.');
-                    return;
-                  }
+                  if (!Number.isFinite(safePrice) || safePrice <= 0) return;
 
                   await addToCart(
                     user.uid,
@@ -455,10 +452,7 @@ export default function MemberHomeScreen() {
                   }
 
                   const safePrice = Number(prod.price);
-                  if (!Number.isFinite(safePrice)) {
-                    alert('This product has incomplete pricing data and cannot be added to cart yet.');
-                    return;
-                  }
+                  if (!Number.isFinite(safePrice) || safePrice <= 0) return;
 
                   await addToCart(
                     user.uid,

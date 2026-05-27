@@ -152,9 +152,8 @@ export default function MemberProductsPage() {
                       prod.thumbnail || prod.images?.[0] || '',
                       quantity
                     );
-                    alert('Added to cart!');
                   } catch (err) {
-                    alert('Failed to add to cart.');
+                    console.error('Failed to add to cart:', err);
                   }
                 }}
               />

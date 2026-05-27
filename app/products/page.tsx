@@ -117,10 +117,8 @@ export default function ProductsPage() {
         product.images?.[0] || product.thumbnail || '',
         quantity
       );
-      alert(`${product.name} added to cart`);
     } catch (err) {
       console.error('Error adding to cart:', err);
-      alert('Failed to add to cart');
     }
   };
 

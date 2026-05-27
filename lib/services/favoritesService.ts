@@ -87,6 +87,7 @@ export async function addToFavorites(
         } as FavoriteItem,
         ...existing,
       ]);
+      notifyFavoritesChanged();
       return;
     }
 
@@ -140,8 +141,11 @@ export async function removeFromFavorites(userId: string, productId: string): Pr
     if (!db) {
       writeBrowserFavorites(
         userId,
-        readBrowserFavorites(userId).filter((item) => item.productId !== productId)
+        readBrowserFavorites(userId).filter(
+          (item) => item.productId !== productId && item.id !== `${userId}_${productId}`
+        )
       );
+      notifyFavoritesChanged();
       return;
     }
 
@@ -153,7 +157,9 @@ export async function removeFromFavorites(userId: string, productId: string): Pr
     if (typeof window !== 'undefined') {
       writeBrowserFavorites(
         userId,
-        readBrowserFavorites(userId).filter((item) => item.productId !== productId)
+        readBrowserFavorites(userId).filter(
+          (item) => item.productId !== productId && item.id !== `${userId}_${productId}`
+        )
       );
       notifyFavoritesChanged();
       return;
@@ -265,6 +271,7 @@ export async function clearAllFavorites(userId: string): Promise<void> {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(`${FAVORITES_STORAGE_PREFIX}${userId}`);
       }
+      notifyFavoritesChanged();
       return;
     }
 

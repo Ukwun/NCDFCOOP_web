@@ -55,20 +55,41 @@ function generateReferralCode(): string {
   return `NCDF-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
+function normalizeRoleInput(role?: string): string {
+  if (!role) return USER_ROLES.MEMBER;
+
+  const normalized = role.toLowerCase().trim();
+  if (normalized === 'wholesale_buyer' || normalized === 'wholesale') {
+    return USER_ROLES.INSTITUTIONAL_BUYER;
+  }
+
+  return normalized;
+}
+
+function getRoleOverrideFromStorage(validRoles: string[]): string | null {
+  if (typeof window === 'undefined') return null;
+  const overrideRole = normalizeRoleInput(window.localStorage.getItem('selectedRoleOverride') || undefined);
+  return validRoles.includes(overrideRole) ? overrideRole : null;
+}
+
 function resolveSignupInputs(nameOrMembershipType?: string, membershipTypeMaybe?: string) {
   const validRoles = Object.values(USER_ROLES) as string[];
   if (!nameOrMembershipType) {
     return { name: '', membershipType: USER_ROLES.MEMBER };
   }
 
-  const lower = nameOrMembershipType.toLowerCase();
+  const lower = normalizeRoleInput(nameOrMembershipType);
   if (validRoles.includes(lower)) {
     return { name: '', membershipType: lower };
   }
 
+  const normalizedMembershipTypeMaybe = normalizeRoleInput(membershipTypeMaybe);
+
   return {
     name: nameOrMembershipType,
-    membershipType: (membershipTypeMaybe && validRoles.includes(membershipTypeMaybe) ? membershipTypeMaybe : USER_ROLES.MEMBER),
+    membershipType: (normalizedMembershipTypeMaybe && validRoles.includes(normalizedMembershipTypeMaybe)
+      ? normalizedMembershipTypeMaybe
+      : USER_ROLES.MEMBER),
   };
 }
 
@@ -101,13 +122,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = userDoc.data();
 
         if (userData) {
+          const validRoles = Object.values(USER_ROLES) as string[];
+          const selectedRole = getRoleOverrideFromStorage(validRoles)
+            || normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
+          const roles = Array.from(new Set([...(userData.roles || [USER_ROLES.MEMBER]), selectedRole]));
           const authUser: AuthUser = {
             ...currentUser,
-            roles: userData.roles || [USER_ROLES.MEMBER],
-            selectedRole: userData.selectedRole || USER_ROLES.MEMBER,
+            roles,
+            selectedRole,
             membershipStatus:
               userData.membershipStatus ||
-              ((userData.selectedRole || USER_ROLES.MEMBER) === USER_ROLES.MEMBER
+              (selectedRole === USER_ROLES.MEMBER
                 ? 'active'
                 : 'inactive'),
             roleSelectionComplete: !!userData.roleSelectionComplete,
@@ -116,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           };
 
           setUser(authUser);
-          setCurrentRole(authUser.selectedRole || USER_ROLES.MEMBER);
+          setCurrentRole(selectedRole);
           setRoleSelectionComplete(!!authUser.roleSelectionComplete);
           setOnboardingCompleted(!!authUser.onboardingCompleted);
           setError(null);
@@ -128,7 +153,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           const validRoles = Object.values(USER_ROLES) as string[];
-          const selectedRole = urlRole && validRoles.includes(urlRole) ? urlRole : USER_ROLES.MEMBER;
+          const normalizedUrlRole = normalizeRoleInput(urlRole || undefined);
+          const selectedRole = validRoles.includes(normalizedUrlRole) ? normalizedUrlRole : USER_ROLES.MEMBER;
 
           await setDoc(userRef, {
             id: currentUser.uid,
@@ -257,6 +283,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       if (!auth) throw new Error('Firebase not initialized');
       await signOut(auth);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('selectedRoleOverride');
+      }
       setUser(null);
       setCurrentRole(null);
       setRoleSelectionComplete(false);
@@ -361,50 +390,113 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const selectRole = async (role: string) => {
+    const normalizedRole = normalizeRoleInput(role);
+
     try {
       setError(null);
       if (!auth || !db) throw new Error('Firebase not initialized');
       if (!auth.currentUser) return;
 
       await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
-        selectedRole: role,
+        roles: arrayUnion(normalizedRole),
+        selectedRole: normalizedRole,
         roleSelectionComplete: true,
         updatedAt: Timestamp.now(),
       }, { merge: true });
 
-      setCurrentRole(role);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('selectedRoleOverride', normalizedRole);
+      }
+
+      setCurrentRole(normalizedRole);
       setRoleSelectionComplete(true);
       if (user) {
-        setUser({ ...user, selectedRole: role, roleSelectionComplete: true });
+        const existingRoles = user.roles || [];
+        setUser({
+          ...user,
+          selectedRole: normalizedRole,
+          roleSelectionComplete: true,
+          roles: Array.from(new Set([...existingRoles, normalizedRole])),
+        });
       }
     } catch (err: any) {
+      const errorCode = String(err?.code || '');
+      const canFallbackToLocalRole =
+        errorCode === 'permission-denied' ||
+        errorCode === 'unavailable' ||
+        errorCode === 'auth/network-request-failed' ||
+        errorCode.includes('permission');
+
+      if (canFallbackToLocalRole) {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('selectedRoleOverride', normalizedRole);
+        }
+
+        setCurrentRole(normalizedRole);
+        setRoleSelectionComplete(true);
+        if (user) {
+          const existingRoles = user.roles || [];
+          setUser({
+            ...user,
+            selectedRole: normalizedRole,
+            roleSelectionComplete: true,
+            roles: Array.from(new Set([...existingRoles, normalizedRole])),
+          });
+        }
+        return;
+      }
+
       setError(err?.message || 'Failed to select role');
       throw err;
     }
   };
 
   const switchRole = async (role: string) => {
+    const normalizedRole = normalizeRoleInput(role);
+
     try {
       setError(null);
       if (!auth || !db) throw new Error('Firebase not initialized');
       if (!auth.currentUser || !user) return;
 
       const existingRoles = user.roles || [];
-      if (!existingRoles.includes(role)) {
+      if (!existingRoles.includes(normalizedRole)) {
         await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
-          roles: arrayUnion(role),
+          roles: arrayUnion(normalizedRole),
           updatedAt: Timestamp.now(),
         }, { merge: true });
       }
 
       await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
-        selectedRole: role,
+        selectedRole: normalizedRole,
         updatedAt: Timestamp.now(),
       }, { merge: true });
 
-      setCurrentRole(role);
-      setUser({ ...user, selectedRole: role, roles: Array.from(new Set([...existingRoles, role])) });
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('selectedRoleOverride', normalizedRole);
+      }
+
+      setCurrentRole(normalizedRole);
+      setUser({ ...user, selectedRole: normalizedRole, roles: Array.from(new Set([...existingRoles, normalizedRole])) });
     } catch (err: any) {
+      const errorCode = String(err?.code || '');
+      const canFallbackToLocalRole =
+        errorCode === 'permission-denied' ||
+        errorCode === 'unavailable' ||
+        errorCode === 'auth/network-request-failed' ||
+        errorCode.includes('permission');
+
+      if (canFallbackToLocalRole) {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('selectedRoleOverride', normalizedRole);
+        }
+
+        const existingRoles = user.roles || [];
+        setCurrentRole(normalizedRole);
+        setUser({ ...user, selectedRole: normalizedRole, roles: Array.from(new Set([...existingRoles, normalizedRole])) });
+        return;
+      }
+
       setError(err?.message || 'Failed to switch role');
       throw err;
     }
@@ -420,13 +512,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = userDoc.data();
       if (!userData) return;
 
+      const validRoles = Object.values(USER_ROLES) as string[];
+      const selectedRole = getRoleOverrideFromStorage(validRoles)
+        || normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
+      const roles = Array.from(new Set([...(userData.roles || [USER_ROLES.MEMBER]), selectedRole]));
       const refreshedUser: AuthUser = {
         ...auth.currentUser,
-        roles: userData.roles || [USER_ROLES.MEMBER],
-        selectedRole: userData.selectedRole || USER_ROLES.MEMBER,
+        roles,
+        selectedRole,
         membershipStatus:
           userData.membershipStatus ||
-          ((userData.selectedRole || USER_ROLES.MEMBER) === USER_ROLES.MEMBER
+          (selectedRole === USER_ROLES.MEMBER
             ? 'active'
             : 'inactive'),
         roleSelectionComplete: !!userData.roleSelectionComplete,
@@ -435,7 +531,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(refreshedUser);
-      setCurrentRole(refreshedUser.selectedRole || USER_ROLES.MEMBER);
+      setCurrentRole(selectedRole);
       setRoleSelectionComplete(!!refreshedUser.roleSelectionComplete);
       setOnboardingCompleted(!!refreshedUser.onboardingCompleted);
     } catch (err: any) {

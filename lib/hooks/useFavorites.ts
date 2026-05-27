@@ -122,20 +122,25 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
       try {
         await addToFavorites(userId, productId, productData);
 
-        // Update local state
-        setFavorites((prev) => [
-          {
-            ...productData,
-            id: `${userId}_${productId}`,
-            userId,
-            productId,
-            addedAt: new Date() as any,
-          } as FavoriteItem,
-          ...prev,
-        ]);
+        const nextItem = {
+          ...productData,
+          id: `${userId}_${productId}`,
+          userId,
+          productId,
+          addedAt: new Date() as any,
+        } as FavoriteItem;
 
-        setCount((prev) => prev + 1);
-        setFavoriteIds((prev) => new Set(prev).add(productId));
+        setFavorites((prev) => {
+          const next = [nextItem, ...prev.filter((item) => item.productId !== productId)];
+          setCount(next.length);
+          return next;
+        });
+
+        setFavoriteIds((prev) => {
+          const next = new Set(prev);
+          next.add(productId);
+          return next;
+        });
       } catch (err) {
         console.error('Failed to add favorite:', err);
         throw err;
@@ -149,9 +154,11 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
       try {
         await removeFromFavorites(userId, productId);
 
-        // Update local state
-        setFavorites((prev) => prev.filter((f) => f.productId !== productId));
-        setCount((prev) => prev - 1);
+        setFavorites((prev) => {
+          const next = prev.filter((f) => f.productId !== productId);
+          setCount(next.length);
+          return next;
+        });
 
         setFavoriteIds((prev) => {
           const next = new Set(prev);

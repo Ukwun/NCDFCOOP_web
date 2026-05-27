@@ -3,10 +3,12 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
+import { USER_ROLES } from '@/lib/constants/database';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 
 interface RoleOption {
   id: string;
+  icon: string;
   title: string;
   description: string;
   color: string;
@@ -15,7 +17,8 @@ interface RoleOption {
 
 const ROLE_OPTIONS: RoleOption[] = [
   {
-    id: 'member',
+    id: USER_ROLES.MEMBER,
+    icon: '👤',
     title: '👤 Member',
     description: 'Access discounts and loyalty rewards',
     color: AppColors.roles.member,
@@ -27,7 +30,8 @@ const ROLE_OPTIONS: RoleOption[] = [
     ],
   },
   {
-    id: 'wholesale_buyer',
+    id: USER_ROLES.INSTITUTIONAL_BUYER,
+    icon: '🛒',
     title: '🛒 Wholesale Buyer',
     description: 'Bulk buying with wholesale pricing',
     color: AppColors.roles.wholesaleBuyer,
@@ -40,7 +44,8 @@ const ROLE_OPTIONS: RoleOption[] = [
     ],
   },
   {
-    id: 'seller',
+    id: USER_ROLES.SELLER,
+    icon: '🚀',
     title: '🚀 Start Selling',
     description: 'Sell to members and wholesalers',
     color: AppColors.roles.seller,
@@ -219,7 +224,7 @@ export default function RoleSelectionScreen() {
                 marginBottom: AppSpacing.md,
               }}
             >
-              <div style={{ fontSize: '2.5rem' }}>{role.title.charAt(0)}</div>
+              <div style={{ fontSize: '2.5rem' }}>{role.icon}</div>
               {selectedRole === role.id && (
                 <div
                   style={{

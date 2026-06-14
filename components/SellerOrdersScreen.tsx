@@ -215,10 +215,15 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
                       {order.items?.map((item: any, idx: number) => (
                         <div
                           key={idx}
-                          className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                          className="flex justify-between items-start p-2 bg-gray-50 rounded border border-gray-100"
                         >
                           <div>
                             <p className="font-medium">{item.productName}</p>
+                            {(item.type === 'wholesale' || item.type === 'both') && (
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight mt-0.5">
+                                📦 Wholesale Order (MOQ: {item.minOrderQuantity} {item.unitOfMeasure || 'units'})
+                              </p>
+                            )}
                             <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                           </div>
                           <p className="font-semibold">

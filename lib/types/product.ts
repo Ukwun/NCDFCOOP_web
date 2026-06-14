@@ -8,7 +8,9 @@ export interface Product {
   id: string;
   name: string;
   description: string;
+  type?: 'retail' | 'wholesale' | 'both';
   price: number;
+  retailPrice?: number;
   originalPrice?: number; // For discounts
   category: string;
   subcategory?: string;
@@ -21,8 +23,10 @@ export interface Product {
   rating?: number;
   reviews?: number;
   minOrder?: number;
+  minOrderQuantity?: number;
   maxOrder?: number;
   unit?: string; // e.g., "kg", "per piece", "per carton"
+  unitOfMeasure?: string;
   weight?: number; // in kg
   dimensions?: {
     length: number;
@@ -157,6 +161,7 @@ export interface Order {
   createdAt: Date | Timestamp;
   updatedAt: Date | Timestamp;
   estimatedDelivery?: Date | Timestamp;
+  buyerType?: 'member' | 'wholesale'; // Added to distinguish retail vs wholesale orders
 }
 
 export interface OrderItem {
@@ -166,6 +171,9 @@ export interface OrderItem {
   price: number;
   subtotal?: number;
   productImage?: string; // Optional product image URL
+  minOrderQuantity?: number;
+  unitOfMeasure?: string;
+  type?: 'retail' | 'wholesale' | 'both';
 }
 
 export type OrderStatus = 

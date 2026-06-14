@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { initiateFlutterwavePayment } from '@/lib/services/paymentService';
+import { useAuth } from '@/lib/auth/authContext';
 import { createOrder } from '@/lib/services/orderService';
 import { clearCart } from '@/lib/services/cartService';
 
@@ -14,9 +15,11 @@ interface FlutterwavePaymentButtonProps {
   shippingAddress: string;
   onSuccess: () => void;
   onError: (error: string) => void;
+  buyerType: 'member' | 'wholesale'; // Added buyerType prop
 }
 
 export default function PaystackPaymentButton({
+  buyerType,
   userId,
   email,
   fullName,
@@ -26,6 +29,7 @@ export default function PaystackPaymentButton({
   onSuccess,
   onError,
 }: FlutterwavePaymentButtonProps) {
+  const { currentRole } = useAuth(); // Get current role from auth context
   const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
@@ -49,7 +53,8 @@ export default function PaystackPaymentButton({
               cartItems,
               amount,
               shippingAddress,
-              'flutterwave'
+              'flutterwave',
+              buyerType // Pass buyerType to createOrder
             );
 
             // Clear cart

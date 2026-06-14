@@ -9,6 +9,7 @@ import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { AppColors, AppTextStyles } from '@/lib/theme';
+import styles from './animations.module.css';
 
 const PRODUCT_CATEGORIES = [
   { id: 'vegetables', name: 'Vegetables', emoji: '🥬' },
@@ -31,16 +32,24 @@ export default function AddProductPage() {
     name: '',
     description: '',
     price: 0,
+    wholesalePrice: 0,
     originalPrice: 0,
     category: 'vegetables',
     stock: 0,
     unit: 'kg',
+    productType: 'retail' as 'retail' | 'wholesale' | 'both',
+    wholesaleMinOrder: 1,
     images: [] as string[],
     thumbnail: '',
   });
 
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+
   const handleInputChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: '' }));
+    }
   };
 
   const calculateDiscount = () => {
@@ -65,8 +74,22 @@ export default function AddProductPage() {
       return;
     }
 
-    if (!formData.name || !formData.price || !formData.category) {
-      setError('Please fill in all required fields');
+    const currentErrors: { [key: string]: string } = {};
+    if (!formData.name.trim()) currentErrors.name = 'Product name is required';
+    if (!formData.category) currentErrors.category = 'Select a category';
+    if (formData.price <= 0) currentErrors.price = 'Please enter a valid base price';
+    if (formData.stock <= 0) currentErrors.stock = 'Stock quantity must be greater than zero';
+    if (!formData.unit) currentErrors.unit = 'Please choose a unit measure';
+    if (formData.productType !== 'retail' && formData.wholesalePrice <= 0) {
+      currentErrors.wholesalePrice = 'Wholesale price is required for wholesale products';
+    }
+    if (formData.productType !== 'retail' && formData.wholesaleMinOrder < 1) {
+      currentErrors.wholesaleMinOrder = 'Wholesale minimum order must be at least 1';
+    }
+
+    if (Object.keys(currentErrors).length > 0) {
+      setFieldErrors(currentErrors);
+      setError('Please fix the highlighted fields');
       return;
     }
 
@@ -74,48 +97,57 @@ export default function AddProductPage() {
     setError(null);
 
     try {
+      const wholesalePriceValue = formData.productType !== 'retail'
+        ? parseFloat(formData.wholesalePrice.toString())
+        : 0;
+
       const newProduct = {
         name: formData.name,
         description: formData.description,
+        category: formData.category,
+        type: formData.productType,
         price: parseFloat(formData.price.toString()),
+        retailPrice: parseFloat(formData.price.toString()),
+        wholesalePrice: wholesalePriceValue > 0 ? wholesalePriceValue : undefined,
         originalPrice: formData.originalPrice
           ? parseFloat(formData.originalPrice.toString())
           : parseFloat(formData.price.toString()),
         discount: calculateDiscount(),
-        category: formData.category,
+        minOrderQuantity: formData.productType !== 'retail' ? parseInt(formData.wholesaleMinOrder.toString()) : 1,
         stock: parseInt(formData.stock.toString()),
         unit: formData.unit,
         maxOrder: 100,
+        status: 'pending',
         images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/400x400'],
         thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
         sellerId: user.uid,
         sellerName: user.displayName || 'Seller',
+        ownershipType: 'seller',
         rating: 4.5,
         reviews: 0,
         isFeatured: false,
+        isActive: true,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       };
 
-      const docRef = await addDoc(
-        collection(db, COLLECTIONS.PRODUCTS),
-        newProduct
-      );
+      await addDoc(collection(db, COLLECTIONS.PRODUCTS), newProduct);
 
-      // You can optionally save seller's product reference
       setFormData({
         name: '',
         description: '',
         price: 0,
+        wholesalePrice: 0,
         originalPrice: 0,
         category: 'vegetables',
         stock: 0,
         unit: 'kg',
+        productType: 'retail',
+        wholesaleMinOrder: 1,
         images: [],
         thumbnail: '',
       });
 
-      // Redirect to seller products page
       router.push('/seller/products');
     } catch (err) {
       console.error('Error adding product:', err);
@@ -152,10 +184,10 @@ export default function AddProductPage() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 space-y-6">
+        <form onSubmit={handleSubmit} className={`${styles.formContainer} bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 space-y-6`}>
           
           {/* Product Name */}
-          <div>
+          <div className={styles.formGroup}>
             <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
               Product Name *
             </label>
@@ -164,16 +196,19 @@ export default function AddProductPage() {
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
               placeholder="e.g., Fresh Tomatoes (1kg)"
-              className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
+              className={`${styles.input} w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2 ${
+                fieldErrors.name ? styles.inputError : ''
+              }`}
               style={{
-                borderColor: AppColors.border,
+                borderColor: fieldErrors.name ? '#dc2626' : AppColors.border,
               }}
               required
             />
+            {fieldErrors.name && <p className={styles.fieldErrorText}>{fieldErrors.name}</p>}
           </div>
 
           {/* Description */}
-          <div>
+          <div className={styles.formGroup}>
             <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
               Description
             </label>
@@ -181,7 +216,7 @@ export default function AddProductPage() {
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Describe your product, quality, origin, uses..."
-              className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2 h-24 resize-none"
+              className={`${styles.input} w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2 h-24 resize-none`}
               style={{
                 borderColor: AppColors.border,
               }}
@@ -189,7 +224,7 @@ export default function AddProductPage() {
           </div>
 
           {/* Category */}
-          <div>
+          <div className={styles.formGroup}>
             <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
               Category *
             </label>
@@ -199,10 +234,10 @@ export default function AddProductPage() {
                   key={cat.id}
                   type="button"
                   onClick={() => handleInputChange('category', cat.id)}
-                  className={`p-4 rounded-lg border-2 transition-all ${
+                  className={`${styles.categoryButton} p-4 rounded-lg border-2 transition-all ${
                     formData.category === cat.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900'
-                      : 'border-gray-300 dark:border-gray-600'
+                      ? `${styles.categoryButtonSelected} border-blue-600`
+                      : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'
                   }`}
                 >
                   <div className="text-2xl mb-1">{cat.emoji}</div>
@@ -212,12 +247,39 @@ export default function AddProductPage() {
             </div>
           </div>
 
+          {/* Product Type */}
+          <div className={styles.formGroup}>
+            <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
+              Listing Type *
+            </label>
+            <div className="grid grid-cols-3 gap-3 mt-3">
+              {[
+                { id: 'retail', label: 'Retail', description: 'Sell to all consumers' },
+                { id: 'wholesale', label: 'Wholesale', description: 'Bulk buyers only' },
+                { id: 'both', label: 'Both', description: 'Retail + wholesale' },
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => handleInputChange('productType', option.id)}
+                  className={`${styles.typeButton} p-4 rounded-lg border-2 text-left transition-all ${
+                    formData.productType === option.id
+                      ? `${styles.typeButtonSelected} border-emerald-600`
+                      : 'border-gray-300 dark:border-gray-600 hover:border-emerald-300'
+                  }`}
+                >
+                  <p className="font-semibold">{option.label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{option.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Price Section */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Sale Price */}
+          <div className={`${styles.formGroup} grid grid-cols-2 gap-4`}>
             <div>
               <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
-                Sale Price (₦) *
+                Base Price (₦) *
               </label>
               <input
                 type="number"
@@ -225,15 +287,17 @@ export default function AddProductPage() {
                 onChange={(e) => handleInputChange('price', e.target.value)}
                 placeholder="0"
                 min="0"
-                className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
+                className={`${styles.input} w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2 ${
+                  fieldErrors.price ? styles.inputError : ''
+                }`}
                 style={{
-                  borderColor: AppColors.border,
+                  borderColor: fieldErrors.price ? '#dc2626' : AppColors.border,
                 }}
                 required
               />
+              {fieldErrors.price && <p className={styles.fieldErrorText}>{fieldErrors.price}</p>}
             </div>
 
-            {/* Original Price (for discount) */}
             <div>
               <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
                 Original Price (₦)
@@ -251,6 +315,51 @@ export default function AddProductPage() {
               />
             </div>
           </div>
+
+          {(formData.productType === 'wholesale' || formData.productType === 'both') && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
+                  Wholesale Price (₦) *
+                </label>
+                <input
+                  type="number"
+                  value={formData.wholesalePrice}
+                  onChange={(e) => handleInputChange('wholesalePrice', e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
+                  style={{
+                    borderColor: AppColors.border,
+                  }}
+                  required
+                />
+                {fieldErrors.wholesalePrice && (
+                  <p className="text-red-600 text-sm mt-1">{fieldErrors.wholesalePrice}</p>
+                )}
+              </div>
+              <div>
+                <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
+                  Wholesale MOQ *
+                </label>
+                <input
+                  type="number"
+                  value={formData.wholesaleMinOrder}
+                  onChange={(e) => handleInputChange('wholesaleMinOrder', e.target.value)}
+                  placeholder="1"
+                  min="1"
+                  className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
+                  style={{
+                    borderColor: AppColors.border,
+                  }}
+                  required
+                />
+                {fieldErrors.wholesaleMinOrder && (
+                  <p className="text-red-600 text-sm mt-1">{fieldErrors.wholesaleMinOrder}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Discount Display */}
           {calculateDiscount() > 0 && (

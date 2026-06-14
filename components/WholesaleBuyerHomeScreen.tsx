@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Bell, Boxes, ChartBar, ChevronRight, CircleCheck, Filter, Minus, Plus, Search, ShieldCheck, ShoppingCart, Truck } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
+import { getProducts } from '@/lib/services/productService';
+import { Product } from '@/lib/types/product';
 import { useBuyerOrders } from '@/lib/hooks/useBuyerOrders';
 import { addToCart, CART_CHANGED_EVENT, getUserCart } from '@/lib/services/cartService';
 
@@ -29,80 +31,14 @@ interface QuoteDraft {
   targetPrice: string;
 }
 
-const WHOLESALE_PRODUCTS: WholesaleProduct[] = [
-  {
-    id: 'wholesale-p1',
-    name: 'Bulk Garri Crates',
-    description: 'Commercial-grade garri supply package for institutional buyers.',
-    price: 99000,
-    originalPrice: 116000,
-    category: 'Grains',
-    stock: 120,
-    unit: 'crate',
-    thumbnail: '/images/Bag of garri1.png',
-    minimumOrder: 10,
-    sellerName: 'NCDF Bulk Grain Desk',
-  },
-  {
-    id: 'wholesale-p5',
-    name: 'Institutional Rice Distribution Pack',
-    description: 'Platform-operated rice inventory optimized for compliance and fulfillment.',
-    price: 105000,
-    originalPrice: 124000,
-    category: 'Grains',
-    stock: 145,
-    unit: 'batch',
-    thumbnail: '/images/Buck wheat1.png',
-    minimumOrder: 10,
-    sellerName: 'NCDF Institutional Supply',
-  },
-  {
-    id: 'wholesale-p2',
-    name: 'Institutional Palm Oil Pack',
-    description: 'High-volume palm oil inventory for kitchen and retail operations.',
-    price: 128000,
-    originalPrice: 149000,
-    category: 'Oils',
-    stock: 85,
-    unit: 'batch',
-    thumbnail: '/images/Palm Oil.png',
-    minimumOrder: 8,
-    sellerName: 'Agro Supply Core',
-  },
-  {
-    id: 'wholesale-p3',
-    name: 'Cassava Flour Production Set',
-    description: 'Wholesale flour lots for production teams and B2B procurement.',
-    price: 87000,
-    originalPrice: 102000,
-    category: 'Grains',
-    stock: 93,
-    unit: 'lot',
-    thumbnail: '/images/Cassava Flour.png',
-    minimumOrder: 10,
-    sellerName: 'FarmersDirect B2B',
-  },
-  {
-    id: 'wholesale-p4',
-    name: 'Commercial Egg Carton Grid',
-    description: 'Consistent high-volume egg inventory for institutions.',
-    price: 76000,
-    originalPrice: 90500,
-    category: 'Proteins',
-    stock: 64,
-    unit: 'grid',
-    thumbnail: '/images/Eggs (30pc).png',
-    minimumOrder: 12,
-    sellerName: 'Protein Logistics Hub',
-  },
-];
-
-function formatCurrency(value: number): string {
-  return `NGN ${Math.round(value).toLocaleString()}`;
+function formatCurrency(value: number | undefined): string {
+  return `₦${Math.round(value || 0).toLocaleString()}`;
 }
 
-function savingsPerUnit(product: WholesaleProduct): number {
-  return Math.max(0, product.originalPrice - product.price);
+function savingsPerUnit(product: Product): number {
+  const original = product.originalPrice || 0;
+  const current = product.wholesalePrice || product.price || 0;
+  return Math.max(0, original - current);
 }
 
 export default function WholesaleBuyerHomeScreen() {
@@ -110,6 +46,7 @@ export default function WholesaleBuyerHomeScreen() {
   const { user } = useAuth();
   const liveData = useUtilityLiveData(user?.uid || '', 'institutional_buyer');
   const { activeOrders, completedOrders, totalSpent } = useBuyerOrders(user?.uid || '');
+  const [wholesaleProducts, setWholesaleProducts] = useState<Product[]>([]);
 
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -125,6 +62,19 @@ export default function WholesaleBuyerHomeScreen() {
   });
   const [recentProductIds, setRecentProductIds] = useState<string[]>([]);
   const [bannerMessage, setBannerMessage] = useState('');
+
+  // Fetch wholesale products from the service
+  useEffect(() => {
+    const fetchWholesaleProducts = async () => {
+      try {
+        const products = await getProducts(100, 'wholesale'); // Fetch products of type 'wholesale' or 'both'
+        setWholesaleProducts(products);
+      } catch (error) {
+        console.error('Error fetching wholesale products:', error);
+      }
+    };
+    fetchWholesaleProducts();
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -185,14 +135,13 @@ export default function WholesaleBuyerHomeScreen() {
   }, [user?.uid]);
 
   const categories = useMemo(() => {
-    const unique = new Set(['All']);
-    WHOLESALE_PRODUCTS.forEach((product) => unique.add(product.category));
+    const unique = new Set(['All', ...wholesaleProducts.map(p => p.category)]);
     return Array.from(unique);
-  }, []);
+  }, [wholesaleProducts]);
 
   const filteredProducts = useMemo(() => {
     const query = searchText.toLowerCase();
-    return WHOLESALE_PRODUCTS
+    return wholesaleProducts
       .filter((product) => {
         const matchesSearch =
           query.length === 0 ||
@@ -206,14 +155,14 @@ export default function WholesaleBuyerHomeScreen() {
         return matchesSearch && matchesCategory && matchesStock;
       })
       .sort((a, b) => savingsPerUnit(b) - savingsPerUnit(a));
-  }, [inStockOnly, searchText, selectedCategory]);
+  }, [wholesaleProducts, inStockOnly, searchText, selectedCategory]);
 
   const recentProducts = useMemo(() => {
-    if (recentProductIds.length === 0) return [] as WholesaleProduct[];
-    const catalogById = Object.fromEntries(WHOLESALE_PRODUCTS.map((p) => [p.id, p]));
+    if (recentProductIds.length === 0) return [] as Product[];
+    const catalogById = Object.fromEntries(wholesaleProducts.map((p) => [p.id, p]));
     return recentProductIds
       .map((id) => catalogById[id])
-      .filter((product): product is WholesaleProduct => !!product);
+      .filter((product): product is Product => !!product);
   }, [recentProductIds]);
 
   const trackRecentProduct = (productId: string) => {
@@ -228,7 +177,7 @@ export default function WholesaleBuyerHomeScreen() {
     router.push(`/products/${productId}`);
   };
 
-  const updateQuantity = (productId: string, nextQuantity: number, minimumOrder: number) => {
+  const updateQuantity = (productId: string, nextQuantity: number, minimumOrder: number = 1) => {
     const min = Math.max(1, minimumOrder);
     setDesiredQuantities((prev) => ({
       ...prev,
@@ -236,11 +185,11 @@ export default function WholesaleBuyerHomeScreen() {
     }));
   };
 
-  const getDesiredQuantity = (product: WholesaleProduct) => {
-    return desiredQuantities[product.id] ?? Math.max(1, product.minimumOrder);
+  const getDesiredQuantity = (product: Product) => {
+    return desiredQuantities[product.id] ?? Math.max(1, product.minOrderQuantity || 1);
   };
 
-  const onAddToCart = async (product: WholesaleProduct) => {
+  const onAddToCart = async (product: Product) => {
     if (!user?.uid) {
       setBannerMessage('Sign in is required before adding wholesale items to cart.');
       router.push('/signin');
@@ -254,7 +203,7 @@ export default function WholesaleBuyerHomeScreen() {
         user.uid,
         product.id,
         product.name,
-        product.price,
+        product.wholesalePrice || product.price, // Use wholesale price if available
         product.thumbnail,
         quantity
       );
@@ -265,12 +214,12 @@ export default function WholesaleBuyerHomeScreen() {
     }
   };
 
-  const openQuoteDialog = (product?: WholesaleProduct) => {
+  const openQuoteDialog = (product?: Product) => {
     setQuoteDraft({
       productId: product?.id,
       productName: product?.name || '',
-      quantity: product ? String(product.minimumOrder) : '100',
-      targetPrice: product ? String(Math.round(product.price)) : '',
+      quantity: product ? String(product.minOrderQuantity || 100) : '100',
+      targetPrice: product ? String(Math.round(product.wholesalePrice || product.price)) : '',
     });
     setIsQuoteOpen(true);
   };
@@ -420,7 +369,7 @@ export default function WholesaleBuyerHomeScreen() {
                   <p className="mt-2 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">{product.name}</p>
                   <button
                     onClick={() => onOpenProduct(product.id)}
-                    className="mt-3 inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
+                    className="mt-3 inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 transition-all hover:scale-[1.02]"
                   >
                     Re-open <ChevronRight size={14} />
                   </button>
@@ -481,41 +430,41 @@ export default function WholesaleBuyerHomeScreen() {
           ) : (
             filteredProducts.slice(0, 24).map((product) => {
               const quantity = getDesiredQuantity(product);
-              const savings = savingsPerUnit(product);
+              const savings = product.originalPrice && product.wholesalePrice ? product.originalPrice - product.wholesalePrice : 0;
 
               return (
-                <article key={product.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <article key={product.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 transition-all hover:shadow-md hover:scale-[1.01]">
                   <div className="flex flex-col gap-3 md:flex-row">
                     <button
                       onClick={() => onOpenProduct(product.id)}
-                      className="h-24 w-full md:w-32 overflow-hidden rounded-lg bg-gray-100"
+                      className="h-24 w-full md:w-32 overflow-hidden rounded-lg bg-gray-100 group-hover:scale-105 transition-transform duration-300"
                     >
                       <img src={product.thumbnail} alt={product.name} className="h-full w-full object-cover" />
                     </button>
 
                     <div className="flex-1">
-                      <h3 className="text-base font-bold text-gray-900 dark:text-white">{product.name}</h3>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">{product.name}</h3>
                       <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{product.description}</p>
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className="text-lg font-bold text-[#164A2E] dark:text-[#8FD8AE]">{formatCurrency(product.price)}</span>
-                        <span className="text-xs text-gray-400 line-through">{formatCurrency(product.originalPrice)}</span>
+                        {product.originalPrice && <span className="text-xs text-gray-400 line-through">{formatCurrency(product.originalPrice)}</span>}
                         <Tag text={`Save ${formatCurrency(savings)} / unit`} />
-                        <Tag text={`MOQ ${product.minimumOrder}`} />
+                        <Tag text={`MOQ ${product.minOrderQuantity || 1}`} />
                         <Tag text={product.stock > 0 ? `Stock ${product.stock}` : 'Out of stock'} />
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <span className="text-xs text-gray-500 dark:text-gray-400">Quantity</span>
                         <button
-                          onClick={() => updateQuantity(product.id, quantity - 1, product.minimumOrder)}
+                          onClick={() => updateQuantity(product.id, quantity - 1, product.minOrderQuantity || 1)}
                           className="rounded-md border border-gray-300 p-1 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
                         >
                           <Minus size={14} />
                         </button>
                         <span className="w-10 text-center text-sm font-bold text-gray-900 dark:text-white">{quantity}</span>
                         <button
-                          onClick={() => updateQuantity(product.id, quantity + 1, product.minimumOrder)}
+                          onClick={() => updateQuantity(product.id, quantity + 1, product.minOrderQuantity || 1)}
                           className="rounded-md border border-gray-300 p-1 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
                         >
                           <Plus size={14} />
@@ -545,7 +494,7 @@ export default function WholesaleBuyerHomeScreen() {
 
       {bannerMessage ? (
         <div className="fixed bottom-5 left-1/2 z-50 w-[95%] max-w-lg -translate-x-1/2 rounded-xl border border-[#B6DCC6] bg-white px-4 py-3 shadow-lg dark:bg-gray-800">
-          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 animate-in fade-in slide-in-from-bottom-2">
             <CircleCheck size={16} className="text-[#164A2E]" />
             <span>{bannerMessage}</span>
             <button
@@ -559,7 +508,7 @@ export default function WholesaleBuyerHomeScreen() {
       ) : null}
 
       {isQuoteOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 md:items-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 md:items-center animate-in fade-in">
           <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-800">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Request Wholesale Quote</h3>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Share target quantity and price. Your request continues in supplier chat.</p>
@@ -588,13 +537,13 @@ export default function WholesaleBuyerHomeScreen() {
             <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setIsQuoteOpen(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200 transition-colors hover:scale-[1.02]"
               >
                 Cancel
               </button>
               <button
                 onClick={submitQuoteRequest}
-                className="rounded-lg bg-[#164A2E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#113924]"
+                className="rounded-lg bg-[#164A2E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#113924] transition-colors hover:scale-[1.02]"
               >
                 Submit Quote Request
               </button>
@@ -608,7 +557,7 @@ export default function WholesaleBuyerHomeScreen() {
 
 function ModeTab({ label, isActive, onClick }: { label: string; isActive: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="min-w-[84px] text-left">
+    <button onClick={onClick} className="min-w-[84px] text-left transition-all hover:scale-[1.02]">
       <p className={`text-base ${isActive ? 'font-extrabold text-gray-900 dark:text-white' : 'font-semibold text-gray-500 dark:text-gray-300'}`}>{label}</p>
       <div className={`mt-1 h-1 rounded-full ${isActive ? 'bg-[#164A2E]' : 'bg-transparent'}`} />
     </button>
@@ -630,7 +579,7 @@ function MetricCard({
 }) {
   return (
     <button
-      onClick={onClick}
+      onClick={onClick} // Ensure this button is clickable
       className="rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-[#A5CEB5] dark:border-gray-700 dark:bg-gray-800"
     >
       <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 dark:text-gray-300">
@@ -646,7 +595,7 @@ function MetricCard({
 function QuickAction({ title, icon, onClick }: { title: string; icon: ReactNode; onClick: () => void }) {
   return (
     <button
-      onClick={onClick}
+      onClick={onClick} // Ensure this button is clickable
       className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-[#A5CEB5] dark:border-gray-700 dark:bg-gray-800"
     >
       <div className="rounded-lg bg-[#E6F4EC] p-2 text-[#164A2E]">{icon}</div>

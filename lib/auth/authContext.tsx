@@ -21,6 +21,7 @@ import { COLLECTIONS, USER_ROLES, MEMBER_TIERS } from '@/lib/constants/database'
 export interface AuthUser extends User {
   roles?: string[];
   selectedRole?: string;
+  currentRole?: string;
   membershipStatus?: 'active' | 'inactive' | 'pending';
   memberTier?: string;
   isNewUser?: boolean;
@@ -130,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...currentUser,
             roles,
             selectedRole,
+            currentRole: selectedRole,
             membershipStatus:
               userData.membershipStatus ||
               (selectedRole === USER_ROLES.MEMBER
@@ -179,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...currentUser,
             roles: [selectedRole],
             selectedRole,
+            currentRole: selectedRole,
             membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'active' : 'inactive',
             roleSelectionComplete: false,
             onboardingCompleted: false,

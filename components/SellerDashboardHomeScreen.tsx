@@ -7,15 +7,15 @@ import { useState, useEffect } from 'react';
 import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
 import { ProductPopularity } from '@/lib/services/analyticsService';
 
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { getSellerRecentOrders } from '@/lib/services/sellerService';
 import { ORDER_STATUS } from '@/lib/constants/database';
 
 
 export default function SellerDashboardHomeScreen() {
-  const { user } = useAuth();
+  const { user, onboardingCompleted } = useAuth();
   const router = useRouter();
   const [filterTab, setFilterTab] = useState('All');
-  const [onboardingComplete] = useState(true);
 
   // Get real-time seller products
   const { products, loading: productsLoading, filtered } = useSellerProducts(user?.uid || '');
@@ -38,6 +38,12 @@ export default function SellerDashboardHomeScreen() {
     revenue: products
       .filter((p) => p.status === 'approved')
       .reduce((sum, p) => sum + (p.price * p.quantity * 0.1), 0), // Estimate 10% commission
+    retailRevenue: recentOrders
+      .filter((o) => o.buyerType !== 'wholesale')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0),
+    wholesaleRevenue: recentOrders
+      .filter((o) => o.buyerType === 'wholesale')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0),
     rating: 4.8,
   };
 
@@ -98,26 +104,6 @@ export default function SellerDashboardHomeScreen() {
 
 
 
-  // Move onboarding check to top-level before main return
-  if (!onboardingComplete) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-8 text-center">
-          <div className="text-5xl mb-4">🏪</div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Start Selling</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Complete the onboarding process to access your seller dashboard and manage products.
-          </p>
-          <button
-            onClick={() => router.push('/seller/onboarding')}
-            className="w-full bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            Start Selling →
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -145,7 +131,7 @@ export default function SellerDashboardHomeScreen() {
     }
   };
 
-  if (!onboardingComplete) {
+  if (!onboardingCompleted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-8 text-center">
@@ -175,9 +161,9 @@ export default function SellerDashboardHomeScreen() {
               🏪 SELLER DASHBOARD
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-              My Store
+              {businessName}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">{businessName}</p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">Store Management Console</p>
           </div>
         </div>
       </div>
@@ -198,8 +184,14 @@ export default function SellerDashboardHomeScreen() {
             <p className="text-2xl sm:text-3xl font-bold text-green-600">{stats.approved}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm">
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">This Month Revenue</p>
-            <p className="text-2xl sm:text-3xl font-bold text-[#0B6B3A]">₦{stats.revenue.toLocaleString()}</p>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">Sales Revenue</p>
+            <p className="text-2xl sm:text-3xl font-bold text-[#0B6B3A]">₦{(stats.retailRevenue + stats.wholesaleRevenue).toLocaleString()}</p>
+            <div className="mt-2 flex flex-col gap-1 border-t border-gray-100 dark:border-gray-700 pt-2">
+              <div className="flex justify-between text-[10px] font-bold uppercase">
+                <span className="text-blue-600">Retail: ₦{stats.retailRevenue.toLocaleString()}</span>
+                <span className="text-emerald-600">Wholesale: ₦{stats.wholesaleRevenue.toLocaleString()}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -330,6 +322,11 @@ export default function SellerDashboardHomeScreen() {
           </div>
         </div>
 
+        {/* Seller-specific Analytics Dashboard */}
+        <div className="mt-8">
+          <AnalyticsDashboard sellerId={user?.uid} timeRange="month" />
+        </div>
+
         {/* Quick Navigation */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
@@ -351,7 +348,7 @@ export default function SellerDashboardHomeScreen() {
           </button>
 
           <button
-            onClick={() => router.push('/seller/product-upload')}
+            onClick={() => router.push('/seller/products/add')}
             className="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg p-6 hover:shadow-md transition-all text-left"
           >
             <div className="text-3xl mb-2">📦</div>
@@ -386,7 +383,7 @@ export default function SellerDashboardHomeScreen() {
                 No {filterTab !== 'All' ? filterTab.toLowerCase() : ''} products yet.
               </p>
               <button
-                onClick={() => router.push('/seller/product-upload')}
+                onClick={() => router.push('/seller/products/add')}
                 className="inline-block bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-2 px-6 rounded-lg transition-colors"
               >
                 Add Your First Product
@@ -477,7 +474,7 @@ export default function SellerDashboardHomeScreen() {
         {/* Add New Product FAB */}
         <div className="sticky bottom-6 flex justify-center">
           <button
-            onClick={() => router.push('/seller/product-upload')}
+            onClick={() => router.push('/seller/products/add')}
             className="inline-flex items-center gap-2 fixed bottom-6 right-6 sm:relative sm:bottom-auto sm:right-auto w-full sm:w-auto bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-3 sm:py-2 px-6 rounded-full shadow-lg hover:shadow-xl transition-all"
           >
             <span className="text-xl">➕</span>

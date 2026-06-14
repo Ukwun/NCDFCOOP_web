@@ -127,7 +127,7 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         label: 'Products',
         icon: '📦',
         href: '/seller/products',
-        matchPrefixes: ['/seller/products', '/seller/product-upload'],
+        matchPrefixes: ['/seller/products', '/seller/products/add'],
       },
       {
         id: 'earnings',

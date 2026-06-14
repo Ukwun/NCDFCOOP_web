@@ -69,7 +69,14 @@ export async function sendOrderConfirmationEmail(
   email: string,
   orderDetails: {
     orderId: string;
-    items: Array<{ name: string; quantity: number; price: number }>;
+    items: Array<{ 
+      name: string; 
+      quantity: number; 
+      price: number;
+      minOrderQuantity?: number;
+      unitOfMeasure?: string;
+      isWholesale?: boolean;
+    }>;
     total: number;
     shippingAddress: string;
   }

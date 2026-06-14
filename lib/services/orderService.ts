@@ -31,7 +31,8 @@ export async function createOrder(
   items: any[],
   totalAmount: number,
   shippingAddress: string,
-  paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery'
+  paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery',
+  buyerType: 'member' | 'wholesale' // Added buyerType
 ): Promise<string> {
   try {
     const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -44,6 +45,7 @@ export async function createOrder(
       status: ORDER_STATUS.PENDING,
       paymentStatus: 'pending',
       shippingAddress,
+      buyerType, // Store buyerType with the order
       paymentMethod,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
@@ -103,7 +105,14 @@ export async function createOrder(
       const buyerEmail = items[0]?.buyerEmail || 'demo@buyer.com';
       await sendOrderConfirmationEmail(buyerEmail, {
         orderId,
-        items: items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+        items: items.map((item: any) => ({ 
+          name: item.productName, 
+          quantity: item.quantity, 
+          price: item.price,
+          minOrderQuantity: item.minOrderQuantity,
+          unitOfMeasure: item.unitOfMeasure,
+          isWholesale: item.type === 'wholesale' || item.type === 'both',
+        })),
         total: totalAmount,
         shippingAddress,
       });
@@ -184,7 +193,14 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
         const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
         await sendOrderConfirmationEmail(buyerEmail, {
           orderId,
-          items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+          items: order.items.map((item: any) => ({ 
+            name: item.productName, 
+            quantity: item.quantity, 
+            price: item.price,
+            minOrderQuantity: item.minOrderQuantity,
+            unitOfMeasure: item.unitOfMeasure,
+            isWholesale: item.type === 'wholesale' || item.type === 'both',
+          })),
           total: order.totalAmount,
           shippingAddress: order.shippingAddress,
         });
@@ -225,7 +241,14 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
         const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
         await sendOrderConfirmationEmail(buyerEmail, {
           orderId,
-          items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+          items: order.items.map((item: any) => ({ 
+            name: item.productName, 
+            quantity: item.quantity, 
+            price: item.price,
+            minOrderQuantity: item.minOrderQuantity,
+            unitOfMeasure: item.unitOfMeasure,
+            isWholesale: item.type === 'wholesale' || item.type === 'both',
+          })),
           total: order.totalAmount,
           shippingAddress: order.shippingAddress,
         });

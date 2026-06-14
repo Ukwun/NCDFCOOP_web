@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { CART_CHANGED_EVENT, getUserCart, removeFromCart, updateCartItemQuantity } from '@/lib/services/cartService';
@@ -8,6 +9,7 @@ import { Cart } from '@/lib/types/product';
 import PaystackPaymentButton from '@/components/PaystackPaymentButton';
 import OptimizedImage from '@/components/OptimizedImage';
 import { useActivityTracking } from '@/lib/hooks';
+import { USER_ROLES } from '@/lib/constants/database';
 
 export default function CartScreen() {
   const { user } = useAuth();
@@ -21,6 +23,11 @@ export default function CartScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [shippingAddress, setShippingAddress] = useState('');
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  const buyerType = useMemo(() => {
+    if (!user?.currentRole) return 'member'; // Default to member if no role
+    return user.currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? 'wholesale' : 'member';
+  }, [user?.currentRole]);
 
   // Fetch cart on mount and when user changes
   useEffect(() => {
@@ -152,6 +159,17 @@ export default function CartScreen() {
   const handleUpdateQuantity = async (productId: string, quantity: number) => {
     try {
       if (user?.uid && quantity > 0) {
+        // Intelligence: Check for Wholesale MOQ requirements
+        const item = cart?.items.find((i) => i.productId === productId);
+        const moq = item?.productData?.minOrderQuantity || 1;
+        const isWholesaleProduct = item?.productData?.type === 'wholesale' || item?.productData?.type === 'both';
+
+        if (isWholesaleProduct && quantity < moq) {
+          setError(`Minimum order quantity for ${item?.productName} is ${moq} units.`);
+          return;
+        }
+
+        setError(null);
         await updateCartItemQuantity(user.uid, productId, quantity);
         // Refresh cart
         if (user?.uid) {
@@ -180,6 +198,13 @@ export default function CartScreen() {
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       {/* Header */}
+      <style jsx>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          75% { transform: translateX(4px); }
+        }
+      `}</style>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">🛒 Shopping Cart</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
@@ -189,14 +214,14 @@ export default function CartScreen() {
 
       {/* Success Message */}
       {successMessage && (
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6 animate-in fade-in slide-in-from-top-2">
           <p className="text-green-700 dark:text-green-400">✅ {successMessage}</p>
         </div>
       )}
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 animate-in slide-in-from-right-2" style={{ animation: 'shake 0.4s ease-in-out' }}>
           <p className="text-red-700 dark:text-red-400">{error}</p>
         </div>
       )}
@@ -219,6 +244,11 @@ export default function CartScreen() {
                     key={item.id}
                     className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
                   >
+                    {item.productData?.minOrderQuantity && (item.productData.type === 'wholesale' || item.productData.type === 'both') && (
+                      <div className="mb-2 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-[10px] font-bold text-blue-700 dark:text-blue-300 rounded uppercase tracking-wider">
+                        📦 Wholesale Listing (MOQ: {item.productData.minOrderQuantity})
+                      </div>
+                    )}
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-4 flex-1">
                         <OptimizedImage
@@ -320,6 +350,18 @@ export default function CartScreen() {
                 <button
                   onClick={() => {
                     if (shippingAddress.trim()) {
+                      // Final Intelligence Check: Validate all MOQs before allowing checkout
+                      const violations = cart.items.filter(item => {
+                        const moq = item.productData?.minOrderQuantity || 1;
+                        const isWholesale = item.productData?.type === 'wholesale' || item.productData?.type === 'both';
+                        return isWholesale && item.quantity < moq;
+                      });
+
+                      if (violations.length > 0) {
+                        setError(`Checkout blocked: ${violations[0].productName} requires at least ${violations[0].productData?.minOrderQuantity} units for wholesale rates.`);
+                        return;
+                      }
+
                       // Track checkout start
                       trackCheckoutStart(Math.round(cart.total), cart.items.length);
                       setIsCheckingOut(true);
@@ -343,7 +385,11 @@ export default function CartScreen() {
                       productName: item.productName || '',
                       quantity: item.quantity,
                       price: item.price,
+                      minOrderQuantity: item.productData?.minOrderQuantity,
+                      unitOfMeasure: item.productData?.unitOfMeasure,
+                      type: item.productData?.type,
                     }))}
+                    buyerType={buyerType}
                     shippingAddress={shippingAddress}
                     onSuccess={handleCheckoutSuccess}
                     onError={handleCheckoutError}

@@ -90,13 +90,6 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/wholesale/compliance',
         matchPrefixes: ['/wholesale/compliance', '/settings'],
       },
-      {
-        id: 'profile',
-        label: 'Profile',
-        icon: '👤',
-        href: '/wholesale/profile',
-        matchPrefixes: ['/wholesale/profile'],
-      },
     ],
   },
   [USER_ROLES.SELLER]: {
@@ -136,7 +129,6 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/seller/earnings',
         matchPrefixes: ['/seller/earnings'],
       },
-      { id: 'profile', label: 'Profile', icon: '👤', href: '/account' },
     ],
   },
 };

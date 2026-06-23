@@ -23,7 +23,7 @@ export default function Home() {
       }
       // Step 2: Saw onboarding but not authenticated yet - go to signup
       else if (!user && onboardingCompleted) {
-        router.push('/welcome');
+          router.push('/signup');
       }
       // Step 3: Authenticated but no role selected - go to role selection
       else if (user && !roleSelectionComplete) {

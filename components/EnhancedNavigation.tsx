@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Heart, ShoppingCart } from 'lucide-react';
@@ -176,6 +176,10 @@ export default function EnhancedNavigation() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const roleSwitcherRef = useRef<HTMLDivElement | null>(null);
+  const roleSwitcherButtonRef = useRef<HTMLButtonElement | null>(null);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const accountButtonRef = useRef<HTMLButtonElement | null>(null);
   const { count: favoritesCount } = useFavorites({ userId: user?.uid || '', autoFetch: !!user?.uid });
 
   useEffect(() => {
@@ -242,12 +246,56 @@ export default function EnhancedNavigation() {
     };
   }, [user?.uid]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (showRoleSwitcher) {
+        const clickedOutsideRole =
+          roleSwitcherRef.current &&
+          !roleSwitcherRef.current.contains(target) &&
+          !roleSwitcherButtonRef.current?.contains(target);
+
+        if (clickedOutsideRole) {
+          setShowRoleSwitcher(false);
+        }
+      }
+
+      if (showLogoutDialog) {
+        const clickedOutsideAccount =
+          accountMenuRef.current &&
+          !accountMenuRef.current.contains(target) &&
+          !accountButtonRef.current?.contains(target);
+
+        if (clickedOutsideAccount) {
+          setShowLogoutDialog(false);
+        }
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowRoleSwitcher(false);
+        setShowLogoutDialog(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showRoleSwitcher, showLogoutDialog]);
+
   // Hide navigation on splash, welcome, all auth, onboarding, and role-selection pages
   const shouldHideNav = pathname
     ? (
         pathname === '/splash' ||
         pathname === '/welcome' ||
-        pathname === '/auth' ||
         pathname.startsWith('/auth') ||
         pathname === '/signin' ||
         pathname === '/signup' ||
@@ -265,7 +313,7 @@ export default function EnhancedNavigation() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push('/welcome');
+      router.push('/signin');
       setShowLogoutDialog(false);
     } catch (error) {
       console.error('Logout error:', error);
@@ -285,7 +333,7 @@ export default function EnhancedNavigation() {
           <div className="flex items-center justify-between h-16">
             {/* Logo/Brand */}
             <Link href="/home" className="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
-              <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-8 w-auto" style={{ maxHeight: '2rem' }} />
+              <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-12 w-auto" style={{ maxHeight: '3rem' }} />
             </Link>
 
             {/* Center Navigation - Hidden on mobile */}
@@ -311,47 +359,57 @@ export default function EnhancedNavigation() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-3">
-              <Link
-                href="/favorites"
-                className="relative p-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title="Favorites"
-                aria-label="Open favorites"
-              >
-                <Heart size={18} />
-                {favoritesCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-semibold flex items-center justify-center">
-                    {favoritesCount > 99 ? '99+' : favoritesCount}
-                  </span>
-                )}
-              </Link>
+              {normalizedRole !== USER_ROLES.SELLER && (
+                <>
+                  <Link
+                    href="/favorites"
+                    className="relative p-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    title="Favorites"
+                    aria-label="Open favorites"
+                  >
+                    <Heart size={18} />
+                    {favoritesCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-semibold flex items-center justify-center">
+                        {favoritesCount > 99 ? '99+' : favoritesCount}
+                      </span>
+                    )}
+                  </Link>
 
-              <Link
-                href="/cart"
-                className="relative p-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title="Cart"
-                aria-label="Open cart"
-              >
-                <ShoppingCart size={18} />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </span>
-                )}
-              </Link>
+                  <Link
+                    href="/cart"
+                    className="relative p-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    title="Cart"
+                    aria-label="Open cart"
+                  >
+                    <ShoppingCart size={18} />
+                    {cartCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] font-semibold flex items-center justify-center">
+                        {cartCount > 99 ? '99+' : cartCount}
+                      </span>
+                    )}
+                  </Link>
+                </>
+              )}
 
               {/* Role Indicator */}
               {user?.roles && user.roles.length > 1 && (
-                <div className="hidden sm:block relative">
+                <div className="hidden sm:block relative" ref={roleSwitcherRef}>
                   <button
+                    ref={roleSwitcherButtonRef}
+                    data-testid="nav-role-switcher-button"
                     onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-                    className={`relative px-3 py-1 text-xs font-semibold rounded-full transition-colors ${navMode.accentClasses.chip}`}
+                    className={`relative px-3 py-1 text-xs font-semibold rounded-full transition duration-200 ease-out transform hover:-translate-y-[1px] ${navMode.accentClasses.chip}`}
+                    aria-haspopup="true"
+                    aria-expanded={showRoleSwitcher}
                   >
                     {navMode.modeLabel}
                   </button>
 
                   {/* Role Switcher Dropdown */}
                   {showRoleSwitcher && (
-                    <div className="absolute right-20 top-16 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-max z-50">
+                    <div
+                      className="absolute right-20 top-16 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-max z-50 transition duration-200 ease-out transform origin-top-right"
+                    >
                       {user.roles.map((role) => (
                         <button
                           key={role}
@@ -375,11 +433,15 @@ export default function EnhancedNavigation() {
               )}
 
               {/* Account Dropdown */}
-              <div className="relative">
+              <div className="relative" ref={accountMenuRef}>
                 <button
+                  ref={accountButtonRef}
+                  data-testid="nav-account-button"
                   onClick={() => setShowLogoutDialog(!showLogoutDialog)}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition duration-200 ease-out transform hover:-translate-y-[1px]"
                   title={user?.displayName || 'Account'}
+                  aria-haspopup="true"
+                  aria-expanded={showLogoutDialog}
                 >
                   <span>👤</span>
                   <span className="hidden sm:inline text-sm font-medium truncate max-w-xs">
@@ -388,14 +450,16 @@ export default function EnhancedNavigation() {
                 </button>
 
                 {showLogoutDialog && (
-                  <div className="absolute right-0 top-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-max z-50">
+                  <div className="absolute right-0 top-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-max z-50 transition duration-200 ease-out transform origin-top-right">
                     <Link
                       href="/account"
+                      data-testid="nav-account-view-profile"
                       className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                     >
                       View Profile
                     </Link>
                     <button
+                      data-testid="nav-account-logout"
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >

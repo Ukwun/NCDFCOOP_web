@@ -188,7 +188,12 @@ export default function AddProductPage() {
           updatedAt: new Date().toISOString(),
         });
       } else {
-        await addDoc(collection(db, COLLECTIONS.PRODUCTS), newProduct);
+        // Remove any `undefined` fields before sending to Firestore
+        const sanitizedProduct = Object.fromEntries(
+          Object.entries(newProduct).filter(([, v]) => v !== undefined)
+        );
+
+        await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
       }
 
       setFormData({

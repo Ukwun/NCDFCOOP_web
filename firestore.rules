@@ -13,41 +13,45 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
+    function currentUserDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function currentUserDoc() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function currentRole() {
-      return currentUserDoc().data.selectedRole;
+      return currentUserDocExists() ? currentUserDoc().data.selectedRole : 'member';
     }
 
     function isAdmin() {
       return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserDocExists() &&
         currentRole() == 'admin';
     }
 
     function isSeller() {
       return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserDocExists() &&
         (currentRole() == 'seller' || currentRole() == 'franchise');
     }
 
     function isInstitutionalBuyer() {
       return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserDocExists() &&
         currentRole() == 'institutional_buyer';
     }
 
     function isStaff() {
       return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserDocExists() &&
         currentRole() == 'staff';
     }
 
     function isOperator() {
       return isAuthenticated() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserDocExists() &&
         currentRole() == 'operator';
     }
 
@@ -101,16 +105,24 @@ service cloud.firestore {
     // CART ITEMS COLLECTION - User shopping cart
     // ============================================
     match /cartItems/{cartItemId} {
-      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId);
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.userId);
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.userId ||
+        request.resource.data.userId == request.auth.uid
+      );
     }
 
     // ============================================
     // FAVORITES COLLECTION - User favorites
     // ============================================
     match /favorites/{favoriteId} {
-      allow read, update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId);
+      allow update, delete: if isAuthenticated() && (request.auth.uid == resource.data.userId);
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.userId ||
+        request.resource.data.userId == request.auth.uid
+      );
     }
 
     // ============================================

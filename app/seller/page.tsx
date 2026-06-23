@@ -45,7 +45,6 @@ function getSellerStatsFromLocalProducts(products: any[]) {
     totalProducts,
     totalRevenue,
     totalOrders,
-    totalProducts,
     retailRevenue,
     wholesaleRevenue,
     averageOrderValue: totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0,

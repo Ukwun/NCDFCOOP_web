@@ -13,6 +13,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
+    "e2e:seller-upload": "node ./scripts/e2e/seller-upload.spec.js",
     "test:website": "node scripts/test-website.js",
     "audit:website": "node scripts/audit-website.js",
     "test:all": "npm run test:website && npm run audit:website"
@@ -38,7 +39,9 @@
     "@types/react": "^18.3.28",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.0.0",
+    "playwright": "^1.43.0",
     "prettier": "^3.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@netlify/plugin-nextjs": "^5.15.12"
   }
 }

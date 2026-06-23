@@ -148,14 +148,20 @@ export interface Cart {
 export interface Order {
   id: string;
   userId: string;
+  buyerId: string;
+  buyerName?: string;
+  buyerEmail?: string;
   items: OrderItem[];
   totalAmount: number; // Total order amount including tax and shipping
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
+  paymentReference?: string;
+  transactionRef?: string;
+  sellerId?: string;
+  sellerIds?: string[];
   shippingAddress: string; // JSON string of Address
   billingAddress?: string; // JSON string of Address
-  paymentReference?: string;
   trackingNumber?: string;
   notes?: string;
   createdAt: Date | Timestamp;
@@ -169,6 +175,8 @@ export interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
+  sellerId?: string;
+  sellerName?: string;
   subtotal?: number;
   productImage?: string; // Optional product image URL
   minOrderQuantity?: number;

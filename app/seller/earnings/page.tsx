@@ -25,7 +25,7 @@ export default function SellerEarningsPage() {
               <button onClick={() => router.push('/seller/products')} className="px-4 py-2 rounded-lg bg-[#EAF6EF] dark:bg-gray-700 text-[#0B6B3A] dark:text-[#7FD4A9] text-sm font-semibold">
                 Optimize Product Margins
               </button>
-              <button onClick={() => router.push('/account')} className="px-4 py-2 rounded-lg bg-[#EAF6EF] dark:bg-gray-700 text-[#0B6B3A] dark:text-[#7FD4A9] text-sm font-semibold">
+              <button onClick={() => router.push('/seller/payout-profile')} className="px-4 py-2 rounded-lg bg-[#EAF6EF] dark:bg-gray-700 text-[#0B6B3A] dark:text-[#7FD4A9] text-sm font-semibold">
                 Payout Profile Settings
               </button>
             </div>

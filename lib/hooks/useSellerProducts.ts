@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { isDevAutologin } from '@/lib/utils/devSession';
 
 function isDevSellerSession(): boolean {
   if (typeof window === 'undefined') return false;

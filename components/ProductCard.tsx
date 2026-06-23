@@ -95,9 +95,9 @@ export default function ProductCard({
 
   return (
     <div
-      className="group rounded-lg overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full"
+      className="group rounded-3xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-transform duration-300 ease-out hover:scale-[1.01] flex flex-col h-full"
       style={{
-        borderRadius: '12px',
+        borderRadius: '18px',
       }}
     >
       {/* Image Container */}
@@ -319,7 +319,7 @@ export default function ProductCard({
               trackProductView(product.id, product.name);
               onViewDetails?.(product.id);
             }}
-            className="flex-1 px-3 py-2.5 border-2 rounded-lg font-bold text-xs transition-all duration-300 hover:bg-blue-50 dark:hover:bg-gray-700 active:scale-95"
+            className="flex-1 px-3 py-2.5 border-2 rounded-lg font-bold text-xs transition-all duration-300 hover:bg-blue-50 dark:hover:bg-gray-700 active:scale-95 hover:-translate-y-0.5 motion-reduce:transform-none"
             style={{
               borderColor: AppColors.primary,
               color: AppColors.primary,
@@ -333,7 +333,7 @@ export default function ProductCard({
           {product.stock > 0 ? (
             <button
               onClick={handleAddToCart}
-              className="flex-1 px-3 py-2.5 rounded-lg font-bold text-xs text-white transition-all duration-300 hover:shadow-lg active:scale-95"
+              className="flex-1 px-3 py-2.5 rounded-lg font-bold text-xs text-white transition-all duration-300 hover:shadow-xl active:scale-95 hover:-translate-y-0.5"
               style={{ backgroundColor: AppColors.primary }}
               disabled={isAdding || isLoading}
               title="Add product to shopping cart"

@@ -9,7 +9,6 @@ import { USER_ROLES } from '@/lib/constants/database';
 import MemberHomeScreen from '@/components/MemberHomeScreen';
 import MemberOnly from '@/components/MemberOnly';
 import WholesaleBuyerHomeScreen from '@/components/WholesaleBuyerHomeScreen';
-import SellerDashboardHomeScreen from '@/components/SellerDashboardHomeScreen';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
 import { getExperimentVariant } from '@/lib/services/featureFlagsService';
@@ -55,6 +54,12 @@ export default function HomePage() {
     fetchRecommendations();
   }, [user?.uid, currentRole, recommendationVariant]);
 
+  useEffect(() => {
+    if (!loading && currentRole === USER_ROLES.SELLER) {
+      router.push('/seller');
+    }
+  }, [loading, currentRole, router]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -77,8 +82,6 @@ export default function HomePage() {
         );
       case USER_ROLES.INSTITUTIONAL_BUYER:
         return <WholesaleBuyerHomeScreen />;
-      case USER_ROLES.SELLER:
-        return <SellerDashboardHomeScreen />;
       default:
         // Default to member home, but still protect it
         return (

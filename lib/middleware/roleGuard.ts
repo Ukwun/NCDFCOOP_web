@@ -4,8 +4,16 @@ import { AuthUser } from '@/lib/auth/authContext';
 // Define required roles for specific routes
 export const ROUTE_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/home': [], // All authenticated users
+  '/seller': ['seller'],
   '/seller/dashboard': ['seller'],
   '/seller/onboarding': ['seller'],
+  '/seller/products': ['seller'],
+  '/seller/products/add': ['seller'],
+  '/seller/inquiries': ['seller'],
+  '/seller/orders': ['seller'],
+  '/seller/earnings': ['seller'],
+  '/seller/clients': ['seller'],
+  '/seller/payout-profile': ['seller'],
   '/institutional/dashboard': ['institutional_buyer', 'institutional_approver'],
   '/admin': ['admin', 'super_admin'],
   '/franchise': ['franchise', 'store_manager', 'store_staff'],
@@ -15,9 +23,12 @@ export const ROUTE_ROLE_REQUIREMENTS: Record<string, string[]> = {
 /**
  * Check if user has required role
  */
-export function hasRequiredRole(userRoles: string[], requiredRoles: string[]): boolean {
+export function hasRequiredRole(userRoles: string[], requiredRoles: string[], currentRole?: string): boolean {
   if (requiredRoles.length === 0) return true; // No role requirement
-  return requiredRoles.some((role) => userRoles.includes(role));
+  if (currentRole) {
+    return requiredRoles.includes(currentRole);
+  }
+  return false;
 }
 
 /**
@@ -42,7 +53,7 @@ export function getNextRoute(
   currentRoute: string
 ): string | null {
   // Public routes that don't require auth
-  const publicRoutes = ['/splash', '/welcome', '/auth/login', '/auth/signup', '/auth/forgot-password', '/onboarding'];
+  const publicRoutes = ['/splash', '/welcome', '/signin', '/signup', '/forgot-password', '/onboarding'];
   if (publicRoutes.includes(currentRoute)) {
     return null;
   }

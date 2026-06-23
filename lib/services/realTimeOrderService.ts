@@ -4,7 +4,7 @@
  */
 
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, onSnapshot, Unsubscribe, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, Unsubscribe, getDocs, doc } from 'firebase/firestore';
 import { Order } from '@/lib/types/product';
 
 class RealTimeOrderService {
@@ -66,7 +66,7 @@ class RealTimeOrderService {
   ): Unsubscribe {
     try {
       const ordersCollection = collection(db, 'orders');
-      const q = query(ordersCollection, where('sellerId', '==', sellerId));
+      const q = query(ordersCollection, where('sellerIds', 'array-contains', sellerId));
 
       const unsubscribe = onSnapshot(
         q,
@@ -107,16 +107,14 @@ class RealTimeOrderService {
     onError?: (error: Error) => void
   ): Unsubscribe {
     try {
-      const orderDoc = collection(db, 'orders');
-      const q = query(orderDoc, where('id', '==', orderId));
-
+      const orderDocRef = doc(db, 'orders', orderId);
       const unsubscribe = onSnapshot(
-        q,
+        orderDocRef,
         (snapshot) => {
-          if (snapshot.docs.length > 0) {
+          if (snapshot.exists()) {
             const order = {
-              id: snapshot.docs[0].id,
-              ...snapshot.docs[0].data(),
+              id: snapshot.id,
+              ...snapshot.data(),
             } as Order;
             onOrderChange(order);
           }
@@ -144,14 +142,13 @@ class RealTimeOrderService {
     onError?: (error: Error) => void
   ): Unsubscribe {
     try {
-      const productsCollection = collection(db, 'products');
-      const q = query(productsCollection, where('id', '==', productId));
+      const productDocRef = doc(db, 'products', productId);
 
       const unsubscribe = onSnapshot(
-        q,
+        productDocRef,
         (snapshot) => {
-          if (snapshot.docs.length > 0) {
-            const product = snapshot.docs[0].data();
+          if (snapshot.exists()) {
+            const product = snapshot.data();
             onStockChange(product.stock || 0);
           }
         },

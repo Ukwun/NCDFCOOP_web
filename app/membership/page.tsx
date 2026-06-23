@@ -89,27 +89,6 @@ export default function MembershipPage() {
     },
   ];
 
-  const memberTypes = [
-    {
-      type: 'Regular Member',
-      icon: '👤',
-      description: 'Individual member with personal shopping benefits',
-      features: ['Personal rewards account', 'Individual discounts', 'Personal referral link'],
-    },
-    {
-      type: 'Wholesale Buyer',
-      icon: '🏢',
-      description: 'Business bulk buyer with wholesale pricing',
-      features: ['Bulk order discounts', 'Business credit line', 'Dedicated merchant support'],
-    },
-    {
-      type: 'Seller/Producer',
-      icon: '🏪',
-      description: 'Farmers & producers selling through the platform',
-      features: ['Commission-based payment', 'Product approval system', 'Marketing support'],
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
@@ -142,7 +121,6 @@ export default function MembershipPage() {
         <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700">
           {[
             { id: 'benefits', label: '💎 Membership Tiers' },
-            { id: 'types', label: '🎯 Member Types' },
             { id: 'faq', label: '❓ FAQ' },
           ].map((tab) => (
             <button
@@ -220,34 +198,6 @@ export default function MembershipPage() {
           </div>
         )}
 
-        {/* Member Types Section */}
-        {activeTab === 'types' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {memberTypes.map((type) => (
-                <div
-                  key={type.type}
-                  className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700"
-                >
-                  <div className="text-4xl mb-3">{type.icon}</div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{type.type}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{type.description}</p>
-                  <ul className="space-y-2">
-                    {type.features.map((feature, idx) => (
-                      <li key={idx} className="text-sm text-gray-700 dark:text-gray-300 flex gap-2">
-                        <span>✓</span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <button className="w-full mt-6 bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                    Learn More →
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* FAQ Section */}
         {activeTab === 'faq' && (
@@ -291,12 +241,6 @@ export default function MembershipPage() {
           <h3 className="text-2xl font-bold mb-3">Ready to Join NCDFCOOP?</h3>
           <p className="mb-6">Start earning rewards today and become part of Nigeria's most trusted cooperative commerce platform</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => router.push('/signup')}
-              className="bg-white text-[#0B6B3A] hover:bg-gray-100 font-bold py-3 px-8 rounded-lg transition-colors"
-            >
-              Sign Up Now
-            </button>
             <button
               onClick={() => router.push('/membership/payment')}
               className="bg-yellow-400 text-[#0B6B3A] hover:bg-yellow-300 font-bold py-3 px-8 rounded-lg transition-colors"

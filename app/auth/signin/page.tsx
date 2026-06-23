@@ -1,9 +1,7 @@
-'use client';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-import SignInScreen from '@/components/SignInScreen';
-
-export default function SignInPage() {
-  return <SignInScreen />;
+export default function AuthSigninRedirect() {
+  redirect('/signin');
 }

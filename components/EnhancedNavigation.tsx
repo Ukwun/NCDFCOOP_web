@@ -213,7 +213,8 @@ export default function EnhancedNavigation() {
       window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
     }
 
-    if (!db) {
+    const isDevSession = typeof window !== 'undefined' && Boolean(window.localStorage.getItem('dev_autologin'));
+    if (!db || isDevSession) {
       return () => {
         active = false;
         if (typeof window !== 'undefined') {
@@ -290,6 +291,11 @@ export default function EnhancedNavigation() {
       document.removeEventListener('keydown', handleEscape);
     };
   }, [showRoleSwitcher, showLogoutDialog]);
+
+  useEffect(() => {
+    setShowRoleSwitcher(false);
+    setShowLogoutDialog(false);
+  }, [pathname]);
 
   // Hide navigation on splash, welcome, all auth, onboarding, and role-selection pages
   const shouldHideNav = pathname

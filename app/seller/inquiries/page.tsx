@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { USER_ROLES } from '@/lib/constants/database';
 import { ToastContainer, useToastNotifications } from '@/lib/ui/loadingStates';
 import { createNotification } from '@/lib/services/notificationService';
 import {
@@ -27,16 +29,16 @@ export default function SellerInquiriesPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/welcome');
+      router.push('/signin');
       return;
     }
 
-    if (!loading && currentRole !== 'seller') {
+    if (!loading && user && currentRole !== USER_ROLES.SELLER) {
       router.push('/home');
       return;
     }
 
-    if (!user?.uid || currentRole !== 'seller') return;
+    if (!user?.uid || currentRole !== USER_ROLES.SELLER) return;
 
     setIsLoading(true);
     setError(null);
@@ -158,12 +160,13 @@ export default function SellerInquiriesPage() {
     );
   }
 
-  if (!user || currentRole !== 'seller') {
+  if (!user || currentRole !== USER_ROLES.SELLER) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <ProtectedRoute currentPath="/seller/inquiries" requiredRoles={[USER_ROLES.SELLER]}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
           <button onClick={() => router.back()} className="text-2xl hover:text-blue-600">
@@ -178,7 +181,7 @@ export default function SellerInquiriesPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {error ? (
-          <div className="rounded-lg bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-200 p-4">{error}</div>
+          <div className="rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-950/20 dark:text-amber-200 p-4">{error}</div>
         ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -360,5 +363,6 @@ export default function SellerInquiriesPage() {
 
       <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
     </div>
+    </ProtectedRoute>
   );
 }

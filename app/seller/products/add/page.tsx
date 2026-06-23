@@ -2,14 +2,48 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { db, storage } from '@/lib/firebase/config';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { USER_ROLES } from '@/lib/constants/database';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { AppColors, AppTextStyles } from '@/lib/theme';
 import styles from './animations.module.css';
+
+const getDevSellerProductsKey = (sellerId: string) => `dev_seller_products_${sellerId}`;
+
+function loadDevSellerProducts(sellerId: string) {
+  if (typeof window === 'undefined') return [] as any[];
+
+  try {
+    const raw = window.localStorage.getItem(getDevSellerProductsKey(sellerId));
+    if (!raw) return [] as any[];
+    return JSON.parse(raw) as any[];
+  } catch (error) {
+    console.warn('Unable to read local seller product drafts', error);
+    return [] as any[];
+  }
+}
+
+function saveDevSellerProducts(sellerId: string, products: any[]) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(getDevSellerProductsKey(sellerId), JSON.stringify(products));
+  } catch (error) {
+    console.warn('Unable to save local seller product drafts', error);
+  }
+}
+
+function createLocalSellerProduct(sellerId: string, product: any) {
+  const currentProducts = loadDevSellerProducts(sellerId);
+  const nextProducts = [...currentProducts, product];
+  saveDevSellerProducts(sellerId, nextProducts);
+}
 
 const PRODUCT_CATEGORIES = [
   { id: 'vegetables', name: 'Vegetables', emoji: '🥬' },
@@ -24,8 +58,11 @@ const PRODUCT_CATEGORIES = [
 
 export default function AddProductPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { user, loading, currentRole } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -46,7 +83,14 @@ export default function AddProductPage() {
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const numericFields = ['price', 'wholesalePrice', 'originalPrice', 'stock', 'wholesaleMinOrder'];
+    const nextValue = numericFields.includes(field)
+      ? value === ''
+        ? 0
+        : Number(value)
+      : value;
+
+    setFormData((prev) => ({ ...prev, [field]: nextValue }));
     if (fieldErrors[field]) {
       setFieldErrors((prev) => ({ ...prev, [field]: '' }));
     }
@@ -61,16 +105,19 @@ export default function AddProductPage() {
     return 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/signin');
+    } else if (!loading && user && currentRole !== USER_ROLES.SELLER) {
+      router.push('/home');
+    }
+  }, [loading, user, currentRole, router]);
+
+  const saveProduct = async (publish = false) => {
+    // publish=true will set status to 'live'
 
     if (!user) {
       setError('You must be logged in');
-      return;
-    }
-
-    if (!db) {
-      setError('Database not initialized. Please refresh the page.');
       return;
     }
 
@@ -93,45 +140,56 @@ export default function AddProductPage() {
       return;
     }
 
-    setLoading(true);
+    setIsSaving(true);
     setError(null);
 
+    const wholesalePriceValue = formData.productType !== 'retail'
+      ? parseFloat(formData.wholesalePrice.toString())
+      : 0;
+
+    const timestampValue = db ? Timestamp.now() : new Date().toISOString();
+
+    const newProduct = {
+      name: formData.name,
+      description: formData.description,
+      category: formData.category,
+      type: formData.productType,
+      price: parseFloat(formData.price.toString()),
+      retailPrice: parseFloat(formData.price.toString()),
+      wholesalePrice: wholesalePriceValue > 0 ? wholesalePriceValue : undefined,
+      originalPrice: formData.originalPrice
+        ? parseFloat(formData.originalPrice.toString())
+        : parseFloat(formData.price.toString()),
+      discount: calculateDiscount(),
+      minOrderQuantity: formData.productType !== 'retail' ? parseInt(formData.wholesaleMinOrder.toString()) : 1,
+      stock: parseInt(formData.stock.toString()),
+      unit: formData.unit,
+      maxOrder: 100,
+      status: publish ? 'live' : 'pending',
+      images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/400x400'],
+      thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
+      sellerId: user.uid,
+      sellerName: user.displayName || 'Seller',
+      ownershipType: 'seller',
+      rating: 4.5,
+      reviews: 0,
+      isFeatured: false,
+      isActive: true,
+      createdAt: timestampValue,
+      updatedAt: timestampValue,
+    };
+
     try {
-      const wholesalePriceValue = formData.productType !== 'retail'
-        ? parseFloat(formData.wholesalePrice.toString())
-        : 0;
-
-      const newProduct = {
-        name: formData.name,
-        description: formData.description,
-        category: formData.category,
-        type: formData.productType,
-        price: parseFloat(formData.price.toString()),
-        retailPrice: parseFloat(formData.price.toString()),
-        wholesalePrice: wholesalePriceValue > 0 ? wholesalePriceValue : undefined,
-        originalPrice: formData.originalPrice
-          ? parseFloat(formData.originalPrice.toString())
-          : parseFloat(formData.price.toString()),
-        discount: calculateDiscount(),
-        minOrderQuantity: formData.productType !== 'retail' ? parseInt(formData.wholesaleMinOrder.toString()) : 1,
-        stock: parseInt(formData.stock.toString()),
-        unit: formData.unit,
-        maxOrder: 100,
-        status: 'pending',
-        images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/400x400'],
-        thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
-        sellerId: user.uid,
-        sellerName: user.displayName || 'Seller',
-        ownershipType: 'seller',
-        rating: 4.5,
-        reviews: 0,
-        isFeatured: false,
-        isActive: true,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      await addDoc(collection(db, COLLECTIONS.PRODUCTS), newProduct);
+      if (!db) {
+        createLocalSellerProduct(user.uid, {
+          ...newProduct,
+          id: `local-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        await addDoc(collection(db, COLLECTIONS.PRODUCTS), newProduct);
+      }
 
       setFormData({
         name: '',
@@ -151,15 +209,79 @@ export default function AddProductPage() {
       router.push('/seller/products');
     } catch (err) {
       console.error('Error adding product:', err);
+      if (user) {
+        createLocalSellerProduct(user.uid, {
+          ...newProduct,
+          id: `local-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        router.push('/seller/products');
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Failed to add product');
     } finally {
-      setLoading(false);
+      setIsSaving(false);
+    }
+  };
+
+  const handleFileSelected = async (file?: File) => {
+    if (!file) return;
+    if (!user) {
+      setUploadError('You must be logged in to upload images');
+      return;
+    }
+
+    if (!storage) {
+      setUploadError('Storage is not configured in this environment');
+      return;
+    }
+
+    setUploadError(null);
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const path = `products/${user.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const ref = storageRef(storage, path);
+      const uploadTask = uploadBytesResumable(ref, file);
+
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+            setUploadProgress(percent);
+          },
+          (err) => {
+            setUploadError(err instanceof Error ? err.message : String(err));
+            setIsUploading(false);
+            reject(err);
+          },
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            setFormData((prev) => ({
+              ...prev,
+              thumbnail: url,
+              images: prev.images && prev.images.length > 0 ? [url, ...prev.images] : [url],
+            }));
+            setIsUploading(false);
+            setUploadProgress(100);
+            resolve();
+          }
+        );
+      });
+    } catch (err) {
+      console.error('Upload error', err);
+    } finally {
+      setIsUploading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-2xl mx-auto px-4">
+    <ProtectedRoute currentPath="/seller/products/add" requiredRoles={[USER_ROLES.SELLER]}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+        <div className="max-w-2xl mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -184,7 +306,7 @@ export default function AddProductPage() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className={`${styles.formContainer} bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 space-y-6`}>
+        <form onSubmit={(e) => { e.preventDefault(); saveProduct(false); }} className={`${styles.formContainer} bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 space-y-6`}>
           
           {/* Product Name */}
           <div className={styles.formGroup}>
@@ -279,7 +401,7 @@ export default function AddProductPage() {
           <div className={`${styles.formGroup} grid grid-cols-2 gap-4`}>
             <div>
               <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
-                Base Price (₦) *
+                Price per unit (₦) *
               </label>
               <input
                 type="number"
@@ -287,8 +409,9 @@ export default function AddProductPage() {
                 onChange={(e) => handleInputChange('price', e.target.value)}
                 placeholder="0"
                 min="0"
-                className={`${styles.input} w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2 ${
-                  fieldErrors.price ? styles.inputError : ''
+                step="0.01"
+                className={`${styles.input} w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none transition duration-200 focus:ring-2 ${
+                  fieldErrors.price ? styles.inputError : 'focus:border-blue-500'
                 }`}
                 style={{
                   borderColor: fieldErrors.price ? '#dc2626' : AppColors.border,
@@ -396,22 +519,28 @@ export default function AddProductPage() {
               <label style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }}>
                 Unit *
               </label>
-              <select
-                value={formData.unit}
-                onChange={(e) => handleInputChange('unit', e.target.value)}
-                className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
-                style={{
-                  borderColor: AppColors.border,
-                }}
-              >
-                <option value="kg">Kilogram (kg)</option>
-                <option value="g">Grams (g)</option>
-                <option value="liter">Liters (L)</option>
-                <option value="pack">Pack</option>
-                <option value="dozen">Dozen</option>
-                <option value="bundle">Bundle</option>
-                <option value="piece">Piece</option>
-              </select>
+              <div className="relative mt-2">
+                <select
+                  value={formData.unit}
+                  onChange={(e) => handleInputChange('unit', e.target.value)}
+                  className="w-full appearance-none pr-10 bg-white dark:bg-gray-900 mt-0 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2 focus:border-blue-500 transition duration-200"
+                  style={{
+                    borderColor: AppColors.border,
+                    color: AppColors.textPrimary,
+                  }}
+                >
+                  <option value="kg">Kilogram (kg)</option>
+                  <option value="g">Grams (g)</option>
+                  <option value="liter">Liters (L)</option>
+                  <option value="pack">Pack</option>
+                  <option value="dozen">Dozen</option>
+                  <option value="bundle">Bundle</option>
+                  <option value="piece">Piece</option>
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500 dark:text-gray-400">
+                  ▼
+                </span>
+              </div>
             </div>
           </div>
 
@@ -433,6 +562,44 @@ export default function AddProductPage() {
             <p className="text-xs text-gray-500 mt-1">
               Leave blank for default placeholder image
             </p>
+
+            <div className="mt-3">
+              <label className="text-sm font-medium" style={{ color: AppColors.textPrimary }}>Or upload an image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (file) handleFileSelected(file);
+                }}
+                className="mt-2"
+              />
+
+              {isUploading && (
+                <div className="w-full bg-gray-200 rounded-full h-3 mt-2 overflow-hidden">
+                  <div className="h-3 bg-emerald-500" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              )}
+              {uploadError && <p className="text-red-600 text-sm mt-2">{uploadError}</p>}
+            </div>
+
+            <div className="mt-4 rounded-2xl overflow-hidden border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              {formData.thumbnail ? (
+                <img
+                  src={formData.thumbnail}
+                  alt="Product preview"
+                  className="w-full h-56 object-cover"
+                  onError={(event) => {
+                    const target = event.currentTarget as HTMLImageElement;
+                    target.src = 'https://via.placeholder.com/400x400?text=Preview+Unavailable';
+                  }}
+                />
+              ) : (
+                <div className="flex h-56 items-center justify-center px-4 text-sm text-gray-500 dark:text-gray-400">
+                  Product image preview will appear here when you paste a valid URL.
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Buttons */}
@@ -440,7 +607,7 @@ export default function AddProductPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex-1 px-6 py-3 rounded-lg border-2 font-bold transition-all"
+              className="px-4 py-3 rounded-lg border-2 font-bold transition-all"
               style={{
                 borderColor: AppColors.primary,
                 color: AppColors.primary,
@@ -449,14 +616,25 @@ export default function AddProductPage() {
               Cancel
             </button>
             <button
+              type="button"
+              onClick={() => saveProduct(true)}
+              disabled={loading || isSaving || isUploading}
+              className="px-4 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg disabled:opacity-50"
+              style={{
+                backgroundColor: '#0ea5a4',
+              }}
+            >
+              {isSaving && 'Publishing…'}{!isSaving && isUploading && 'Uploading…'}{!isSaving && !isUploading && '🚀 Publish Now'}
+            </button>
+            <button
               type="submit"
-              disabled={loading}
-              className="flex-1 px-6 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg disabled:opacity-50"
+              disabled={loading || isSaving || isUploading}
+              className="px-4 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg disabled:opacity-50"
               style={{
                 backgroundColor: AppColors.primary,
               }}
             >
-              {loading ? 'Adding Product...' : '✅ Add Product to Store'}
+              {isSaving ? 'Saving product…' : loading ? 'Checking auth…' : '✅ Save as Draft'}
             </button>
           </div>
         </form>
@@ -475,7 +653,8 @@ export default function AddProductPage() {
             <li>✓ Update your products regularly</li>
           </ul>
         </div>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

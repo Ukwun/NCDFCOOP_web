@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { isDevAutologin } from '@/lib/utils/devSession';
 
 const FAVORITES_STORAGE_PREFIX = 'coop_commerce_favorites_';
 export const FAVORITES_CHANGED_EVENT = 'coop-commerce:favorites-changed';
@@ -74,7 +75,7 @@ export async function addToFavorites(
   productData: Omit<FavoriteItem, 'id' | 'userId' | 'productId' | 'addedAt'>
 ): Promise<void> {
   try {
-    if (!db) {
+    if (!db || isDevAutologin()) {
       const favoriteId = `${userId}_${productId}`;
       const existing = readBrowserFavorites(userId).filter((item) => item.productId !== productId);
       writeBrowserFavorites(userId, [
@@ -192,7 +193,7 @@ export async function isProductFavorited(userId: string, productId: string): Pro
  */
 export async function getUserFavorites(userId: string, limit: number = 100): Promise<FavoriteItem[]> {
   try {
-    if (!db) {
+    if (!db || isDevAutologin()) {
       return readBrowserFavorites(userId).slice(0, limit);
     }
 
@@ -249,7 +250,7 @@ export async function getFavoritesByCategory(
  */
 export async function getFavoritesCount(userId: string): Promise<number> {
   try {
-    if (!db) {
+    if (!db || isDevAutologin()) {
       return readBrowserFavorites(userId).length;
     }
 

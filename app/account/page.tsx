@@ -47,7 +47,8 @@ export default function AccountPage() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push('/welcome');
+      // After sign out, route to sign-in not onboarding
+      router.push('/signin');
     } catch (error) {
       console.error('Logout error:', error);
       setStatusMessage('Unable to log out right now. Please retry.');
@@ -57,6 +58,18 @@ export default function AccountPage() {
   const handleDeleteAccountRequest = () => {
     setStatusMessage('Account deletion workflow opened in support inbox.');
     router.push('/inquiries');
+  };
+
+  const formatUserCode = (uid: string) => {
+    const digits = uid.replace(/\D/g, '');
+    if (digits.length >= 6) {
+      return digits.slice(0, 6);
+    }
+    if (digits.length >= 4) {
+      return digits.slice(0, 4);
+    }
+    const fallback = uid.replace(/[^A-Z0-9]/gi, '').slice(0, 6).toUpperCase();
+    return fallback || uid.slice(0, 6).toUpperCase();
   };
 
   return (
@@ -119,8 +132,8 @@ export default function AccountPage() {
             </div>
 
             <div className="mt-5 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/40">
-              <p className="text-xs text-gray-500 dark:text-gray-400">User ID</p>
-              <p className="mt-1 break-all font-mono text-sm text-gray-800 dark:text-gray-200">{user?.uid || 'Unavailable'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">User Code</p>
+              <p className="mt-1 font-mono text-sm text-gray-800 dark:text-gray-200">{user?.uid ? formatUserCode(user.uid) : 'Unavailable'}</p>
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">

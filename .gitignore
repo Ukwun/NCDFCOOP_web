@@ -1,4 +1,4 @@
-// Placeholder for .gitignore
+# Placeholder for .gitignore
 node_modules/
 .next/
 out/

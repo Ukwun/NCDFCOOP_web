@@ -224,7 +224,7 @@ export default function SignInScreen() {
             </label>
             <button
               type="button"
-              onClick={() => router.push('/auth/forgot-password')}
+              onClick={() => router.push('/forgot-password')}
               disabled={isLoading}
               style={{
                 background: 'none',
@@ -291,32 +291,74 @@ export default function SignInScreen() {
         </form>
 
         {/* Sign Up Link */}
-        <div className="text-center">
-          <span
-            style={{
-              ...AppTextStyles.bodyMedium,
-              color: AppColors.textSecondary,
-              marginRight: AppSpacing.sm,
-            }}
-          >
-            Don&apos;t have an account?
-          </span>
-          <button
-            onClick={() => router.push('/welcome')}
-            disabled={isLoading}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              ...AppTextStyles.bodyMedium,
-              color: AppColors.primary,
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              textDecoration: 'underline',
-              opacity: isLoading ? 0.6 : 1,
-            }}
-          >
-            Create account
-          </button>
+        <div className="text-center space-y-3">
+          <div>
+            <span
+              style={{
+                ...AppTextStyles.bodyMedium,
+                color: AppColors.textSecondary,
+                marginRight: AppSpacing.sm,
+              }}
+            >
+              Don&apos;t have an account?
+            </span>
+            <button
+              onClick={() => router.push('/signup')}
+              disabled={isLoading}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                ...AppTextStyles.bodyMedium,
+                color: AppColors.primary,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                textDecoration: 'underline',
+                opacity: isLoading ? 0.6 : 1,
+              }}
+            >
+              Create account
+            </button>
+          </div>
+
+          {process.env.NODE_ENV === 'development' ? (
+            <div className="space-y-3">
+              <p
+                style={{
+                  ...AppTextStyles.bodySmall,
+                  color: AppColors.textSecondary,
+                  marginTop: AppSpacing.sm,
+                }}
+              >
+                Development login shortcuts
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => router.push('/dev-login?role=member')}
+                  disabled={isLoading}
+                  className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-blue-500 hover:bg-blue-50"
+                >
+                  Dev Member
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dev-login?role=wholesale')}
+                  disabled={isLoading}
+                  className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-blue-500 hover:bg-blue-50"
+                >
+                  Dev Wholesale
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dev-login?role=seller')}
+                  disabled={isLoading}
+                  className="rounded-full border border-blue-600 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                >
+                  Dev Seller
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

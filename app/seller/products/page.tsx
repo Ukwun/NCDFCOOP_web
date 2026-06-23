@@ -7,9 +7,52 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { COLLECTIONS } from '@/lib/constants/database';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
 import { AppColors, AppTextStyles } from '@/lib/theme';
 import Image from 'next/image';
+
+const getDevSellerProductsKey = (sellerId: string) => `dev_seller_products_${sellerId}`;
+
+function loadDevSellerProducts(sellerId: string) {
+  if (typeof window === 'undefined') return [] as SellerProduct[];
+  try {
+    const raw = window.localStorage.getItem(getDevSellerProductsKey(sellerId));
+    if (!raw) return [] as SellerProduct[];
+    return JSON.parse(raw) as SellerProduct[];
+  } catch (error) {
+    console.warn('Unable to load local seller products', error);
+    return [] as SellerProduct[];
+  }
+}
+
+function saveDevSellerProducts(sellerId: string, products: SellerProduct[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(getDevSellerProductsKey(sellerId), JSON.stringify(products));
+  } catch (error) {
+    console.warn('Unable to save local seller products', error);
+  }
+}
+
+function isDevSellerSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.localStorage.getItem('dev_autologin'));
+}
+
+function updateDevSellerProductStockLocal(sellerId: string, productId: string, newStock: number) {
+  const products = loadDevSellerProducts(sellerId);
+  const next = products.map((product) =>
+    product.id === productId ? { ...product, stock: newStock, updatedAt: new Date().toISOString() } : product
+  );
+  saveDevSellerProducts(sellerId, next);
+}
+
+function deleteDevSellerProductLocal(sellerId: string, productId: string) {
+  const products = loadDevSellerProducts(sellerId);
+  const next = products.filter((product) => product.id !== productId);
+  saveDevSellerProducts(sellerId, next);
+}
 
 interface SellerProduct {
   id: string;
@@ -39,19 +82,36 @@ export default function SellerProductsPage() {
 
   // Fetch seller's products from Firestore
   useEffect(() => {
-    if (!loading && user && currentRole === 'seller') {
+    if (!loading && user && currentRole === USER_ROLES.SELLER) {
       fetchSellerProducts();
     } else if (!loading && !user) {
-      router.push('/welcome');
-    } else if (!loading && currentRole !== 'seller') {
+      router.push('/signin');
+    } else if (!loading && user && currentRole !== USER_ROLES.SELLER) {
       router.push('/home');
     }
   }, [user, loading, currentRole, router]);
 
   const fetchSellerProducts = async () => {
     if (!user) return;
+
+    const devMode = isDevSellerSession();
+    const localProducts = loadDevSellerProducts(user.uid);
+
+    if (devMode && localProducts.length > 0) {
+      setProducts(localProducts);
+      setError('Developer seller session enabled; showing local product drafts.');
+      setIsLoading(false);
+      return;
+    }
+
     if (!db) {
-      setError('Database not initialized. Please refresh the page.');
+      setProducts(localProducts);
+      setError(
+        localProducts.length > 0
+          ? 'Firebase unavailable; showing local product drafts.'
+          : 'Database not initialized. Please refresh the page.'
+      );
+      setIsLoading(false);
       return;
     }
 
@@ -70,10 +130,24 @@ export default function SellerProductsPage() {
         ...doc.data(),
       } as SellerProduct));
 
-      setProducts(fetchedProducts);
+      if (fetchedProducts.length === 0 && devMode && localProducts.length > 0) {
+        setProducts(localProducts);
+        setError('Unable to load live products — showing local drafts.');
+      } else {
+        setProducts(fetchedProducts);
+      }
     } catch (err) {
       console.error('Error fetching products:', err);
-      setError('Failed to load products');
+      if (user) {
+        if (localProducts.length > 0) {
+          setProducts(localProducts);
+          setError('Unable to load live products — showing local drafts.');
+        } else {
+          setError('Failed to load products');
+        }
+      } else {
+        setError('Failed to load products');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +155,9 @@ export default function SellerProductsPage() {
 
   const handleUpdateStock = async (productId: string, newStock: number) => {
     if (!db) {
-      setError('Database not initialized. Please refresh the page.');
+      updateDevSellerProductStockLocal(user.uid, productId, newStock);
+      setEditingId(null);
+      fetchSellerProducts();
       return;
     }
 
@@ -92,7 +168,13 @@ export default function SellerProductsPage() {
       fetchSellerProducts();
     } catch (err) {
       console.error('Error updating stock:', err);
-      setError('Failed to update stock');
+      if (user) {
+        updateDevSellerProductStockLocal(user.uid, productId, newStock);
+        setEditingId(null);
+        fetchSellerProducts();
+      } else {
+        setError('Failed to update stock');
+      }
     }
   };
 
@@ -100,7 +182,8 @@ export default function SellerProductsPage() {
     if (!confirm('Are you sure you want to delete this product?')) return;
 
     if (!db) {
-      setError('Database not initialized. Please refresh the page.');
+      deleteDevSellerProductLocal(user.uid, productId);
+      fetchSellerProducts();
       return;
     }
 
@@ -109,7 +192,12 @@ export default function SellerProductsPage() {
       fetchSellerProducts();
     } catch (err) {
       console.error('Error deleting product:', err);
-      setError('Failed to delete product');
+      if (user) {
+        deleteDevSellerProductLocal(user.uid, productId);
+        fetchSellerProducts();
+      } else {
+        setError('Failed to delete product');
+      }
     }
   };
 
@@ -128,7 +216,7 @@ export default function SellerProductsPage() {
   }
 
   // Unauthorized
-  if (!user || currentRole !== 'seller') {
+  if (!user || currentRole !== USER_ROLES.SELLER) {
     return null;
   }
 
@@ -141,15 +229,16 @@ export default function SellerProductsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div
-        className="py-8 border-b"
-        style={{
-          backgroundColor: AppColors.surface,
-          borderColor: AppColors.border,
-        }}
-      >
+    <ProtectedRoute currentPath="/seller/products" requiredRoles={[USER_ROLES.SELLER]}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Header */}
+        <div
+          className="py-8 border-b"
+          style={{
+            backgroundColor: AppColors.surface,
+            borderColor: AppColors.border,
+          }}
+        >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div>
             <h1
@@ -179,6 +268,7 @@ export default function SellerProductsPage() {
             ➕ Add New Product
           </button>
         </div>
+      </div>
       </div>
 
       {/* Statistics */}
@@ -295,15 +385,15 @@ export default function SellerProductsPage() {
             >
               Start selling by adding your first product!
             </p>
-            <button
-              onClick={() => router.push('/seller/products/add')}
-              className="mt-6 px-8 py-3 rounded-lg text-white font-bold"
-              style={{
-                backgroundColor: AppColors.primary,
-              }}
-            >
-              ➕ Add Your First Product
-            </button>
+            {isDevSellerSession() && (
+              <button
+                onClick={() => router.push('/dev/seed-seller-products')}
+                className="mt-4 inline-flex items-center justify-center px-5 py-3 rounded-full font-semibold text-white transition-all hover:shadow-lg"
+                style={{ backgroundColor: AppColors.primary }}
+              >
+                Seed Local Seller Products
+              </button>
+            )}
           </div>
         )}
 
@@ -353,7 +443,7 @@ export default function SellerProductsPage() {
                     >
                       {/* Product Name */}
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-4 cursor-pointer hover:opacity-70" onClick={() => router.push(`/products/${product.id}`)}>
+                        <div className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity duration-200" onClick={() => router.push(`/products/${product.id}`)}>
                           {product.thumbnail && (
                             <Image
                               src={product.thumbnail}
@@ -484,7 +574,7 @@ export default function SellerProductsPage() {
                                 `/seller/products/${product.id}/edit`
                               )
                             }
-                            className="px-3 py-1 rounded text-sm font-semibold transition-all"
+                            className="px-3 py-1 rounded text-sm font-semibold transition-all duration-200 hover:bg-blue-50 active:scale-95"
                             style={{
                               borderColor: AppColors.primary,
                               color: AppColors.primary,
@@ -495,7 +585,7 @@ export default function SellerProductsPage() {
                           </button>
                           <button
                             onClick={() => handleDeleteProduct(product.id)}
-                            className="px-3 py-1 rounded text-sm font-semibold transition-all text-white"
+                            className="px-3 py-1 rounded text-sm font-semibold transition-all duration-200 hover:bg-red-600 active:scale-95 text-white"
                             style={{
                               backgroundColor: '#E53E3E',
                             }}
@@ -512,6 +602,6 @@ export default function SellerProductsPage() {
           </div>
         )}
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }

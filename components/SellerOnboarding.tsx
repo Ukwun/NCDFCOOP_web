@@ -80,7 +80,6 @@ export function SellerOnboardingStep2({ onNext, onBack }: { onNext: (data: any) 
           >
             <option value="individual">Individual Seller</option>
             <option value="business">Business</option>
-            <option value="cooperative">Cooperative</option>
           </select>
         </div>
 
@@ -367,7 +366,7 @@ export default function SellerOnboarding() {
             ))}
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-            Step {step} of 5
+            Step {step} of 4
           </p>
         </div>
 

@@ -7,15 +7,33 @@ import { useState, useEffect } from 'react';
 import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
 import { ProductPopularity } from '@/lib/services/analyticsService';
 
+function isDevSellerSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.localStorage.getItem('dev_autologin'));
+}
+
+function loadDevSellerProducts(sellerId: string) {
+  if (typeof window === 'undefined' || !sellerId) return [];
+
+  try {
+    const raw = window.localStorage.getItem(`dev_seller_products_${sellerId}`);
+    if (!raw) return [];
+    return JSON.parse(raw) as any[];
+  } catch (error) {
+    console.warn('Unable to load dev seller products', error);
+    return [];
+  }
+}
+
+import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { getSellerRecentOrders } from '@/lib/services/sellerService';
 import { ORDER_STATUS } from '@/lib/constants/database';
 
 
 export default function SellerDashboardHomeScreen() {
-  const { user } = useAuth();
+  const { user, onboardingCompleted } = useAuth();
   const router = useRouter();
   const [filterTab, setFilterTab] = useState('All');
-  const [onboardingComplete] = useState(true);
 
   // Get real-time seller products
   const { products, loading: productsLoading, filtered } = useSellerProducts(user?.uid || '');
@@ -38,12 +56,49 @@ export default function SellerDashboardHomeScreen() {
     revenue: products
       .filter((p) => p.status === 'approved')
       .reduce((sum, p) => sum + (p.price * p.quantity * 0.1), 0), // Estimate 10% commission
+    retailRevenue: recentOrders
+      .filter((o) => o.buyerType !== 'wholesale')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0),
+    wholesaleRevenue: recentOrders
+      .filter((o) => o.buyerType === 'wholesale')
+      .reduce((sum, o) => sum + (o.totalAmount || 0), 0),
     rating: 4.8,
   };
 
   // Fetch seller analytics
   useEffect(() => {
     if (!user?.uid) return;
+
+    const devMode = isDevSellerSession();
+    if (devMode) {
+      const localProducts = loadDevSellerProducts(user.uid);
+      if (localProducts.length > 0) {
+        const top = localProducts
+          .slice()
+          .sort((a, b) => (b.stock || b.quantity || 0) - (a.stock || a.quantity || 0))
+          .slice(0, 5)
+          .map((p) => ({
+            productId: p.id,
+            productName: p.name,
+            category: p.category,
+            price: p.price,
+            viewCount: 0,
+            addToCartCount: 0,
+            purchaseCount: 0,
+            viewToCartRate: 0,
+            cartToPurchaseRate: 0,
+            reason: 'Local seller inventory',
+            score: Math.min(100, p.stock || p.quantity || 0),
+          } as ProductPopularity));
+
+        setTopProducts(top);
+        setOrderTrends([12, 18, 22, 15]);
+        setAvgOrderValue(15000);
+        setRecentOrders([]);
+        return;
+      }
+    }
+
     const fetchAnalytics = async () => {
       // Keep seller dashboard scoped to seller-owned product data.
       const top = products
@@ -98,26 +153,6 @@ export default function SellerDashboardHomeScreen() {
 
 
 
-  // Move onboarding check to top-level before main return
-  if (!onboardingComplete) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-8 text-center">
-          <div className="text-5xl mb-4">🏪</div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Start Selling</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Complete the onboarding process to access your seller dashboard and manage products.
-          </p>
-          <button
-            onClick={() => router.push('/seller/onboarding')}
-            className="w-full bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            Start Selling →
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -145,10 +180,10 @@ export default function SellerDashboardHomeScreen() {
     }
   };
 
-  if (!onboardingComplete) {
+  if (!onboardingCompleted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-8 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-8 text-center transform transition-all duration-500 hover:scale-[1.02]">
           <div className="text-5xl mb-4">🏪</div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Start Selling</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -175,71 +210,41 @@ export default function SellerDashboardHomeScreen() {
               🏪 SELLER DASHBOARD
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-              My Store
+              {businessName}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">{businessName}</p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">Store Management Console</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
         {/* Business Metrics Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow cursor-default">
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">Total Products</p>
             <p className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow cursor-default">
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">Pending Review</p>
             <p className="text-2xl sm:text-3xl font-bold text-amber-600">{stats.pending}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow cursor-default">
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">Approved</p>
             <p className="text-2xl sm:text-3xl font-bold text-green-600">{stats.approved}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm">
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">This Month Revenue</p>
-            <p className="text-2xl sm:text-3xl font-bold text-[#0B6B3A]">₦{stats.revenue.toLocaleString()}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow cursor-default border-l-4 border-green-500">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">Sales Revenue</p>
+            <p className="text-2xl sm:text-3xl font-bold text-[#0B6B3A]">₦{(stats.retailRevenue + stats.wholesaleRevenue).toLocaleString()}</p>
+            <div className="mt-2 flex flex-col gap-1 border-t border-gray-100 dark:border-gray-700 pt-2">
+              <div className="flex justify-between text-[10px] font-bold uppercase">
+                <span className="text-blue-600">Retail: ₦{stats.retailRevenue.toLocaleString()}</span>
+                <span className="text-emerald-600">Wholesale: ₦{stats.wholesaleRevenue.toLocaleString()}</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-gray-800 p-5 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-xl font-semibold text-emerald-900 dark:text-emerald-200">Personalized Discovery</h2>
-              <p className="text-sm text-emerald-800 dark:text-gray-300">Seller-focused opportunities prioritized by revenue velocity and lead quality.</p>
-            </div>
-            <button
-              onClick={() => router.push('/seller/orders')}
-              className="px-4 py-2 rounded-lg bg-[#0B6B3A] hover:bg-[#095234] text-white text-sm font-medium"
-            >
-              Open Sales Pipeline
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Top-Performing Products</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Discover listings with the strongest conversion and repeat demand patterns.</p>
-              <button onClick={() => router.push('/seller/products')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">View Product Leaders</button>
-            </article>
-            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Sales Opportunities</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Spot order windows and demand spikes you can capture this week.</p>
-              <button onClick={() => router.push('/offers')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">Open Opportunity Feed</button>
-            </article>
-            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Lead Suggestions</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Prioritized buyer leads generated from inquiry and intent behavior.</p>
-              <button onClick={() => router.push('/seller/inquiries')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">Review Lead Suggestions</button>
-            </article>
-            <article className="rounded-xl bg-white dark:bg-gray-900 border border-emerald-200 dark:border-gray-700 p-4">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-gray-400">Commission Opportunities</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">Track routes where margin and payout potential are highest.</p>
-              <button onClick={() => router.push('/seller/earnings')} className="mt-3 text-sm font-semibold text-[#0B6B3A] dark:text-emerald-300 hover:underline">View Commission Insights</button>
-            </article>
-          </div>
-        </section>
+        {/* Personalized discovery removed per product owner request - keep dashboard focused */}
 
         {/* Seller Analytics */}
                 {/* Realistic Order Segmentation & Escrow Status */}
@@ -330,6 +335,11 @@ export default function SellerDashboardHomeScreen() {
           </div>
         </div>
 
+        {/* Seller-specific Analytics Dashboard */}
+        <div className="mt-8">
+          <AnalyticsDashboard sellerId={user?.uid} timeRange="month" />
+        </div>
+
         {/* Quick Navigation */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
@@ -351,7 +361,7 @@ export default function SellerDashboardHomeScreen() {
           </button>
 
           <button
-            onClick={() => router.push('/seller/product-upload')}
+            onClick={() => router.push('/seller/products/add')}
             className="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg p-6 hover:shadow-md transition-all text-left"
           >
             <div className="text-3xl mb-2">📦</div>
@@ -386,7 +396,7 @@ export default function SellerDashboardHomeScreen() {
                 No {filterTab !== 'All' ? filterTab.toLowerCase() : ''} products yet.
               </p>
               <button
-                onClick={() => router.push('/seller/product-upload')}
+                onClick={() => router.push('/seller/products/add')}
                 className="inline-block bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-2 px-6 rounded-lg transition-colors"
               >
                 Add Your First Product
@@ -474,15 +484,15 @@ export default function SellerDashboardHomeScreen() {
           )}
         </div>
 
-        {/* Add New Product FAB */}
+        {/* Add New Product CTA (unified styling) */}
         <div className="sticky bottom-6 flex justify-center">
           <button
-            onClick={() => router.push('/seller/product-upload')}
-            className="inline-flex items-center gap-2 fixed bottom-6 right-6 sm:relative sm:bottom-auto sm:right-auto w-full sm:w-auto bg-[#0B6B3A] hover:bg-[#095234] text-white font-semibold py-3 sm:py-2 px-6 rounded-full shadow-lg hover:shadow-xl transition-all"
+            onClick={() => router.push('/seller/products/add')}
+            className="px-5 py-2 rounded-lg text-white font-semibold transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-md"
+            style={{ backgroundColor: '#0B6B3A' }}
+            aria-label="Add New Product"
           >
-            <span className="text-xl">➕</span>
-            <span className="hidden sm:inline">Add New Product</span>
-            <span className="sm:hidden">Add Product</span>
+            ➕ Add New Product
           </button>
         </div>
 

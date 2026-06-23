@@ -8,11 +8,16 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'NCDFCOOP Commerce - Website Version',
   description: 'NCDFCOOP Commerce Platform - Member-Focused E-Commerce',
-  themeColor: '#1A472A',
   icons: {
     icon: '/images/logo/NCDFCOOPLOGO.png',
     shortcut: '/images/logo/NCDFCOOPLOGO.png',
   },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#1A472A',
 };
 
 export default function RootLayout({

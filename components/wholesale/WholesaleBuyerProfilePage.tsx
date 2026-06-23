@@ -402,7 +402,7 @@ export default function WholesaleBuyerProfilePage() {
 
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <PromoRow title="AI sourcing assistant trial" href={withPreviewHref('/offers')} />
-            <PromoRow title="Start selling as supplier" href={withPreviewHref('/seller/onboarding')} borderTop />
+            <PromoRow title="Browse supplier catalog" href={withPreviewHref('/wholesale/portfolio')} borderTop />
           </div>
         </section>
 

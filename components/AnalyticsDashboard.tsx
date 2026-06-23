@@ -24,17 +24,20 @@ import {
   IntentLayerTelemetryBreakdown,
   IntentLayerRoleStats,
 } from '@/lib/services/analyticsService';
+import { SellerRevenueDataPoint } from '@/lib/services/sellerService';
 import { DetectedIssue } from '@/lib/services/issueDetectionService';
 
 export interface AnalyticsDashboardProps {
   timeRange?: 'today' | 'week' | 'month' | 'quarter' | 'year';
   refreshInterval?: number; // milliseconds
+  sellerId?: string; // Optional sellerId for seller-specific analytics
   showIssueDetection?: boolean;
 }
 
 export function AnalyticsDashboard({
   timeRange = 'month',
   refreshInterval = 60000, // 1 minute
+  sellerId,
   showIssueDetection = true,
 }: AnalyticsDashboardProps) {
   // State
@@ -44,6 +47,7 @@ export function AnalyticsDashboard({
   const [peakHours, setPeakHours] = useState<PeakHours[]>([]);
   const [issues, setIssues] = useState<DetectedIssue[]>([]);
   const [intentTelemetry, setIntentTelemetry] = useState<IntentLayerTelemetryBreakdown | null>(null);
+  const [historicalRevenue, setHistoricalRevenue] = useState<SellerRevenueDataPoint[]>([]);
   const [intentRoleFilter, setIntentRoleFilter] = useState<'all' | 'member' | 'institutional_buyer' | 'seller'>('all');
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +59,7 @@ export function AnalyticsDashboard({
     getProductPopularity,
     getPeakHours,
     detectAllIssues,
+    getSellerRevenueBreakdownOverTime, // Import the new service function
     getIntentLayerTelemetry,
   } = useIntelligentTracking({
     enableAnalytics: true,
@@ -102,6 +107,12 @@ export function AnalyticsDashboard({
           getIntentLayerTelemetry(startDate, endDate, 10),
         ]);
 
+      let sellerRevenue: SellerRevenueDataPoint[] = [];
+      if (sellerId) {
+        sellerRevenue = await getSellerRevenueBreakdownOverTime(sellerId, startDate, endDate);
+        setHistoricalRevenue(sellerRevenue);
+      }
+
       setConversionMetrics(metrics);
       setCartMetrics(cartAbandon);
       setTopProducts(products);
@@ -125,7 +136,7 @@ export function AnalyticsDashboard({
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [timeRange, refreshInterval]);
+  }, [timeRange, refreshInterval, sellerId]); // Add sellerId to dependencies
 
   const roleButtonClass = (role: 'all' | 'member' | 'institutional_buyer' | 'seller') => {
     const isActive = intentRoleFilter === role;
@@ -181,9 +192,14 @@ export function AnalyticsDashboard({
     };
   }, [intentRoleFilter, intentTelemetry?.funnel, intentTelemetry?.roleStats]);
 
-  if (loading && !conversionMetrics) {
+  // Calculate max revenue for chart scaling
+  const maxRevenue = useMemo(() => {
+    return Math.max(...historicalRevenue.map(d => d.totalRevenue), 0);
+  }, [historicalRevenue]);
+
+  if (loading && !conversionMetrics && !sellerId) { // Adjusted loading condition
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-8 animate-pulse">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading analytics data...</p>
@@ -193,18 +209,18 @@ export function AnalyticsDashboard({
   }
 
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6 p-6 bg-gray-50 min-h-screen animate-in fade-in duration-500">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
         <p className="text-gray-600 mt-1">
-          Business intelligence and user behavior insights
+          Business intelligence and user behavior insights {sellerId ? `for ${sellerId}` : ''}
         </p>
       </div>
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-top-4 duration-500">
         {/* Conversion Rate */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 transition-all hover:shadow-md hover:scale-[1.01]">
           <div className="text-sm font-medium text-gray-600">
             Overall Conversion Rate
           </div>
@@ -220,7 +236,7 @@ export function AnalyticsDashboard({
         </div>
 
         {/* Cart to Checkout Rate */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 transition-all hover:shadow-md hover:scale-[1.01]">
           <div className="text-sm font-medium text-gray-600">
             Cart to Checkout Rate
           </div>
@@ -236,7 +252,7 @@ export function AnalyticsDashboard({
         </div>
 
         {/* Cart Abandonment Rate */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 transition-all hover:shadow-md hover:scale-[1.01]">
           <div className="text-sm font-medium text-gray-600">
             Cart Abandonment
           </div>
@@ -252,7 +268,7 @@ export function AnalyticsDashboard({
         </div>
 
         {/* Average Cart Value */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-white rounded-lg shadow p-6 transition-all hover:shadow-md hover:scale-[1.01]">
           <div className="text-sm font-medium text-gray-600">
             Average Order Value
           </div>
@@ -267,8 +283,54 @@ export function AnalyticsDashboard({
         </div>
       </div>
 
+      {/* Cross-Platform Revenue Chart (Retail vs. Wholesale) */}
+      {sellerId && historicalRevenue.length > 0 && (
+        <div className="bg-white rounded-lg shadow animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">
+              Revenue Breakdown Over Time
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Comparing Retail (Member) vs. Wholesale (Institutional) sales.
+            </p>
+          </div>
+          <div className="p-6">
+            <div className="h-64 flex items-end justify-around gap-2">
+              {historicalRevenue.map((dataPoint) => (
+                <div key={dataPoint.date} className="flex flex-col items-center flex-grow group relative">
+                  <div className="w-full h-full flex flex-col justify-end">
+                    {/* Wholesale Bar */}
+                    <div
+                      className="w-full bg-emerald-500 rounded-t-sm transition-all duration-300 ease-out group-hover:scale-y-105"
+                      style={{ height: `${(dataPoint.wholesaleRevenue / maxRevenue) * 100}%` }}
+                    ></div>
+                    {/* Retail Bar */}
+                    <div
+                      className="w-full bg-blue-500 rounded-b-sm transition-all duration-300 ease-out group-hover:scale-y-105"
+                      style={{ height: `${(dataPoint.retailRevenue / maxRevenue) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs text-gray-500 mt-1">{dataPoint.date.substring(5)}</span>
+                  {/* Tooltip on hover */}
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">
+                    <p className="font-bold">{dataPoint.date}</p>
+                    <p>Retail: ₦{dataPoint.retailRevenue.toLocaleString()}</p>
+                    <p>Wholesale: ₦{dataPoint.wholesaleRevenue.toLocaleString()}</p>
+                    <p>Total: ₦{dataPoint.totalRevenue.toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-center gap-4 mt-4 text-sm">
+              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-500 rounded-full"></span> Retail</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 bg-emerald-500 rounded-full"></span> Wholesale</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Intent Layer Telemetry */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow animate-in fade-in duration-500">
         <div className="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-lg font-medium text-gray-900">
@@ -310,7 +372,7 @@ export function AnalyticsDashboard({
             <button
               type="button"
               onClick={loadData}
-              className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+              className="px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
               disabled={loading}
             >
               {loading ? 'Refreshing...' : 'Refresh Now'}
@@ -319,24 +381,24 @@ export function AnalyticsDashboard({
         </div>
 
         <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-left-4 duration-500">
+            <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-4 transition-all hover:shadow-md hover:scale-[1.01]">
               <p className="text-xs uppercase text-indigo-700 font-semibold tracking-wide">Typed</p>
               <p className="text-2xl font-bold text-indigo-900 mt-1">{filteredFunnel.typedCount}</p>
             </div>
-            <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+            <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 transition-all hover:shadow-md hover:scale-[1.01]">
               <p className="text-xs uppercase text-amber-700 font-semibold tracking-wide">Clicked</p>
               <p className="text-2xl font-bold text-amber-900 mt-1">{filteredFunnel.clickedCount}</p>
               <p className="text-xs text-amber-700 mt-1">{filteredFunnel.typedToClickedRate.toFixed(1)}% from typed</p>
             </div>
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 transition-all hover:shadow-md hover:scale-[1.01]">
               <p className="text-xs uppercase text-emerald-700 font-semibold tracking-wide">Landed</p>
               <p className="text-2xl font-bold text-emerald-900 mt-1">{filteredFunnel.landedCount}</p>
               <p className="text-xs text-emerald-700 mt-1">{filteredFunnel.clickedToLandedRate.toFixed(1)}% from clicked</p>
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 overflow-x-auto">
+          <div className="rounded-lg border border-gray-200 overflow-x-auto animate-in fade-in duration-500">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -350,7 +412,7 @@ export function AnalyticsDashboard({
               </thead>
               <tbody>
                 {filteredRoleStats.map((row) => (
-                  <tr key={row.role} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr key={row.role} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{roleDisplayName(row.role)}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-900">{row.typedCount}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-900">{row.clickedCount}</td>
@@ -370,7 +432,7 @@ export function AnalyticsDashboard({
             </table>
           </div>
 
-          <div className="rounded-lg border border-gray-200 overflow-x-auto">
+          <div className="rounded-lg border border-gray-200 overflow-x-auto animate-in fade-in duration-500">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -383,7 +445,7 @@ export function AnalyticsDashboard({
               </thead>
               <tbody>
                 {filteredTopIntents.map((intent) => (
-                  <tr key={`${intent.role}-${intent.intentId}`} className="border-b border-gray-200 hover:bg-gray-50">
+                  <tr key={`${intent.role}-${intent.intentId}`} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">{intent.intentLabel}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{roleDisplayName(intent.role)}</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-900">{intent.clicks}</td>
@@ -409,7 +471,7 @@ export function AnalyticsDashboard({
       </div>
 
       {/* Top Products */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white rounded-lg shadow animate-in fade-in duration-500">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">
             Top Performing Products
@@ -443,7 +505,7 @@ export function AnalyticsDashboard({
               {topProducts.map((product) => (
                 <tr
                   key={product.productId}
-                  className="border-b border-gray-200 hover:bg-gray-50"
+                  className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">
@@ -484,7 +546,7 @@ export function AnalyticsDashboard({
 
       {/* Detected Issues */}
       {showIssueDetection && issues.length > 0 && (
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-lg shadow animate-in fade-in duration-500">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">
               Detected Issues ({issues.length})
@@ -492,7 +554,7 @@ export function AnalyticsDashboard({
           </div>
           <div className="divide-y divide-gray-200">
             {issues.map((issue) => (
-              <div key={issue.issueId} className="px-6 py-4">
+              <div key={issue.issueId} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -540,7 +602,7 @@ export function AnalyticsDashboard({
 
       {/* Peak Shopping Hours */}
       {peakHours.length > 0 && (
-        <div className="bg-white rounded-lg shadow">
+        <div className="bg-white rounded-lg shadow animate-in fade-in duration-500">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">
               Peak Shopping Hours
@@ -565,7 +627,7 @@ export function AnalyticsDashboard({
                 {peakHours.slice(0, 10).map((hour, idx) => (
                   <tr
                     key={idx}
-                    className="border-b border-gray-200 hover:bg-gray-50"
+                    className="border-b border-gray-200 hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gray-900">
@@ -591,7 +653,7 @@ export function AnalyticsDashboard({
       )}
 
       {/* Refresh Indicator */}
-      <div className="text-center text-xs text-gray-500">
+      <div className="text-center text-xs text-gray-500 animate-in fade-in duration-500">
         Last updated: {(lastUpdatedAt || new Date()).toLocaleTimeString()}
       </div>
     </div>

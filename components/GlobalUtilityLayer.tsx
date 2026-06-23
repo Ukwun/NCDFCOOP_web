@@ -35,7 +35,7 @@ function riskBadge(level: UtilityLiveData['complianceDriftLevel'] | undefined) {
   if (level === 'high') {
     return {
       label: 'Drift High',
-      classes: 'text-red-700 bg-red-100 border-red-200',
+      classes: 'text-blue-700 bg-blue-100 border-blue-200',
       pulse: true,
     };
   }

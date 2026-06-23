@@ -17,7 +17,7 @@ import RecommendationRail from '@/components/RecommendationRail';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, currentRole, loading: authLoading } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -168,13 +168,16 @@ export default function CheckoutPage() {
       setIsProcessing(true);
       setError(null);
 
+      const buyerType = currentRole === 'institutional_buyer' ? 'wholesale' : 'member';
+
       // Create order
       const orderId = await createOrder(
         user.uid,
         cart.items,
         cart.total,
         JSON.stringify(shippingAddress),
-        paymentMethod
+        paymentMethod,
+        buyerType
       );
 
       if (paymentMethod === 'flutterwave') {

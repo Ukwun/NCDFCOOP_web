@@ -29,10 +29,10 @@ const MEMBERSHIP_TYPES: MembershipType[] = [
     icon: '🛒',
   },
   {
-    id: 'cooperative',
-    name: 'Cooperative',
-    title: '🚀 Start Selling',
-    description: 'Become a seller and reach members across the cooperative',
+    id: 'seller',
+    name: 'Seller',
+    title: '🚀 Seller',
+    description: 'Sell wholesale and retail products with a single seller dashboard',
     icon: '🚀',
   },
 ];

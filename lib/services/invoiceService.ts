@@ -35,6 +35,9 @@ export interface InvoiceItem {
   discount?: number;
   tax?: number;
   total: number;
+  minOrderQuantity?: number;
+  unitOfMeasure?: string;
+  isWholesale?: boolean;
 }
 
 /**
@@ -71,6 +74,9 @@ export function generateInvoiceData(
       quantity: item.quantity,
       unitPrice: item.price,
       total: item.price * item.quantity,
+      minOrderQuantity: item.minOrderQuantity,
+      unitOfMeasure: item.unitOfMeasure,
+      isWholesale: item.type === 'wholesale' || item.type === 'both',
     })),
     subtotal,
     shippingCost,
@@ -95,7 +101,14 @@ export function generateHTMLInvoice(invoice: Invoice): string {
     .map(
       (item) => `
     <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #eee;">${item.name}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #eee;">
+        <div style="font-weight: bold; color: #333;">${item.name}</div>
+        ${item.isWholesale ? `
+          <div style="font-size: 11px; color: #007bff; margin-top: 4px; font-weight: 600;">
+            📦 Wholesale Item (MOQ: ${item.minOrderQuantity} ${item.unitOfMeasure || 'units'})
+          </div>
+        ` : ''}
+      </td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₦${item.unitPrice.toLocaleString()}</td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">₦${item.total.toLocaleString()}</td>

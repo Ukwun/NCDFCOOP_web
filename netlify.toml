@@ -1,40 +1,12 @@
 # Netlify Configuration for NCDF COOP Commerce Web
-# Automatic deployment settings from GitHub
-# Last deployment trigger: 2026-04-08 04:35 UTC
-# Build fixed: Complete package-lock.json with TypeScript, aggressive node_modules cleanup
+# Automatic deployment settings for Next.js App Router
 
 [build]
-  # Build command: install deps with NODE_ENV=development (so devDeps are installed)
-  # then build with NODE_ENV=production (so Next.js builds optimally)
-  command = "sh -c 'NODE_ENV=development npm ci && NODE_ENV=production npm run build'"
-  
-  # Directory with the built site (Next.js output)
+  command = "npm ci && npm run build"
   publish = ".next"
 
 [build.environment]
-  # Node.js version for Netlify build
   NODE_VERSION = "20"
 
-[functions]
-  # Next.js functions configuration
-  directory = ".next/server"
-
-[[scheduled_functions]]
-  name = "daily-intelligence"
-  cron = "0 3 * * *"
-
-# Cache settings
-[[headers]]
-  for = "/"
-  [headers.values]
-    Cache-Control = "public, max-age=3600"
-
-[[headers]]
-  for = "/_next/static/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/_next/image*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

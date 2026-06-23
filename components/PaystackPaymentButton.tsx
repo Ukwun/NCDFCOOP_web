@@ -2,21 +2,33 @@
 
 import { useState } from 'react';
 import { initiateFlutterwavePayment } from '@/lib/services/paymentService';
-import { createOrder } from '@/lib/services/orderService';
-import { clearCart } from '@/lib/services/cartService';
+import { useAuth } from '@/lib/auth/authContext';
+import { createOrder, updatePaymentStatus } from '@/lib/services/orderService';
 
 interface FlutterwavePaymentButtonProps {
   userId: string;
   email: string;
   fullName: string;
   amount: number;
-  cartItems: Array<{ productId: string; productName: string; quantity: number; price: number }>;
+  cartItems: Array<{
+    productId: string;
+    productName: string;
+    quantity: number;
+    price: number;
+    sellerId?: string;
+    sellerName?: string;
+    minOrderQuantity?: number;
+    unitOfMeasure?: string;
+    type?: string;
+  }>;
   shippingAddress: string;
   onSuccess: () => void;
   onError: (error: string) => void;
+  buyerType: 'member' | 'wholesale'; // Added buyerType prop
 }
 
 export default function PaystackPaymentButton({
+  buyerType,
   userId,
   email,
   fullName,
@@ -26,6 +38,7 @@ export default function PaystackPaymentButton({
   onSuccess,
   onError,
 }: FlutterwavePaymentButtonProps) {
+  const { currentRole } = useAuth(); // Get current role from auth context
   const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
@@ -43,17 +56,19 @@ export default function PaystackPaymentButton({
         // onSuccess callback
         async (reference: string) => {
           try {
-            // Create order in database
+            // Create order in database using the same orderId so verification updates match
             await createOrder(
               userId,
               cartItems,
               amount,
               shippingAddress,
-              'flutterwave'
+              'flutterwave',
+              buyerType,
+              orderId
             );
 
-            // Clear cart
-            await clearCart(userId);
+            // Mark the order as paid after successful transaction verification
+            await updatePaymentStatus(orderId, 'completed');
 
             // Call success callback
             onSuccess();

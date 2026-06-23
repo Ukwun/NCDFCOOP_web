@@ -12,6 +12,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -24,8 +25,17 @@ export interface SellerStats {
   totalOrders: number;
   totalProducts: number;
   averageOrderValue: number;
+  retailRevenue: number;
+  wholesaleRevenue: number;
   conversionRate: number;
   lastUpdated: Date;
+}
+
+export interface SellerRevenueDataPoint {
+  date: string; // YYYY-MM-DD
+  retailRevenue: number;
+  wholesaleRevenue: number;
+  totalRevenue: number;
 }
 
 export interface SellerPerformance {
@@ -55,11 +65,20 @@ export async function getSellerStats(sellerId: string): Promise<SellerStats> {
     // Calculate stats
     let totalRevenue = 0;
     let totalOrders = 0;
+    let retailRevenue = 0;
+    let wholesaleRevenue = 0;
 
     ordersSnap.forEach((doc) => {
       const order = doc.data();
-      totalRevenue += order.total || 0;
+      const amount = order.totalAmount || order.total || 0;
+      totalRevenue += amount;
       totalOrders += 1;
+
+      if (order.buyerType === 'wholesale' || order.buyerRole === 'institutional_buyer') {
+        wholesaleRevenue += amount;
+      } else {
+        retailRevenue += amount;
+      }
     });
 
     const totalProducts = productsSnap.size;
@@ -71,6 +90,8 @@ export async function getSellerStats(sellerId: string): Promise<SellerStats> {
       totalRevenue,
       totalOrders,
       totalProducts,
+      retailRevenue,
+      wholesaleRevenue,
       averageOrderValue: Math.round(averageOrderValue * 100) / 100,
       conversionRate: 0, // Would need views data to calculate
       lastUpdated: new Date(),
@@ -242,6 +263,61 @@ export async function getSellerPerformance(
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   } catch (error) {
     console.error('Error fetching seller performance:', error);
+    return [];
+  }
+}
+
+/**
+ * Get seller's revenue breakdown (retail vs. wholesale) over time.
+ * Aggregates data daily.
+ */
+export async function getSellerRevenueBreakdownOverTime(
+  sellerId: string,
+  startDate: Date,
+  endDate: Date
+): Promise<SellerRevenueDataPoint[]> {
+  try {
+    const ordersQuery = query(
+      collection(db, COLLECTIONS.ORDERS),
+      where('sellerId', '==', sellerId),
+      where('createdAt', '>=', Timestamp.fromDate(startDate)),
+      where('createdAt', '<=', Timestamp.fromDate(endDate)),
+      orderBy('createdAt', 'asc')
+    );
+    const ordersSnap = await getDocs(ordersQuery);
+
+    const dailyRevenueMap = new Map<string, { retail: number; wholesale: number; total: number }>();
+
+    ordersSnap.forEach((doc) => {
+      const order = doc.data();
+      const amount = order.totalAmount || order.total || 0;
+      const orderDate = (order.createdAt as Timestamp).toDate();
+      const dateStr = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      if (!dailyRevenueMap.has(dateStr)) {
+        dailyRevenueMap.set(dateStr, { retail: 0, wholesale: 0, total: 0 });
+      }
+
+      const data = dailyRevenueMap.get(dateStr)!;
+      data.total += amount;
+
+      if (order.buyerType === 'wholesale' || order.buyerRole === 'institutional_buyer') {
+        data.wholesale += amount;
+      } else {
+        data.retail += amount;
+      }
+    });
+
+    return Array.from(dailyRevenueMap.entries())
+      .map(([date, data]) => ({
+        date,
+        retailRevenue: data.retail,
+        wholesaleRevenue: data.wholesale,
+        totalRevenue: data.total,
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  } catch (error) {
+    console.error('Error fetching seller revenue breakdown over time:', error);
     return [];
   }
 }

@@ -3,7 +3,7 @@
  * Handles product and offer data
  */
 
-import { collection, getDocs, doc, getDoc, query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { Product } from '@/lib/types/product';
@@ -13,6 +13,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     id: 'fallback_tomatoes',
     name: 'Fresh Tomatoes (1kg)',
     description: 'Farm-fresh tomatoes for everyday cooking and salads.',
+    type: 'both',
     price: 850,
     originalPrice: 1200,
     category: 'vegetables',
@@ -31,6 +32,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     id: 'fallback_grains',
     name: 'Premium Grains Mix (5kg)',
     description: 'Bulk grain pack for families and small businesses.',
+    type: 'wholesale',
     price: 2500,
     originalPrice: 3800,
     category: 'grains',
@@ -49,6 +51,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     id: 'fallback_greens',
     name: 'Organic Leafy Greens Bundle',
     description: 'Fresh spinach, kale, and lettuce bundle.',
+    type: 'retail',
     price: 1200,
     originalPrice: 1800,
     category: 'vegetables',
@@ -66,6 +69,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     id: 'fallback_palm_oil',
     name: 'Premium Palm Oil (5L)',
     description: 'Cold-pressed premium palm oil for cooking and trading.',
+    type: 'both',
     price: 3200,
     originalPrice: 4500,
     category: 'oils',
@@ -118,10 +122,10 @@ export async function getActiveOffers(): Promise<Offer[]> {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Offer));
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as any),
+      } as Offer));
   } catch (error) {
     console.error('Error fetching offers:', error);
     throw error;
@@ -144,10 +148,10 @@ export async function getOffersForTier(tier: string): Promise<Offer[]> {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Offer));
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as any),
+      } as Offer));
   } catch (error) {
     console.error('Error fetching tier offers:', error);
     throw error;
@@ -157,27 +161,52 @@ export async function getOffersForTier(tier: string): Promise<Offer[]> {
 /**
  * Get all products
  */
-export async function getProducts(limit: number = 20): Promise<Product[]> {
+export async function getProducts(limitNumber: number = 20, type?: 'retail' | 'wholesale'): Promise<Product[]> {
   try {
     if (!db) {
-      return getFallbackProducts(limit);
+      const fallback = getFallbackProducts(limitNumber);
+      return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
     }
 
-    const q = query(
-      collection(db, COLLECTIONS.PRODUCTS),
-      orderBy('createdAt', 'desc')
-    );
+    let q;
+    if (type) {
+      // Query products that match the requested type or are available for 'both'
+      q = query(
+        collection(db, COLLECTIONS.PRODUCTS),
+        where('type', 'in', [type, 'both']),
+        orderBy('createdAt', 'desc'),
+        limit(limitNumber)
+      );
+    } else {
+      q = query(
+        collection(db, COLLECTIONS.PRODUCTS),
+        orderBy('createdAt', 'desc'),
+        limit(limitNumber)
+      );
+    }
 
-    const snapshot = await getDocs(q);
-    const products = snapshot.docs.slice(0, limit).map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Product));
+    try {
+      const snapshot = await getDocs(q);
+      const products = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as any),
+      } as Product));
 
-    return products.length > 0 ? products : getFallbackProducts(limit);
+      return products.length > 0 ? products : getFallbackProducts(limitNumber);
+    } catch (error: any) {
+      // Fallback if index isn't created yet for type + createdAt
+      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+        const simpleQuery = query(collection(db, COLLECTIONS.PRODUCTS), orderBy('createdAt', 'desc'), limit(100));
+        const snapshot = await getDocs(simpleQuery);
+        const products = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Product));
+        const filtered = type ? products.filter(p => p.type === type || p.type === 'both') : products;
+        return filtered.slice(0, limitNumber);
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Error fetching products:', error);
-    return getFallbackProducts(limit);
+    return getFallbackProducts(limitNumber);
   }
 }
 
@@ -206,39 +235,58 @@ export async function getProduct(productId: string): Promise<Product | null> {
 /**
  * Get products by category
  */
-export async function getProductsByCategory(category: string): Promise<Product[]> {
+export async function getProductsByCategory(category: string, type?: 'retail' | 'wholesale'): Promise<Product[]> {
   try {
     if (!db) {
-      return getFallbackProducts(100).filter((product) => product.category === category);
+      const fallback = getFallbackProducts(100).filter((product) => product.category === category);
+      return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
     }
 
-    const q = query(
-      collection(db, COLLECTIONS.PRODUCTS),
-      where('category', '==', category),
-      orderBy('createdAt', 'desc')
-    );
+    let q;
+    if (type) {
+      q = query(
+        collection(db, COLLECTIONS.PRODUCTS),
+        where('category', '==', category),
+        where('type', 'in', [type, 'both']),
+        orderBy('createdAt', 'desc')
+      );
+    } else {
+      q = query(
+        collection(db, COLLECTIONS.PRODUCTS),
+        where('category', '==', category),
+        orderBy('createdAt', 'desc')
+      );
+    }
 
-    const snapshot = await getDocs(q);
-    const products = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Product));
+    try {
+      const snapshot = await getDocs(q);
+      const products = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as any),
+      } as Product));
 
-    return products.length > 0 ? products : getFallbackProducts(100).filter((product) => product.category === category);
+      return products.length > 0 ? products : getFallbackProducts(100).filter((product) => product.category === category);
+    } catch (error: any) {
+      // Fallback for missing composite index
+      const simpleQ = query(collection(db, COLLECTIONS.PRODUCTS), where('category', '==', category), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(simpleQ);
+      const products = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Product));
+      const filtered = type ? products.filter(p => p.type === type || p.type === 'both') : products;
+      return filtered;
+    }
   } catch (error) {
     console.error('Error fetching category products:', error);
-    return getFallbackProducts(100).filter((product) => product.category === category);
+    const fallback = getFallbackProducts(100).filter((product) => product.category === category);
+    return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
   }
 }
 
 /**
  * Search products
  */
-export async function searchProducts(searchTerm: string): Promise<Product[]> {
+export async function searchProducts(searchTerm: string, type?: 'retail' | 'wholesale'): Promise<Product[]> {
   try {
-    // Note: Full-text search requires Firestore extension
-    // For now, this fetches all and filters client-side
-    const products = await getProducts(100);
+    const products = await getProducts(100, type);
     const term = searchTerm.toLowerCase();
 
     return products.filter(

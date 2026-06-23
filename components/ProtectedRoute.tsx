@@ -3,7 +3,7 @@
 import { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { getNextRoute, hasRequiredRole, ROUTE_ROLE_REQUIREMENTS } from '@/lib/middleware/roleGuard';
+import { getNextRoute, hasRequiredRole } from '@/lib/middleware/roleGuard';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -17,12 +17,12 @@ export function ProtectedRoute({
   currentPath,
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const { user, loading, onboardingCompleted, roleSelectionComplete } = useAuth();
+  const { user, loading, onboardingCompleted, roleSelectionComplete, currentRole } = useAuth();
 
   const nextRoute = !loading
     ? getNextRoute(user, onboardingCompleted, roleSelectionComplete, currentPath)
     : null;
-  const hasRoleAccess = !requiredRoles || hasRequiredRole(user?.roles || [], requiredRoles);
+  const hasRoleAccess = !requiredRoles || hasRequiredRole(user?.roles || [], requiredRoles, currentRole);
 
   useEffect(() => {
     if (loading) return;

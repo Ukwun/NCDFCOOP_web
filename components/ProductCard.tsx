@@ -7,6 +7,7 @@ import { Product } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { useFavorites, useActivityTracking } from '@/lib/hooks';
 import { useAuth } from '@/lib/auth/authContext';
+import { USER_ROLES } from '@/lib/constants/database';
 import { Heart } from 'lucide-react';
 import {
   ownershipBadgeClasses,
@@ -29,7 +30,7 @@ export default function ProductCard({
   isLoading,
 }: ProductCardProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, currentRole } = useAuth();
   const [isAdding, setIsAdding] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const [recentCartLabel, setRecentCartLabel] = useState<string | null>(null);
@@ -51,25 +52,36 @@ export default function ProductCard({
   const cartPrice = discountedPrice > 0 ? discountedPrice : originalPrice > 0 ? originalPrice : 0;
   const ownershipType = resolveProductOwnership(product);
 
+  // Intelligence: Determine if viewing as a wholesale buyer
+  const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER;
+  const showWholesaleInfo = isWholesaleBuyer && (product.type === 'wholesale' || product.type === 'both');
+  
+  // Logic: Use wholesale price if applicable
+  const displayPrice = showWholesaleInfo && product.wholesalePrice ? product.wholesalePrice : cartPrice;
+
   const handleAddToCart = async () => {
     if (!user) {
       router.push('/signin?reason=cart');
       return;
     }
-    if (cartPrice <= 0) return;
+    if (displayPrice <= 0) return;
+
+    // Intelligence: Automatically apply MOQ for wholesale buyers
+    const quantity = showWholesaleInfo ? (product.minOrderQuantity || 1) : 1;
+
     setIsAdding(true);
     try {
-      await trackAddToCart(product.id, 1, cartPrice);
+      await trackAddToCart(product.id, quantity, displayPrice);
       if (onAddToCart) {
-        await onAddToCart({ ...product, price: cartPrice }, 1);
+        await onAddToCart({ ...product, price: displayPrice }, quantity);
       } else {
         await addToCart(
           user.uid,
           product.id,
           product.name,
-          cartPrice,
+          displayPrice,
           product.thumbnail || product.images?.[0] || '',
-          1
+          quantity
         );
       }
       setRecentCartLabel('Added');
@@ -83,9 +95,9 @@ export default function ProductCard({
 
   return (
     <div
-      className="group rounded-lg overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full"
+      className="group rounded-3xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-transform duration-300 ease-out hover:scale-[1.01] flex flex-col h-full"
       style={{
-        borderRadius: '12px',
+        borderRadius: '18px',
       }}
     >
       {/* Image Container */}
@@ -213,18 +225,30 @@ export default function ProductCard({
           </span>
         </div>
 
+        {/* Wholesale info (MOQ) - Intelligence Layer */}
+        {showWholesaleInfo && product.minOrderQuantity && (
+          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800 animate-in fade-in slide-in-from-top-1">
+            <p className="text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider">
+              📦 Wholesale Bulk Deal
+            </p>
+            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium">
+              Min. Order: {product.minOrderQuantity} {product.unitOfMeasure || product.unit || 'units'}
+            </p>
+          </div>
+        )}
+
         {/* Price Section */}
         <div className="mb-4">
-          <div className="flex items-baseline gap-2 mb-1">
+          <div className="flex flex-col mb-1">
+            <div className="flex items-baseline gap-2">
             <span
               style={{
                 ...AppTextStyles.h4,
-                color: AppColors.primary,
+                color: showWholesaleInfo ? '#2B6CB0' : AppColors.primary,
                 fontSize: '18px',
                 fontWeight: 'bold',
               }}
-            >
-              ₦{discountedPrice.toLocaleString()}
+            >              ₦{displayPrice.toLocaleString()}
             </span>
             {originalPrice > 0 && originalPrice > discountedPrice && (
               <span
@@ -236,6 +260,10 @@ export default function ProductCard({
               >
                 ₦{originalPrice.toLocaleString()}
               </span>
+            )}
+            </div>
+            {showWholesaleInfo && (
+              <span className="text-[10px] text-blue-600 font-bold uppercase">Institutional Bulk Rate</span>
             )}
           </div>
           {discountValue > 0 && (
@@ -291,7 +319,7 @@ export default function ProductCard({
               trackProductView(product.id, product.name);
               onViewDetails?.(product.id);
             }}
-            className="flex-1 px-3 py-2.5 border-2 rounded-lg font-bold text-xs transition-all duration-300 hover:bg-blue-50 dark:hover:bg-gray-700 active:scale-95"
+            className="flex-1 px-3 py-2.5 border-2 rounded-lg font-bold text-xs transition-all duration-300 hover:bg-blue-50 dark:hover:bg-gray-700 active:scale-95 hover:-translate-y-0.5 motion-reduce:transform-none"
             style={{
               borderColor: AppColors.primary,
               color: AppColors.primary,
@@ -305,7 +333,7 @@ export default function ProductCard({
           {product.stock > 0 ? (
             <button
               onClick={handleAddToCart}
-              className="flex-1 px-3 py-2.5 rounded-lg font-bold text-xs text-white transition-all duration-300 hover:shadow-lg active:scale-95"
+              className="flex-1 px-3 py-2.5 rounded-lg font-bold text-xs text-white transition-all duration-300 hover:shadow-xl active:scale-95 hover:-translate-y-0.5"
               style={{ backgroundColor: AppColors.primary }}
               disabled={isAdding || isLoading}
               title="Add product to shopping cart"

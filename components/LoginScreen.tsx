@@ -111,7 +111,7 @@ export default function LoginScreen() {
         </div>
 
         <div className="mt-4 text-center text-sm">
-          <Link href="/auth/forgot-password" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+          <Link href="/forgot-password" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
             Forgot password?
           </Link>
         </div>

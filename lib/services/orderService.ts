@@ -31,20 +31,50 @@ export async function createOrder(
   items: any[],
   totalAmount: number,
   shippingAddress: string,
-  paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery'
+  paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery',
+  buyerType: 'member' | 'wholesale', // Added buyerType
+  orderId?: string
 ): Promise<string> {
   try {
-    const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const generatedOrderId =
+      orderId || `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const normalizedItems = items.map((item) => ({
+      productId: item.productId,
+      productName: item.productName || item.name || '',
+      quantity: item.quantity,
+      price: item.price,
+      sellerId: item.sellerId || item.productData?.sellerId || '',
+      sellerName:
+        item.sellerName || item.productData?.sellerName || item.productData?.seller || '',
+      productImage:
+        item.productImage || item.image || item.productData?.image || item.productData?.thumbnail || '',
+      minOrderQuantity: item.minOrderQuantity ?? item.productData?.minOrderQuantity,
+      unitOfMeasure: item.unitOfMeasure ?? item.productData?.unitOfMeasure,
+      type: item.type ?? item.productData?.type,
+    }));
+
+    const sellerIds = Array.from(
+      new Set(
+        normalizedItems
+          .map((item) => item.sellerId)
+          .filter((sellerId) => typeof sellerId === 'string' && sellerId)
+      )
+    );
 
     const order: Order = {
-      id: orderId,
+      id: generatedOrderId,
       userId,
-      items,
+      buyerId: userId,
+      items: normalizedItems,
       totalAmount,
       status: ORDER_STATUS.PENDING,
       paymentStatus: 'pending',
       shippingAddress,
+      buyerType, // Store buyerType with the order
       paymentMethod,
+      sellerIds,
+      ...(sellerIds.length === 1 ? { sellerId: sellerIds[0] } : {}),
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       estimatedDelivery: new Timestamp(
@@ -54,7 +84,7 @@ export async function createOrder(
     };
 
     // Save order
-    await setDoc(doc(db, COLLECTIONS.ORDERS, orderId), order);
+    await setDoc(doc(db, COLLECTIONS.ORDERS, generatedOrderId), order);
 
     // Reduce product stock for each item in the order
     for (const item of items) {
@@ -89,27 +119,32 @@ export async function createOrder(
     try {
       await createNotification(userId, {
         title: 'Order Placed',
-        message: `Your order #${orderId} has been placed successfully!`,
+        message: `Your order #${generatedOrderId} has been placed successfully!`,
         type: 'order',
         read: false,
-        data: { orderId },
+        data: { orderId: generatedOrderId },
       });
     } catch (e) { /* ignore */ }
 
     // Send order confirmation email (buyer)
     try {
-      // Find buyer email (assume items[0].buyerEmail or fetch from user profile if needed)
-      // For demo, skip fetching email and use a placeholder
       const buyerEmail = items[0]?.buyerEmail || 'demo@buyer.com';
       await sendOrderConfirmationEmail(buyerEmail, {
-        orderId,
-        items: items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+        orderId: generatedOrderId,
+        items: items.map((item: any) => ({ 
+          name: item.productName, 
+          quantity: item.quantity, 
+          price: item.price,
+          minOrderQuantity: item.minOrderQuantity,
+          unitOfMeasure: item.unitOfMeasure,
+          isWholesale: item.type === 'wholesale' || item.type === 'both',
+        })),
         total: totalAmount,
         shippingAddress,
       });
     } catch (e) { /* ignore */ }
 
-    return orderId;
+    return generatedOrderId;
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;
@@ -184,7 +219,14 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
         const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
         await sendOrderConfirmationEmail(buyerEmail, {
           orderId,
-          items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+          items: order.items.map((item: any) => ({ 
+            name: item.productName, 
+            quantity: item.quantity, 
+            price: item.price,
+            minOrderQuantity: item.minOrderQuantity,
+            unitOfMeasure: item.unitOfMeasure,
+            isWholesale: item.type === 'wholesale' || item.type === 'both',
+          })),
           total: order.totalAmount,
           shippingAddress: order.shippingAddress,
         });
@@ -225,7 +267,14 @@ export async function updatePaymentStatus(orderId: string, paymentStatus: string
         const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
         await sendOrderConfirmationEmail(buyerEmail, {
           orderId,
-          items: order.items.map((item: any) => ({ name: item.productName, quantity: item.quantity, price: item.price })),
+          items: order.items.map((item: any) => ({ 
+            name: item.productName, 
+            quantity: item.quantity, 
+            price: item.price,
+            minOrderQuantity: item.minOrderQuantity,
+            unitOfMeasure: item.unitOfMeasure,
+            isWholesale: item.type === 'wholesale' || item.type === 'both',
+          })),
           total: order.totalAmount,
           shippingAddress: order.shippingAddress,
         });

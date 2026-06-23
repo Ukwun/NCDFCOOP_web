@@ -21,6 +21,7 @@ import { COLLECTIONS, USER_ROLES, MEMBER_TIERS } from '@/lib/constants/database'
 export interface AuthUser extends User {
   roles?: string[];
   selectedRole?: string;
+  currentRole?: string;
   membershipStatus?: 'active' | 'inactive' | 'pending';
   memberTier?: string;
   isNewUser?: boolean;
@@ -55,21 +56,57 @@ function generateReferralCode(): string {
   return `NCDF-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
-function normalizeRoleInput(role?: string): string {
-  if (!role) return USER_ROLES.MEMBER;
+const LOCAL_ONBOARDING_KEY = 'ncdfcoop_onboarding_completed';
+const LOCAL_ROLE_OVERRIDE_KEY = 'selectedRoleOverride';
+
+function sanitizeRoleInput(role?: string): string | null {
+  if (!role) return null;
 
   const normalized = role.toLowerCase().trim();
-  if (normalized === 'wholesale_buyer' || normalized === 'wholesale') {
+  if (
+    normalized === 'wholesale_buyer' ||
+    normalized === 'wholesale' ||
+    normalized === 'institutional_buyer' ||
+    normalized === 'institutional buyer' ||
+    normalized === 'buyer'
+  ) {
     return USER_ROLES.INSTITUTIONAL_BUYER;
   }
 
-  return normalized;
+  if (normalized === 'seller') {
+    return USER_ROLES.SELLER;
+  }
+
+  if (normalized === 'member') {
+    return USER_ROLES.MEMBER;
+  }
+
+  return null;
+}
+
+function normalizeRoleInput(role?: string): string {
+  return sanitizeRoleInput(role) || USER_ROLES.MEMBER;
+}
+
+function getLocalOnboardingCompleted(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(LOCAL_ONBOARDING_KEY) === 'true';
+}
+
+function setLocalOnboardingCompleted(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(LOCAL_ONBOARDING_KEY, 'true');
+}
+
+function clearLocalOnboardingCompleted(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(LOCAL_ONBOARDING_KEY);
 }
 
 function getRoleOverrideFromStorage(validRoles: string[]): string | null {
   if (typeof window === 'undefined') return null;
-  const overrideRole = normalizeRoleInput(window.localStorage.getItem('selectedRoleOverride') || undefined);
-  return validRoles.includes(overrideRole) ? overrideRole : null;
+  const overrideRole = sanitizeRoleInput(window.localStorage.getItem(LOCAL_ROLE_OVERRIDE_KEY) || undefined);
+  return overrideRole && validRoles.includes(overrideRole) ? overrideRole : null;
 }
 
 function resolveSignupInputs(nameOrMembershipType?: string, membershipTypeMaybe?: string) {
@@ -78,12 +115,12 @@ function resolveSignupInputs(nameOrMembershipType?: string, membershipTypeMaybe?
     return { name: '', membershipType: USER_ROLES.MEMBER };
   }
 
-  const lower = normalizeRoleInput(nameOrMembershipType);
-  if (validRoles.includes(lower)) {
+  const lower = sanitizeRoleInput(nameOrMembershipType);
+  if (lower && validRoles.includes(lower)) {
     return { name: '', membershipType: lower };
   }
 
-  const normalizedMembershipTypeMaybe = normalizeRoleInput(membershipTypeMaybe);
+  const normalizedMembershipTypeMaybe = sanitizeRoleInput(membershipTypeMaybe);
 
   return {
     name: nameOrMembershipType,
@@ -102,6 +139,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentRole, setCurrentRole] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && getLocalOnboardingCompleted()) {
+      setOnboardingCompleted(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!auth || !db) {
       setLoading(false);
       return;
@@ -110,6 +153,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (!currentUser) {
+          // Dev auto-login: if a dev_autologin object exists in localStorage,
+          // use it to simulate an authenticated user for local development.
+          if (typeof window !== 'undefined') {
+            const dev = window.localStorage.getItem('dev_autologin');
+            if (dev) {
+              try {
+                const devUser = JSON.parse(dev) as any;
+                const selectedRole = normalizeRoleInput(devUser.selectedRole || devUser.currentRole);
+                const authUser: AuthUser = {
+                  uid: devUser.uid || 'dev-seller',
+                  email: devUser.email || 'dev-seller@local',
+                  displayName: devUser.displayName || devUser.name || 'Dev Seller',
+                  roles: devUser.roles || [selectedRole],
+                  selectedRole,
+                  currentRole: selectedRole,
+                  membershipStatus: devUser.membershipStatus || 'inactive',
+                  roleSelectionComplete: !!devUser.roleSelectionComplete,
+                  onboardingCompleted: !!devUser.onboardingCompleted,
+                } as AuthUser;
+
+                setUser(authUser);
+                setCurrentRole(selectedRole);
+                setRoleSelectionComplete(!!authUser.roleSelectionComplete);
+                setOnboardingCompleted(!!authUser.onboardingCompleted);
+                setError(null);
+                setLoading(false);
+                return;
+              } catch (e) {
+                console.warn('dev_autologin parse error', e);
+              }
+            }
+          }
+
           setUser(null);
           setCurrentRole(null);
           setRoleSelectionComplete(false);
@@ -125,18 +201,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const validRoles = Object.values(USER_ROLES) as string[];
           const selectedRole = getRoleOverrideFromStorage(validRoles)
             || normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
-          const roles = Array.from(new Set([...(userData.roles || [USER_ROLES.MEMBER]), selectedRole]));
+          const roles = Array.from(new Set([...(Array.isArray(userData.roles)
+            ? userData.roles.map(sanitizeRoleInput).filter(Boolean)
+            : [USER_ROLES.MEMBER]), selectedRole]));
+          const localOnboarding = getLocalOnboardingCompleted();
+          const onboardingFromStorage = userData.onboardingCompleted || localOnboarding;
           const authUser: AuthUser = {
             ...currentUser,
             roles,
             selectedRole,
+            currentRole: selectedRole,
             membershipStatus:
               userData.membershipStatus ||
               (selectedRole === USER_ROLES.MEMBER
                 ? 'active'
                 : 'inactive'),
             roleSelectionComplete: !!userData.roleSelectionComplete,
-            onboardingCompleted: !!userData.onboardingCompleted,
+            onboardingCompleted: !!onboardingFromStorage,
             memberTier: userData.memberTier || MEMBER_TIERS.BRONZE,
           };
 
@@ -155,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const validRoles = Object.values(USER_ROLES) as string[];
           const normalizedUrlRole = normalizeRoleInput(urlRole || undefined);
           const selectedRole = validRoles.includes(normalizedUrlRole) ? normalizedUrlRole : USER_ROLES.MEMBER;
+          const localOnboarding = getLocalOnboardingCompleted();
 
           await setDoc(userRef, {
             id: currentUser.uid,
@@ -164,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             selectedRole,
             membershipType: selectedRole,
             roleSelectionComplete: false,
-            onboardingCompleted: false,
+            onboardingCompleted: localOnboarding,
             membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'active' : 'inactive',
             memberTier: MEMBER_TIERS.BRONZE,
             createdAt: Timestamp.now(),
@@ -179,6 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...currentUser,
             roles: [selectedRole],
             selectedRole,
+            currentRole: selectedRole,
             membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'active' : 'inactive',
             roleSelectionComplete: false,
             onboardingCompleted: false,
@@ -242,13 +325,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         kycStatus: 'pending',
       });
 
+      const localOnboarding = getLocalOnboardingCompleted();
       setUser({
         ...userCredential.user,
         roles: [membershipType],
         selectedRole: membershipType,
         membershipStatus: membershipType === USER_ROLES.MEMBER ? 'active' : 'inactive',
         roleSelectionComplete: false,
-        onboardingCompleted: false,
+        onboardingCompleted: localOnboarding,
         memberTier: MEMBER_TIERS.BRONZE,
         isNewUser: true,
       });
@@ -285,6 +369,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(auth);
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem('selectedRoleOverride');
+        window.localStorage.removeItem('dev_autologin');
+        window.localStorage.removeItem('userId');
+        window.localStorage.removeItem('userEmail');
+        window.localStorage.removeItem('userRole');
+        window.localStorage.removeItem('displayName');
       }
       setUser(null);
       setCurrentRole(null);
@@ -374,13 +463,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       if (!auth || !db) throw new Error('Firebase not initialized');
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) {
+        setLocalOnboardingCompleted();
+        setOnboardingCompleted(true);
+        return;
+      }
 
       await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
         onboardingCompleted: true,
         updatedAt: Timestamp.now(),
       }, { merge: true });
 
+      setLocalOnboardingCompleted();
       setOnboardingCompleted(true);
       if (user) setUser({ ...user, onboardingCompleted: true });
     } catch (err: any) {
@@ -395,7 +489,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       if (!auth || !db) throw new Error('Firebase not initialized');
-      if (!auth.currentUser) return;
+      if (!auth.currentUser) throw new Error('No authenticated user available');
 
       await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
         roles: arrayUnion(normalizedRole),
@@ -457,7 +551,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       if (!auth || !db) throw new Error('Firebase not initialized');
-      if (!auth.currentUser || !user) return;
+      if (!auth.currentUser) throw new Error('No authenticated user available');
+      if (!user) throw new Error('User context is not available');
 
       const existingRoles = user.roles || [];
       if (!existingRoles.includes(normalizedRole)) {

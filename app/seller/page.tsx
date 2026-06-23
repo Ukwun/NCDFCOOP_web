@@ -7,7 +7,52 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getSellerStats, getSellerRecentOrders, getSellerTopProducts } from '@/lib/services/sellerService';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
-import { BarChart3, Package, ShoppingCart, TrendingUp, Settings, LogOut } from 'lucide-react';
+import { BarChart3, Package, TrendingUp, Settings, LogOut } from 'lucide-react';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { USER_ROLES } from '@/lib/constants/database';
+
+function isDevSellerSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.localStorage.getItem('dev_autologin'));
+}
+
+function loadDevSellerProducts(sellerId: string) {
+  if (typeof window === 'undefined' || !sellerId) return [];
+  try {
+    const raw = window.localStorage.getItem(`dev_seller_products_${sellerId}`);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (error) {
+    console.warn('Unable to load dev seller products', error);
+    return [];
+  }
+}
+
+function getSellerStatsFromLocalProducts(products: any[]) {
+  const totalProducts = products.length;
+  const totalRevenue = products.reduce((sum, item) => sum + (item.price || item.retailPrice || 0) * (item.stock || item.quantity || 0), 0);
+  const totalOrders = 0;
+  const retailRevenue = products.reduce((sum, item) => {
+    const isWholesale = item.type === 'wholesale' || item.productType === 'wholesale';
+    return sum + (!isWholesale ? (item.price || item.retailPrice || 0) * (item.stock || item.quantity || 0) : 0);
+  }, 0);
+  const wholesaleRevenue = products.reduce((sum, item) => {
+    const isWholesale = item.type === 'wholesale' || item.productType === 'wholesale';
+    return sum + (isWholesale ? (item.wholesalePrice || item.price || 0) * (item.stock || item.quantity || 0) : 0);
+  }, 0);
+
+  return {
+    totalProducts,
+    totalRevenue,
+    totalOrders,
+    totalProducts,
+    retailRevenue,
+    wholesaleRevenue,
+    averageOrderValue: totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0,
+    conversionRate: 0,
+    lastUpdated: new Date(),
+  };
+}
 
 export default function SellerDashboardPage() {
   const router = useRouter();
@@ -21,18 +66,31 @@ export default function SellerDashboardPage() {
   useEffect(() => {
     if (!loading) {
       if (!user) {
-        router.push('/welcome');
-      } else if (currentRole !== 'seller') {
+        router.push('/signin');
+      } else if (currentRole !== USER_ROLES.SELLER) {
         router.push('/home');
       } else {
         loadDashboardData();
       }
     }
-  }, [user, loading, currentRole]);
+  }, [user, loading, currentRole, router]);
 
   const loadDashboardData = async () => {
     try {
       if (!user?.uid) return;
+      const devMode = isDevSellerSession();
+
+      if (devMode) {
+        const localProducts = loadDevSellerProducts(user.uid);
+        if (localProducts.length > 0) {
+          const statsData = getSellerStatsFromLocalProducts(localProducts);
+          setStats(statsData);
+          setRecentOrders([]);
+          setTopProducts(localProducts.slice(0, 5));
+          setPageLoading(false);
+          return;
+        }
+      }
 
       const [statsData, ordersData, productsData] = await Promise.all([
         getSellerStats(user.uid),
@@ -46,6 +104,16 @@ export default function SellerDashboardPage() {
       setPageLoading(false);
     } catch (err) {
       console.error('Error loading dashboard:', err);
+      if (user?.uid && isDevSellerSession()) {
+        const localProducts = loadDevSellerProducts(user.uid);
+        if (localProducts.length > 0) {
+          setStats(getSellerStatsFromLocalProducts(localProducts));
+          setRecentOrders([]);
+          setTopProducts(localProducts.slice(0, 5));
+          setPageLoading(false);
+          return;
+        }
+      }
       setError('Failed to load dashboard data');
       setPageLoading(false);
     }
@@ -92,11 +160,12 @@ export default function SellerDashboardPage() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/welcome');
+    router.push('/signin');
   };
 
   return (
-    <div style={{ backgroundColor: AppColors.background }} className="min-h-screen">
+    <ProtectedRoute currentPath="/seller" requiredRoles={[USER_ROLES.SELLER]}>
+      <div style={{ backgroundColor: AppColors.background }} className="min-h-screen">
       {/* Header with Navigation */}
       <div
         className="py-8 border-b"
@@ -319,7 +388,7 @@ export default function SellerDashboardPage() {
                   marginTop: AppSpacing.sm,
                 }}
               >
-                Add, edit, or remove your products from the catalog
+                Add, edit, or remove retail and wholesale products in your store.
               </p>
             </div>
             <div className="p-6">
@@ -365,7 +434,7 @@ export default function SellerDashboardPage() {
                   marginTop: AppSpacing.sm,
                 }}
               >
-                View and fulfill pending orders
+                Track orders, approve requests, and keep inventory aligned with demand.
               </p>
             </div>
             <div className="p-6">
@@ -380,29 +449,18 @@ export default function SellerDashboardPage() {
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Analytics */}
-          <div
-            className="rounded-lg border overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-            style={{
-              backgroundColor: AppColors.surface,
-              borderColor: AppColors.border,
-            }}
-            onClick={() => router.push('/analytics')}
-          >
-            <div
-              className="p-6 border-b"
-              style={{
-                borderColor: AppColors.border,
-              }}
-            >
+        <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
               <h2
                 style={{
                   ...AppTextStyles.h3,
                   color: AppColors.textPrimary,
                 }}
               >
-                📊 Sales Analytics
+                Ready to list a new product?
               </h2>
               <p
                 style={{
@@ -411,69 +469,27 @@ export default function SellerDashboardPage() {
                   marginTop: AppSpacing.sm,
                 }}
               >
-                Review sales trends and performance metrics
+                Create a new retail or wholesale listing in seconds and keep your store inventory visible to buyers.
               </p>
             </div>
-            <div className="p-6">
+            <div className="flex flex-wrap gap-3">
               <button
-                className="w-full py-3 rounded-lg font-bold"
-                style={{
-                  backgroundColor: '#9F7AEA',
-                  color: 'white',
-                }}
+                onClick={() => router.push('/seller/products/add')}
+                className="px-5 py-3 rounded-full font-semibold text-white bg-[#0B6B3A] hover:bg-[#095234] transition-colors"
               >
-                View Analytics →
+                Add New Product
               </button>
-            </div>
-          </div>
-
-          {/* Settings */}
-          <div
-            className="rounded-lg border overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-            style={{
-              backgroundColor: AppColors.surface,
-              borderColor: AppColors.border,
-            }}
-            onClick={() => router.push('/seller/settings')}
-          >
-            <div
-              className="p-6 border-b"
-              style={{
-                borderColor: AppColors.border,
-              }}
-            >
-              <h2
-                style={{
-                  ...AppTextStyles.h3,
-                  color: AppColors.textPrimary,
-                }}
-              >
-                ⚙️ Store Settings
-              </h2>
-              <p
-                style={{
-                  ...AppTextStyles.bodySmall,
-                  color: AppColors.textSecondary,
-                  marginTop: AppSpacing.sm,
-                }}
-              >
-                Manage store information and preferences
-              </p>
-            </div>
-            <div className="p-6">
               <button
-                className="w-full py-3 rounded-lg font-bold border-2"
-                style={{
-                  borderColor: AppColors.primary,
-                  color: AppColors.primary,
-                }}
+                onClick={() => router.push('/seller/products')}
+                className="px-5 py-3 rounded-full font-semibold border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                Configure Store →
+                Open Inventory
               </button>
             </div>
           </div>
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

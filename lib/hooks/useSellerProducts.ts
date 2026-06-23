@@ -9,6 +9,40 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { isDevAutologin } from '@/lib/utils/devSession';
+
+function isDevSellerSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.localStorage.getItem('dev_autologin'));
+}
+
+function loadDevSellerProducts(sellerId: string): SellerProductState[] {
+  if (typeof window === 'undefined' || !sellerId) return [];
+
+  try {
+    const raw = window.localStorage.getItem(`dev_seller_products_${sellerId}`);
+    if (!raw) return [];
+    const products = JSON.parse(raw) as any[];
+
+    return products.map((item) => ({
+      id: item.id || item.productId || 'unknown',
+      name: item.name || item.productName || 'Unnamed Product',
+      price: item.price || item.retailPrice || 0,
+      quantity: item.stock || item.quantity || 0,
+      moq: item.minOrderQuantity || item.moq || 1,
+      image: item.thumbnail || item.image || (Array.isArray(item.images) ? item.images[0] : undefined),
+      category: item.category || 'General',
+      status: item.status || 'pending',
+      rejectionReason: item.rejectionReason,
+      inquiries: item.inquiries || 0,
+      createdAt: item.createdAt?.toString() || 'Recently added',
+      description: item.description,
+    }));
+  } catch (error) {
+    console.warn('Unable to load dev seller products', error);
+    return [];
+  }
+}
 
 export interface SellerProductState {
   id: string;
@@ -38,7 +72,19 @@ export function useSellerProducts(sellerId: string): UseSellerProductsReturn {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!sellerId || !db) {
+    if (!sellerId) {
+      setLoading(false);
+      return;
+    }
+
+    const localProducts = isDevSellerSession() ? loadDevSellerProducts(sellerId) : [];
+    if (localProducts.length > 0) {
+      setProducts(localProducts);
+      setLoading(false);
+      return;
+    }
+
+    if (!db) {
       setLoading(false);
       return;
     }
@@ -88,7 +134,13 @@ export function useSellerProducts(sellerId: string): UseSellerProductsReturn {
         },
         (err) => {
           console.error('Error fetching seller products:', err);
-          setError(err as Error);
+          const fallbackProducts = loadDevSellerProducts(sellerId);
+          if (fallbackProducts.length > 0) {
+            setProducts(fallbackProducts);
+            setError(null);
+          } else {
+            setError(err as Error);
+          }
           setLoading(false);
         }
       );

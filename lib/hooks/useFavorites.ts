@@ -5,19 +5,19 @@
 
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { onSnapshot, Query, query, collection, where, orderBy } from 'firebase/firestore';
+import { useEffect, useState, useCallback } from 'react';
+import { onSnapshot, query, collection, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import {
   getUserFavorites,
   getFavoritesCount,
-  isProductFavorited,
   addToFavorites,
   removeFromFavorites,
   clearAllFavorites,
   FavoriteItem,
   FAVORITES_CHANGED_EVENT,
 } from '@/lib/services';
+import { isDevAutologin } from '@/lib/utils/devSession';
 
 interface UseFavoritesOptions {
   userId: string;
@@ -65,7 +65,7 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
 
     fetchFavorites();
 
-    if (!db) {
+    if (!db || isDevAutologin()) {
       return;
     }
 

@@ -8,7 +8,9 @@ export interface Product {
   id: string;
   name: string;
   description: string;
+  type?: 'retail' | 'wholesale' | 'both';
   price: number;
+  retailPrice?: number;
   originalPrice?: number; // For discounts
   category: string;
   subcategory?: string;
@@ -21,8 +23,10 @@ export interface Product {
   rating?: number;
   reviews?: number;
   minOrder?: number;
+  minOrderQuantity?: number;
   maxOrder?: number;
   unit?: string; // e.g., "kg", "per piece", "per carton"
+  unitOfMeasure?: string;
   weight?: number; // in kg
   dimensions?: {
     length: number;
@@ -144,19 +148,26 @@ export interface Cart {
 export interface Order {
   id: string;
   userId: string;
+  buyerId: string;
+  buyerName?: string;
+  buyerEmail?: string;
   items: OrderItem[];
   totalAmount: number; // Total order amount including tax and shipping
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
+  paymentReference?: string;
+  transactionRef?: string;
+  sellerId?: string;
+  sellerIds?: string[];
   shippingAddress: string; // JSON string of Address
   billingAddress?: string; // JSON string of Address
-  paymentReference?: string;
   trackingNumber?: string;
   notes?: string;
   createdAt: Date | Timestamp;
   updatedAt: Date | Timestamp;
   estimatedDelivery?: Date | Timestamp;
+  buyerType?: 'member' | 'wholesale'; // Added to distinguish retail vs wholesale orders
 }
 
 export interface OrderItem {
@@ -164,8 +175,13 @@ export interface OrderItem {
   productName: string;
   quantity: number;
   price: number;
+  sellerId?: string;
+  sellerName?: string;
   subtotal?: number;
   productImage?: string; // Optional product image URL
+  minOrderQuantity?: number;
+  unitOfMeasure?: string;
+  type?: 'retail' | 'wholesale' | 'both';
 }
 
 export type OrderStatus = 

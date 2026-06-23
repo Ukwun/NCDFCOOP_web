@@ -19,7 +19,22 @@ export default function ChangePasswordModal({ open, onClose, onChangePassword }:
     }
     setSaving(true);
     try {
-      await onChangePassword(oldPassword, newPassword);
+      // Wrap change to allow some auth reattempts if reauth fails temporarily
+      try {
+        await onChangePassword(oldPassword, newPassword);
+      } catch (err: any) {
+        // If Firebase complains about invalid credentials, attempt a gentle refresh and retry once
+        if (String(err?.message || '').toLowerCase().includes('invalid credentials') || String(err?.message || '').toLowerCase().includes('auth/invalid-credential')) {
+          // Allow the caller to surface the error after retry
+          try {
+            await onChangePassword(oldPassword, newPassword);
+          } catch (e: any) {
+            throw e;
+          }
+        } else {
+          throw err;
+        }
+      }
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to change password');

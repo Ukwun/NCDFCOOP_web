@@ -10,6 +10,7 @@ import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestor
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { ErrorHandler } from '@/lib/error/errorHandler';
+import { isDevAutologin } from '@/lib/utils/devSession';
 
 export interface SellerOrder {
   id: string;
@@ -44,18 +45,16 @@ export function useSellerOrders(sellerId: string): UseSellerOrdersReturn {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!sellerId || !db) {
+    if (!sellerId || !db || isDevAutologin()) {
+      setOrders([]);
       setLoading(false);
       return;
     }
 
     try {
-      // Note: This assumes you have a seller field in orders or a separate seller-orders collection
-      // Adjust the query based on your Firestore structure
       const ordersQuery = query(
         collection(db, COLLECTIONS.ORDERS),
-        // For now, we'll fetch all orders and filter client-side
-        // In production, you might have a seller-orders sub-collection
+        where('sellerIds', 'array-contains', sellerId),
         orderBy('createdAt', 'desc')
       );
 

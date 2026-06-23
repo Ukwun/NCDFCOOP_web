@@ -7,6 +7,7 @@ import { doc, setDoc, updateDoc, deleteDoc, getDoc, collection, getDocs, query, 
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { Cart, CartItem } from '@/lib/types/product';
+import { isDevAutologin } from '@/lib/utils/devSession';
 
 const CART_STORAGE_PREFIX = 'coop_commerce_cart_';
 export const CART_CHANGED_EVENT = 'coop-commerce:cart-changed';
@@ -54,7 +55,7 @@ export async function addToCart(
   quantity: number = 1
 ): Promise<void> {
   try {
-    if (!db) {
+    if (!db || isDevAutologin()) {
       const items = readBrowserCart(userId);
       const cartItemId = `${userId}_${productId}`;
       const existingIndex = items.findIndex((item) => item.id === cartItemId);
@@ -217,7 +218,7 @@ export async function updateCartItemQuantity(userId: string, productId: string, 
  */
 export async function getUserCart(userId: string): Promise<Cart> {
   try {
-    if (!db) {
+    if (!db || isDevAutologin()) {
       const items = readBrowserCart(userId);
       const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const tax = subtotal * 0.1;
@@ -308,7 +309,7 @@ export async function getUserCart(userId: string): Promise<Cart> {
  */
 export async function clearCart(userId: string): Promise<void> {
   try {
-    if (!db) {
+    if (!db || isDevAutologin()) {
       if (typeof window !== 'undefined') {
         window.localStorage.removeItem(`${CART_STORAGE_PREFIX}${userId}`);
       }

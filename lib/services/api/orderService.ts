@@ -195,7 +195,7 @@ class OrderService {
     try {
       const ordersQuery = query(
         collection(db, COLLECTIONS.ORDERS),
-        where('items', 'array-contains', { sellerId }),
+        where('sellerIds', 'array-contains', sellerId),
         orderBy('createdAt', 'desc')
       );
 

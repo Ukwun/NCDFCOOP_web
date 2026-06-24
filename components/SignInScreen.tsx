@@ -53,18 +53,94 @@ export default function SignInScreen() {
   };
 
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{
-        backgroundColor: AppColors.background,
-      }}
-    >
+    <>
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+          20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+        .signin-container {
+          animation: slideIn 0.6s ease-out;
+        }
+        .signin-error {
+          animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, 1);
+          background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        }
+        .signin-button {
+          transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        .signin-button:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        .signin-button:active:not(:disabled) {
+          transform: translateY(0px);
+        }
+        .signin-link {
+          transition: all 200ms ease;
+        }
+        .signin-link:hover:not(:disabled) {
+          transform: translateX(2px);
+        }
+      `}</style>
+
+  return (
+    <>
+      <style>{`
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+          20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+        .signin-container {
+          animation: slideIn 0.6s ease-out;
+        }
+        .signin-error {
+          animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, 1);
+          background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        }
+        .signin-button {
+          transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        .signin-button:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }
+        .signin-button:active:not(:disabled) {
+          transform: translateY(0px);
+        }
+        .signin-link {
+          transition: all 200ms ease;
+        }
+        .signin-link:hover:not(:disabled) {
+          transform: translateX(2px);
+        }
+      `}</style>
       <div
-        className="w-full px-6"
+        className="signin-container flex min-h-screen items-center justify-center"
         style={{
-          maxWidth: '400px',
+          backgroundColor: AppColors.background,
         }}
       >
+        <div
+          className="w-full px-6"
+          style={{
+            maxWidth: '400px',
+          }}
+        >
         {/* Header */}
         <div className="mb-8 text-center">
           <div
@@ -244,9 +320,9 @@ export default function SignInScreen() {
           {/* Error Message */}
           {error && (
             <div
+              className="signin-error"
               style={{
                 padding: AppSpacing.md,
-                backgroundColor: `${AppColors.error}20`,
                 border: `1px solid ${AppColors.error}`,
                 borderRadius: '8px',
                 marginBottom: AppSpacing.lg,
@@ -262,6 +338,7 @@ export default function SignInScreen() {
           <button
             type="submit"
             disabled={isLoading}
+            className="signin-button"
             style={{
               width: '100%',
               padding: `${AppSpacing.md} ${AppSpacing.lg}`,
@@ -272,21 +349,10 @@ export default function SignInScreen() {
               ...AppTextStyles.labelLarge,
               cursor: isLoading ? 'not-allowed' : 'pointer',
               opacity: isLoading ? 0.7 : 1,
-              transition: 'all 300ms ease-out',
               marginBottom: AppSpacing.lg,
             }}
-            onMouseEnter={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.backgroundColor = AppColors.primaryDark;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.backgroundColor = AppColors.primary;
-              }
-            }}
           >
-            {isLoading ? 'Signing in...' : 'Sign In'}
+            {isLoading ? '⏳ Signing in...' : '🔐 Sign In'}
           </button>
         </form>
 
@@ -305,6 +371,7 @@ export default function SignInScreen() {
             <button
               onClick={() => router.push('/signup')}
               disabled={isLoading}
+              className="signin-link"
               style={{
                 background: 'none',
                 border: 'none',
@@ -361,6 +428,7 @@ export default function SignInScreen() {
           ) : null}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

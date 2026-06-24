@@ -92,6 +92,11 @@ export default function OnboardingScreen1() {
     }
   };
 
+  const handleSignIn = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    router.push('/signin');
+  };
+
   const slide = SLIDES[currentSlide];
 
   return (
@@ -106,6 +111,14 @@ export default function OnboardingScreen1() {
         @keyframes ob-bgFade {
           from { opacity: 0; }
           to   { opacity: 1; }
+        }
+        @keyframes ob-slideInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes ob-scaleIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to   { opacity: 1; transform: scale(1); }
         }
 
         .ob-card-content {
@@ -132,28 +145,42 @@ export default function OnboardingScreen1() {
         .ob-dot-active {
           width: 24px; border-radius: 4px;
           background: ${AppColors.primary};
+          animation: ob-scaleIn 300ms ease-out;
         }
         .ob-dot-inactive {
           background: rgba(255,255,255,0.55);
         }
         .ob-dot-inactive:hover {
           background: rgba(255,255,255,0.85);
+          transform: scale(1.15);
         }
 
         .ob-btn-primary {
-          transition: all 220ms ease;
+          transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+          position: relative;
+          overflow: hidden;
         }
         .ob-btn-primary:hover:not(:disabled) {
           filter: brightness(1.1);
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.24);
+        }
+        .ob-btn-primary:active:not(:disabled) {
+          transform: translateY(0px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.18);
         }
         .ob-btn-secondary {
-          transition: all 220ms ease;
+          transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+          position: relative;
+          overflow: hidden;
         }
         .ob-btn-secondary:hover:not(:disabled) {
           background: rgba(255,255,255,0.25) !important;
-          transform: translateY(-1px);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(255,255,255,0.25);
+        }
+        .ob-btn-secondary:active:not(:disabled) {
+          transform: translateY(0px);
         }
       `}</style>
 
@@ -255,7 +282,7 @@ export default function OnboardingScreen1() {
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 12 }}>
-              {/* Get Started — always goes to auth */}
+              {/* Sign Up — complete onboarding and go to signup */}
               <button
                 onClick={handleGetStarted}
                 disabled={isLoading}
@@ -273,12 +300,12 @@ export default function OnboardingScreen1() {
                   opacity: isLoading ? 0.65 : 1,
                 }}
               >
-                {isLoading ? 'Loading…' : 'Get Started'}
+                {isLoading ? 'Creating account...' : 'Sign Up'}
               </button>
 
-              {/* Next — advances slide, loops */}
+              {/* Sign In — go to signin */}
               <button
-                onClick={handleNext}
+                onClick={handleSignIn}
                 disabled={isLoading}
                 className="ob-btn-secondary"
                 style={{
@@ -294,7 +321,7 @@ export default function OnboardingScreen1() {
                   opacity: isLoading ? 0.65 : 1,
                 }}
               >
-                Next →
+                Sign In →
               </button>
             </div>
           </div>

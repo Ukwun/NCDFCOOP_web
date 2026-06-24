@@ -68,14 +68,14 @@ export default function AddProductPage() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price: 0,
-    wholesalePrice: 0,
-    originalPrice: 0,
+    price: '',
+    wholesalePrice: '',
+    originalPrice: '',
     category: 'vegetables',
-    stock: 0,
+    stock: '',
     unit: 'kg',
     productType: 'retail' as 'retail' | 'wholesale' | 'both',
-    wholesaleMinOrder: 1,
+    wholesaleMinOrder: '',
     images: [] as string[],
     thumbnail: '',
   });
@@ -83,14 +83,7 @@ export default function AddProductPage() {
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 
   const handleInputChange = (field: string, value: any) => {
-    const numericFields = ['price', 'wholesalePrice', 'originalPrice', 'stock', 'wholesaleMinOrder'];
-    const nextValue = numericFields.includes(field)
-      ? value === ''
-        ? 0
-        : Number(value)
-      : value;
-
-    setFormData((prev) => ({ ...prev, [field]: nextValue }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (fieldErrors[field]) {
       setFieldErrors((prev) => ({ ...prev, [field]: '' }));
     }
@@ -114,117 +107,175 @@ export default function AddProductPage() {
   }, [loading, user, currentRole, router]);
 
   const saveProduct = async (publish = false) => {
-    // publish=true will set status to 'live'
+    // publish=true will set status to 'live' (published), false sets to 'pending' (draft)
 
     if (!user) {
-      setError('You must be logged in');
+      setError('You must be logged in to save products');
       return;
     }
 
     const currentErrors: { [key: string]: string } = {};
+    const priceValue = parseFloat(formData.price || '0');
+    const stockValue = parseInt(formData.stock || '0', 10);
+    const wholesalePriceValue = parseFloat(formData.wholesalePrice || '0');
+    const wholesaleMinOrderValue = parseInt(formData.wholesaleMinOrder || '1', 10);
+
     if (!formData.name.trim()) currentErrors.name = 'Product name is required';
     if (!formData.category) currentErrors.category = 'Select a category';
-    if (formData.price <= 0) currentErrors.price = 'Please enter a valid base price';
-    if (formData.stock <= 0) currentErrors.stock = 'Stock quantity must be greater than zero';
+    if (!formData.price.trim() || priceValue <= 0) currentErrors.price = 'Please enter a valid base price';
+    if (!formData.stock.trim() || stockValue <= 0) currentErrors.stock = 'Stock quantity must be greater than zero';
     if (!formData.unit) currentErrors.unit = 'Please choose a unit measure';
-    if (formData.productType !== 'retail' && formData.wholesalePrice <= 0) {
+    if (formData.productType !== 'retail' && (!formData.wholesalePrice.trim() || wholesalePriceValue <= 0)) {
       currentErrors.wholesalePrice = 'Wholesale price is required for wholesale products';
     }
-    if (formData.productType !== 'retail' && formData.wholesaleMinOrder < 1) {
+    if (formData.productType !== 'retail' && wholesaleMinOrderValue < 1) {
       currentErrors.wholesaleMinOrder = 'Wholesale minimum order must be at least 1';
     }
 
     if (Object.keys(currentErrors).length > 0) {
       setFieldErrors(currentErrors);
-      setError('Please fix the highlighted fields');
+      setError('Please fix the highlighted fields before saving');
+      setIsSaving(false);
       return;
     }
 
     setIsSaving(true);
     setError(null);
 
-    const wholesalePriceValue = formData.productType !== 'retail'
-      ? parseFloat(formData.wholesalePrice.toString())
-      : 0;
-
-    const timestampValue = db ? Timestamp.now() : new Date().toISOString();
-
-    const newProduct = {
-      name: formData.name,
-      description: formData.description,
-      category: formData.category,
-      type: formData.productType,
-      price: parseFloat(formData.price.toString()),
-      retailPrice: parseFloat(formData.price.toString()),
-      wholesalePrice: wholesalePriceValue > 0 ? wholesalePriceValue : undefined,
-      originalPrice: formData.originalPrice
-        ? parseFloat(formData.originalPrice.toString())
-        : parseFloat(formData.price.toString()),
-      discount: calculateDiscount(),
-      minOrderQuantity: formData.productType !== 'retail' ? parseInt(formData.wholesaleMinOrder.toString()) : 1,
-      stock: parseInt(formData.stock.toString()),
-      unit: formData.unit,
-      maxOrder: 100,
-      status: publish ? 'live' : 'pending',
-      images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/400x400'],
-      thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
-      sellerId: user.uid,
-      sellerName: user.displayName || 'Seller',
-      ownershipType: 'seller',
-      rating: 4.5,
-      reviews: 0,
-      isFeatured: false,
-      isActive: true,
-      createdAt: timestampValue,
-      updatedAt: timestampValue,
-    };
-
     try {
+      const finalPriceValue = parseFloat(formData.price || '0');
+      const finalWholesalePriceValue = parseFloat(formData.wholesalePrice || '0');
+      const finalOriginalPriceValue = formData.originalPrice.trim()
+        ? parseFloat(formData.originalPrice)
+        : finalPriceValue;
+      const finalStockValue = parseInt(formData.stock || '0', 10);
+      const finalWholesaleMinOrderValue = parseInt(formData.wholesaleMinOrder || '1', 10);
+
+      const timestampValue = db ? Timestamp.now() : new Date().toISOString();
+
+      const newProduct = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        type: formData.productType,
+        price: finalPriceValue,
+        retailPrice: finalPriceValue,
+        wholesalePrice: formData.productType !== 'retail' && finalWholesalePriceValue > 0 ? finalWholesalePriceValue : undefined,
+        originalPrice: finalOriginalPriceValue,
+        discount: calculateDiscount(),
+        minOrderQuantity: formData.productType !== 'retail' ? finalWholesaleMinOrderValue : 1,
+        stock: finalStockValue,
+        unit: formData.unit,
+        maxOrder: 100,
+        status: publish ? 'live' : 'pending',
+        publishedAt: publish ? timestampValue : undefined,
+        images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/400x400'],
+        thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
+        sellerId: user.uid,
+        sellerName: user.displayName || 'Seller',
+        ownershipType: 'seller',
+        rating: 4.5,
+        reviews: 0,
+        isFeatured: false,
+        isActive: true,
+        createdAt: timestampValue,
+        updatedAt: timestampValue,
+      };
+
       if (!db) {
+        // Save to local storage when offline
         createLocalSellerProduct(user.uid, {
           ...newProduct,
           id: `local-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
         });
+        
+        // Show success message
+        const successMsg = publish 
+          ? '🎉 Product published successfully!' 
+          : '💾 Product saved to draft!';
+        alert(successMsg);
       } else {
+        // Save to Firestore when online
         // Remove any `undefined` fields before sending to Firestore
         const sanitizedProduct = Object.fromEntries(
           Object.entries(newProduct).filter(([, v]) => v !== undefined)
         );
 
-        await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
+        const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
+        
+        // Show success message with product ID
+        const successMsg = publish 
+          ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}` 
+          : `💾 Product saved to draft!\nProduct ID: ${docRef.id}`;
+        alert(successMsg);
       }
 
+      // Clear form and redirect
       setFormData({
         name: '',
         description: '',
-        price: 0,
-        wholesalePrice: 0,
-        originalPrice: 0,
+        price: '',
+        wholesalePrice: '',
+        originalPrice: '',
         category: 'vegetables',
-        stock: 0,
+        stock: '',
         unit: 'kg',
         productType: 'retail',
-        wholesaleMinOrder: 1,
+        wholesaleMinOrder: '',
         images: [],
         thumbnail: '',
       });
 
-      router.push('/seller/products');
-    } catch (err) {
-      console.error('Error adding product:', err);
-      if (user) {
-        createLocalSellerProduct(user.uid, {
-          ...newProduct,
-          id: `local-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+      setFieldErrors({});
+      setError(null);
+      
+      // Redirect to products list after 1 second to show the success message
+      setTimeout(() => {
         router.push('/seller/products');
-        return;
+      }, 1000);
+    } catch (err) {
+      console.error('Error saving product:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save product';
+      
+      // Fallback to local storage on error
+      if (user) {
+        try {
+          const timestampValue = new Date().toISOString();
+          const newProduct = {
+            name: formData.name.trim(),
+            description: formData.description.trim(),
+            category: formData.category,
+            type: formData.productType,
+            price: parseFloat(formData.price || '0'),
+            retailPrice: parseFloat(formData.price || '0'),
+            stock: parseInt(formData.stock || '0', 10),
+            unit: formData.unit,
+            status: publish ? 'live' : 'pending',
+            thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
+            sellerId: user.uid,
+            sellerName: user.displayName || 'Seller',
+            createdAt: timestampValue,
+            updatedAt: timestampValue,
+          };
+          
+          createLocalSellerProduct(user.uid, {
+            ...newProduct,
+            id: `local-${Date.now()}`,
+          });
+          
+          alert(`⚠️ Saved to device (offline mode). Sync when back online.\nDetails: ${errorMessage}`);
+          
+          // Still redirect after saving locally
+          setTimeout(() => {
+            router.push('/seller/products');
+          }, 1000);
+        } catch (fallbackErr) {
+          console.error('Error saving to local storage:', fallbackErr);
+          setError(`Failed to save product: ${errorMessage}`);
+        }
+      } else {
+        setError(`Failed to save product: ${errorMessage}`);
       }
-      setError(err instanceof Error ? err.message : 'Failed to add product');
     } finally {
       setIsSaving(false);
     }
@@ -247,7 +298,8 @@ export default function AddProductPage() {
     setUploadProgress(0);
 
     try {
-      const path = `products/${user.uid}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `product-images/${user.uid}/${Date.now()}_${safeFileName}`;
       const ref = storageRef(storage, path);
       const uploadTask = uploadBytesResumable(ref, file);
 
@@ -412,9 +464,9 @@ export default function AddProductPage() {
                 type="number"
                 value={formData.price}
                 onChange={(e) => handleInputChange('price', e.target.value)}
-                placeholder="0"
-                min="0"
-                step="0.01"
+                placeholder="Enter price"
+                min="1"
+                step="1"
                 className={`${styles.input} w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none transition duration-200 focus:ring-2 ${
                   fieldErrors.price ? styles.inputError : 'focus:border-blue-500'
                 }`}
@@ -454,7 +506,7 @@ export default function AddProductPage() {
                   type="number"
                   value={formData.wholesalePrice}
                   onChange={(e) => handleInputChange('wholesalePrice', e.target.value)}
-                  placeholder="0"
+                  placeholder="Enter wholesale price"
                   min="0"
                   className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
                   style={{
@@ -474,7 +526,7 @@ export default function AddProductPage() {
                   type="number"
                   value={formData.wholesaleMinOrder}
                   onChange={(e) => handleInputChange('wholesaleMinOrder', e.target.value)}
-                  placeholder="1"
+                  placeholder="Minimum order"
                   min="1"
                   className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
                   style={{
@@ -510,9 +562,9 @@ export default function AddProductPage() {
                 type="number"
                 value={formData.stock}
                 onChange={(e) => handleInputChange('stock', e.target.value)}
-                placeholder="0"
-                min="0"
-                className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2"
+                placeholder="Enter quantity"
+                min="1"
+                className="w-full mt-2 px-4 py-3 border-2 rounded-lg outline-none focus:ring-2 transition duration-200"
                 style={{
                   borderColor: AppColors.border,
                 }}
@@ -612,34 +664,42 @@ export default function AddProductPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="px-4 py-3 rounded-lg border-2 font-bold transition-all"
+              disabled={isSaving || isUploading}
+              className={`${styles.cancelButton} flex-1 px-4 py-3 rounded-lg border-2 font-bold transition-all`}
               style={{
                 borderColor: AppColors.primary,
                 color: AppColors.primary,
+                opacity: isSaving || isUploading ? 0.5 : 1,
+                cursor: isSaving || isUploading ? 'not-allowed' : 'pointer',
               }}
             >
-              Cancel
+              ← Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => saveProduct(false)}
+              disabled={isSaving || isUploading}
+              className={`${styles.submitButton} flex-1 px-4 py-3 rounded-lg text-white font-bold transition-all`}
+              style={{
+                backgroundColor: AppColors.primary,
+                opacity: isSaving || isUploading ? 0.7 : 1,
+                cursor: isSaving || isUploading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSaving ? '⏳ Saving to Draft…' : isUploading ? '📤 Uploading…' : '✅ Save as Draft'}
             </button>
             <button
               type="button"
               onClick={() => saveProduct(true)}
-              disabled={loading || isSaving || isUploading}
-              className="px-4 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg disabled:opacity-50"
+              disabled={isSaving || isUploading}
+              className={`${styles.submitButton} flex-1 px-4 py-3 rounded-lg text-white font-bold transition-all`}
               style={{
                 backgroundColor: '#0ea5a4',
+                opacity: isSaving || isUploading ? 0.7 : 1,
+                cursor: isSaving || isUploading ? 'not-allowed' : 'pointer',
               }}
             >
-              {isSaving && 'Publishing…'}{!isSaving && isUploading && 'Uploading…'}{!isSaving && !isUploading && '🚀 Publish Now'}
-            </button>
-            <button
-              type="submit"
-              disabled={loading || isSaving || isUploading}
-              className="px-4 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg disabled:opacity-50"
-              style={{
-                backgroundColor: AppColors.primary,
-              }}
-            >
-              {isSaving ? 'Saving product…' : loading ? 'Checking auth…' : '✅ Save as Draft'}
+              {isSaving ? '⏳ Publishing…' : isUploading ? '📤 Uploading…' : '🚀 Publish Now'}
             </button>
           </div>
         </form>

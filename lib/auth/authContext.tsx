@@ -352,11 +352,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       setUser(userCredential.user as AuthUser);
     } catch (err: any) {
-      const errorMessage = err.code === 'auth/user-not-found'
-        ? 'Email not found. Please create an account.'
-        : err.code === 'auth/wrong-password'
-        ? 'Incorrect password'
-        : 'Failed to login';
+      // Sanitize error messages to not expose system details
+      let errorMessage = 'Unable to sign in. Please check your credentials and try again.';
+      
+      if (err.code === 'auth/user-not-found') {
+        errorMessage = 'We could not find an account with this email. Please create an account.';
+      } else if (err.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password. Please try again.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled. Please contact support.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed login attempts. Please try again later.';
+      }
+      
       setError(errorMessage);
       throw err;
     }
@@ -389,9 +399,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       if (!auth) throw new Error('Firebase not initialized');
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, email, {
+        url: typeof window !== 'undefined' ? `${window.location.origin}/signin` : undefined,
+        handleCodeInApp: true,
+      });
     } catch (err: any) {
-      setError(err?.message || 'Failed to send reset email');
+      // Sanitize error messages
+      let errorMessage = 'Failed to send reset email. Please try again later.';
+      
+      if (err.code === 'auth/user-not-found') {
+        // Don't reveal if email exists or not for security
+        errorMessage = 'If an account exists with this email, you will receive a password reset link shortly.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Please enter a valid email address.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please try again later.';
+      }
+      
+      setError(errorMessage);
       throw err;
     }
   };

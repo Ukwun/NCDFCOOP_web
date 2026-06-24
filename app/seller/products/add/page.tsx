@@ -311,7 +311,7 @@ export default function AddProductPage() {
       return;
     }
 
-    if (!storage) {
+    if (!storage || !auth) {
       setUploadError('Storage is not configured in this environment');
       return;
     }
@@ -333,8 +333,30 @@ export default function AddProductPage() {
     setUploadProgress(0);
 
     try {
+      // Ensure auth token is fresh before upload
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User authentication lost. Please refresh and try again.');
+      }
+
+      // Force token refresh to ensure it's valid for Cloud Storage
+      try {
+        const idToken = await currentUser.getIdToken(true);
+        if (!idToken) {
+          throw new Error('Failed to obtain valid authentication token');
+        }
+      } catch (tokenErr) {
+        console.warn('Token refresh failed, continuing anyway:', tokenErr);
+      }
+
       const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `product-images/${user.uid}/${Date.now()}_${safeFileName}`;
+      const path = `product-images/${currentUser.uid}/${Date.now()}_${safeFileName}`;
+      
+      // Log for debugging
+      console.log('[Image Upload] Path:', path);
+      console.log('[Image Upload] Auth UID:', currentUser.uid);
+      console.log('[Image Upload] File:', file.name, '|', file.size, 'bytes');
+
       const ref = storageRef(storage, path);
       const uploadTask = uploadBytesResumable(ref, file);
 
@@ -346,27 +368,51 @@ export default function AddProductPage() {
             setUploadProgress(percent);
           },
           (err) => {
+            console.error('[Image Upload] Error during upload:', err);
             setUploadError(err instanceof Error ? err.message : String(err));
             setIsUploading(false);
             reject(err);
           },
           async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            setFormData((prev) => ({
-              ...prev,
-              thumbnail: url,
-              images: prev.images && prev.images.length > 0 ? [url, ...prev.images] : [url],
-            }));
-            setIsUploading(false);
-            setUploadProgress(100);
-            resolve();
+            try {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log('[Image Upload] Success! URL:', url);
+              
+              setFormData((prev) => ({
+                ...prev,
+                thumbnail: url,
+                images: prev.images && prev.images.length > 0 ? [url, ...prev.images] : [url],
+              }));
+              setIsUploading(false);
+              setUploadProgress(100);
+              resolve();
+            } catch (getUrlErr) {
+              console.error('[Image Upload] Error getting download URL:', getUrlErr);
+              reject(getUrlErr);
+            }
           }
         );
       });
     } catch (err: any) {
-      console.error('Upload error', err);
+      console.error('[Image Upload] Caught error:', err);
+      
       if (err?.code === 'storage/unauthorized') {
-        setUploadError('You do not have permission to upload this image. Please sign in and try again.');
+        setUploadError(
+          'Permission denied: You do not have permission to upload images.\n\n' +
+          'Please ensure:\n' +
+          '1. You\'re signed in with a real Firebase account\n' +
+          '2. Cloud Storage security rules are properly deployed\n' +
+          '3. Try refreshing the page and signing in again\n\n' +
+          'If the problem persists, contact support.'
+        );
+      } else if (err?.code === 'storage/object-not-found') {
+        setUploadError(
+          'Storage bucket not found. Please check your Firebase configuration.'
+        );
+      } else if (err?.code === 'storage/invalid-argument') {
+        setUploadError(
+          'Invalid file or path. Please try with a different image.'
+        );
       } else if (typeof err === 'string') {
         setUploadError(err);
       } else if (err instanceof Error) {

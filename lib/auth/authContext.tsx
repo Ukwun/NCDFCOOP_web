@@ -516,13 +516,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!auth || !db) throw new Error('Firebase not initialized');
       if (!auth.currentUser) throw new Error('No authenticated user available');
 
-      await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
-        roles: arrayUnion(normalizedRole),
-        selectedRole: normalizedRole,
-        roleSelectionComplete: true,
-        updatedAt: Timestamp.now(),
-      }, { merge: true });
+      // Attempt to update Firestore with retry logic to handle transient network issues
+      let lastError: any;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await setDoc(
+            doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
+            {
+              roles: arrayUnion(normalizedRole),
+              selectedRole: normalizedRole,
+              roleSelectionComplete: true,
+              updatedAt: Timestamp.now(),
+            },
+            { merge: true }
+          );
+          lastError = null;
+          break; // Success, exit retry loop
+        } catch (err: any) {
+          lastError = err;
+          if (attempt < 2) {
+            // Wait before retrying (exponential backoff: 300ms, 600ms)
+            await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+          }
+        }
+      }
 
+      // If all retries failed, throw the error
+      if (lastError) {
+        throw lastError;
+      }
+
+      // Only store in localStorage AFTER Firestore write succeeds
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('selectedRoleOverride', normalizedRole);
       }
@@ -539,32 +563,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (err: any) {
-      const errorCode = String(err?.code || '');
-      const canFallbackToLocalRole =
-        errorCode === 'permission-denied' ||
-        errorCode === 'unavailable' ||
-        errorCode === 'auth/network-request-failed' ||
-        errorCode.includes('permission');
-
-      if (canFallbackToLocalRole) {
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem('selectedRoleOverride', normalizedRole);
-        }
-
-        setCurrentRole(normalizedRole);
-        setRoleSelectionComplete(true);
-        if (user) {
-          const existingRoles = user.roles || [];
-          setUser({
-            ...user,
-            selectedRole: normalizedRole,
-            roleSelectionComplete: true,
-            roles: Array.from(new Set([...existingRoles, normalizedRole])),
-          });
-        }
-        return;
-      }
-
       setError(err?.message || 'Failed to select role');
       throw err;
     }

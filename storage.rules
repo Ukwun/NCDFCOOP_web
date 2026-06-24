@@ -1,0 +1,57 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is the owner (matches uid in path)
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // ============================================
+    // PRODUCT IMAGES - User-uploaded product images
+    // ============================================
+    match /product-images/{userId}/{allPaths=**} {
+      // Allow users to read their own product images and admin can read all
+      allow read: if isAuthenticated();
+
+      // Allow users to upload only to their own folder
+      allow write: if isOwner(userId) &&
+        request.resource.size < 10 * 1024 * 1024 && // Max 10MB
+        request.resource.contentType.matches('image/.*'); // Only images
+    }
+
+    // ============================================
+    // PUBLIC PRODUCTS - Published product images (fallback path)
+    // ============================================
+    match /products/{userId}/{allPaths=**} {
+      // Allow reading products by anyone
+      allow read: if true;
+
+      // Only owner can write to their product folder
+      allow write: if isOwner(userId) &&
+        request.resource.size < 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // ============================================
+    // USER PROFILE IMAGES
+    // ============================================
+    match /profile-images/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) &&
+        request.resource.size < 5 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // ============================================
+    // DEFAULT DENY
+    // ============================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

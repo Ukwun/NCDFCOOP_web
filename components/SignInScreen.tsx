@@ -90,45 +90,6 @@ export default function SignInScreen() {
           transform: translateX(2px);
         }
       `}</style>
-
-  return (
-    <>
-      <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-          20%, 40%, 60%, 80% { transform: translateX(2px); }
-        }
-        .signin-container {
-          animation: slideIn 0.6s ease-out;
-        }
-        .signin-error {
-          animation: shake 0.5s cubic-bezier(0.36, 0, 0.66, 1);
-          background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        }
-        .signin-button {
-          transition: all 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
-          position: relative;
-          overflow: hidden;
-        }
-        .signin-button:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-        }
-        .signin-button:active:not(:disabled) {
-          transform: translateY(0px);
-        }
-        .signin-link {
-          transition: all 200ms ease;
-        }
-        .signin-link:hover:not(:disabled) {
-          transform: translateX(2px);
-        }
-      `}</style>
       <div
         className="signin-container flex min-h-screen items-center justify-center"
         style={{

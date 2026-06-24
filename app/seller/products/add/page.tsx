@@ -56,6 +56,21 @@ const PRODUCT_CATEGORIES = [
   { id: 'beverages', name: 'Beverages', emoji: '☕' },
 ];
 
+type ProductForm = {
+  name: string;
+  description: string;
+  price: string;
+  wholesalePrice: string;
+  originalPrice: string;
+  category: string;
+  stock: string;
+  unit: string;
+  productType: 'retail' | 'wholesale' | 'both';
+  wholesaleMinOrder: string;
+  images: string[];
+  thumbnail: string;
+};
+
 export default function AddProductPage() {
   const router = useRouter();
   const { user, loading, currentRole } = useAuth();
@@ -65,7 +80,7 @@ export default function AddProductPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ProductForm>({
     name: '',
     description: '',
     price: '',
@@ -74,7 +89,7 @@ export default function AddProductPage() {
     category: 'vegetables',
     stock: '',
     unit: 'kg',
-    productType: 'retail' as 'retail' | 'wholesale' | 'both',
+    productType: 'retail',
     wholesaleMinOrder: '',
     images: [] as string[],
     thumbnail: '',
@@ -90,12 +105,14 @@ export default function AddProductPage() {
   };
 
   const calculateDiscount = () => {
-    if (formData.originalPrice && formData.originalPrice > formData.price) {
-      return Math.round(
-        ((formData.originalPrice - formData.price) / formData.originalPrice) * 100
-      );
+    const original = parseFloat(formData.originalPrice || formData.price || '0');
+    const price = parseFloat(formData.price || '0');
+
+    if (!Number.isFinite(original) || !Number.isFinite(price) || original <= 0 || price >= original) {
+      return 0;
     }
-    return 0;
+
+    return Math.round(((original - price) / original) * 100);
   };
 
   useEffect(() => {
@@ -548,7 +565,12 @@ export default function AddProductPage() {
               style={{ backgroundColor: '#E53E3E' }}
             >
               🎉 Discount: {calculateDiscount()}% off (Saves ₦
-              {(formData.originalPrice - formData.price).toLocaleString()})
+              {(() => {
+                const original = parseFloat(formData.originalPrice || formData.price || '0');
+                const price = parseFloat(formData.price || '0');
+                const savings = Number.isFinite(original) && Number.isFinite(price) ? original - price : 0;
+                return savings.toLocaleString();
+              })()})
             </div>
           )}
 

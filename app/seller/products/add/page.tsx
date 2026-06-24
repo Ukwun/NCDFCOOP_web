@@ -207,17 +207,65 @@ export default function AddProductPage() {
       };
 
       if (canUseFirebaseBackend) {
-        // Save to Firestore when the user is authenticated with Firebase.
         const sanitizedProduct = Object.fromEntries(
           Object.entries(newProduct).filter(([, v]) => v !== undefined)
         );
+        // Prefer server-side write via Admin SDK endpoint to avoid client-rule race conditions.
+        try {
+          const currentUser = auth.currentUser;
+          const idToken = currentUser ? await currentUser.getIdToken() : null;
+          if (!idToken) throw new Error('Missing auth token');
 
-        const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
-        const successMsg = publish
-          ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}`
-          : `💾 Product saved to draft!\nProduct ID: ${docRef.id}`;
-        alert(successMsg);
-        setSaveNotice(null);
+          const resp = await fetch('/api/products/create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify(sanitizedProduct),
+          });
+
+          if (!resp.ok) {
+            const body = await resp.json().catch(() => ({}));
+            throw new Error(body?.error || `Server error: ${resp.status}`);
+          }
+
+          const json = await resp.json();
+          const successMsg = publish
+            ? `🎉 Product published successfully!\nProduct ID: ${json.id}`
+            : `💾 Product saved to draft!\nProduct ID: ${json.id}`;
+          alert(successMsg);
+          setSaveNotice(null);
+        } catch (apiErr) {
+          console.warn('Server-side product save failed, falling back to client Firestore write or local storage:', apiErr);
+          // Attempt client-side Firestore write as a fallback
+          try {
+            const sanitizedProduct = Object.fromEntries(
+              Object.entries(newProduct).filter(([, v]) => v !== undefined)
+            );
+            const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
+            const successMsg = publish
+              ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}`
+              : `💾 Product saved to draft!\nProduct ID: ${docRef.id}`;
+            alert(successMsg);
+            setSaveNotice(null);
+          } catch (clientErr) {
+            console.error('Client Firestore write failed:', clientErr);
+            // Final fallback to local storage
+            createLocalSellerProduct(user.uid, {
+              ...newProduct,
+              id: `local-${Date.now()}`,
+            });
+
+            const fallbackMessage = isDevAutologin()
+              ? '⚠️ Dev-mode session detected; product draft saved locally.'
+              : '⚠️ Firebase publish failed; product draft saved locally.';
+
+            setSaveNotice(publish
+              ? `${fallbackMessage} Publish will work after resolving connectivity/auth.`
+              : `${fallbackMessage} Draft saved locally in your browser.`);
+          }
+        }
       } else {
         createLocalSellerProduct(user.uid, {
           ...newProduct,

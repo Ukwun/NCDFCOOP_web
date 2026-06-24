@@ -198,6 +198,21 @@ coop_commerce_web/
 - [x] Bank transfer option
 - [x] Cash on delivery
 - [x] Payment verification
+
+---
+
+## 🚀 Deploying to Netlify
+
+This repository is configured for Netlify automatic deploys using the official Next.js plugin. Important notes:
+
+- Ensure the `@netlify/plugin-nextjs` plugin is present in `devDependencies` (already included).
+- Netlify build command: `npm ci && npm run build` (configured in `netlify.toml`).
+- You must add the Firebase service account to Netlify environment variables as `FIREBASE_SERVICE_ACCOUNT`. The recommended approach is to base64-encode the JSON to avoid multiline issues. See `NETLIFY_FIREBASE_ADMIN_SETUP.md` for step-by-step instructions.
+- After deploy, verify the server Admin route `/api/products/create` works by calling it with a valid Firebase ID token.
+
+If you prefer local development with Admin SDK, set `FIREBASE_SERVICE_ACCOUNT` locally (base64 or raw JSON) before running `npm run dev`.
+
+For troubleshooting, check Netlify function logs and ensure the service account belongs to the same Firebase project used by the client SDK.
 - [x] Transaction history
 
 ### Member Features ✅

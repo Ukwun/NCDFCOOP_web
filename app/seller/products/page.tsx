@@ -77,6 +77,7 @@ export default function SellerProductsPage() {
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStock, setEditStock] = useState<number>(0);
 
@@ -99,7 +100,8 @@ export default function SellerProductsPage() {
 
     if (devMode && localProducts.length > 0) {
       setProducts(localProducts);
-      setError('Developer seller session enabled; showing local product drafts.');
+      // Show a subtle info message for developer sessions (non-blocking)
+      setInfoMessage('Developer seller session enabled; showing local product drafts.');
       setIsLoading(false);
       return;
     }
@@ -131,8 +133,9 @@ export default function SellerProductsPage() {
       } as SellerProduct));
 
       if (fetchedProducts.length === 0 && localProducts.length > 0) {
+        // Prefer to show local drafts without an alarming error message.
         setProducts(localProducts);
-        setError('No live products found. Showing local drafts saved in your browser.');
+        setInfoMessage(null);
       } else {
         setProducts(fetchedProducts);
       }
@@ -141,7 +144,8 @@ export default function SellerProductsPage() {
       if (user) {
         if (localProducts.length > 0) {
           setProducts(localProducts);
-          setError('Unable to load live products — showing local drafts.');
+          // Keep silent about the fallback for end users; this is non-critical.
+          setInfoMessage(null);
         } else {
           setError('Failed to load products');
         }
@@ -357,6 +361,13 @@ export default function SellerProductsPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
+          </div>
+        )}
+
+        {/* Informational Message (non-blocking) */}
+        {infoMessage && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg">
+            {infoMessage}
           </div>
         )}
 

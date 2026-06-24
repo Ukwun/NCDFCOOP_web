@@ -38,6 +38,9 @@ export default function ForgotPasswordPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             We've sent a password reset link to your email. Click the link to reset your password.
           </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            If you don't see the email in a few minutes, check your spam or junk folder.
+          </p>
           <Link
             href="/signin"
             className="inline-block px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"

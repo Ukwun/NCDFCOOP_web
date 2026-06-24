@@ -6,7 +6,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase/config';
+import { auth, db, storage } from '@/lib/firebase/config';
+import { isDevAutologin } from '@/lib/utils/devSession';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { USER_ROLES } from '@/lib/constants/database';
@@ -79,6 +80,7 @@ export default function AddProductPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<ProductForm>({
     name: '',
@@ -123,6 +125,10 @@ export default function AddProductPage() {
     }
   }, [loading, user, currentRole, router]);
 
+  const canUseFirebaseBackend = Boolean(
+    db && auth?.currentUser && auth.currentUser.uid === user?.uid && !isDevAutologin()
+  );
+
   const saveProduct = async (publish = false) => {
     // publish=true will set status to 'live' (published), false sets to 'pending' (draft)
 
@@ -152,12 +158,14 @@ export default function AddProductPage() {
     if (Object.keys(currentErrors).length > 0) {
       setFieldErrors(currentErrors);
       setError('Please fix the highlighted fields before saving');
+      setSaveNotice(null);
       setIsSaving(false);
       return;
     }
 
     setIsSaving(true);
     setError(null);
+    setSaveNotice(null);
 
     try {
       const finalPriceValue = parseFloat(formData.price || '0');
@@ -168,7 +176,7 @@ export default function AddProductPage() {
       const finalStockValue = parseInt(formData.stock || '0', 10);
       const finalWholesaleMinOrderValue = parseInt(formData.wholesaleMinOrder || '1', 10);
 
-      const timestampValue = db ? Timestamp.now() : new Date().toISOString();
+      const timestampValue = canUseFirebaseBackend ? Timestamp.now() : new Date().toISOString();
 
       const newProduct = {
         name: formData.name.trim(),
@@ -199,32 +207,31 @@ export default function AddProductPage() {
         updatedAt: timestampValue,
       };
 
-      if (!db) {
-        // Save to local storage when offline
-        createLocalSellerProduct(user.uid, {
-          ...newProduct,
-          id: `local-${Date.now()}`,
-        });
-        
-        // Show success message
-        const successMsg = publish 
-          ? '🎉 Product published successfully!' 
-          : '💾 Product saved to draft!';
-        alert(successMsg);
-      } else {
-        // Save to Firestore when online
-        // Remove any `undefined` fields before sending to Firestore
+      if (canUseFirebaseBackend) {
+        // Save to Firestore when the user is authenticated with Firebase.
         const sanitizedProduct = Object.fromEntries(
           Object.entries(newProduct).filter(([, v]) => v !== undefined)
         );
 
         const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
-        
-        // Show success message with product ID
-        const successMsg = publish 
-          ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}` 
+        const successMsg = publish
+          ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}`
           : `💾 Product saved to draft!\nProduct ID: ${docRef.id}`;
         alert(successMsg);
+        setSaveNotice(null);
+      } else {
+        createLocalSellerProduct(user.uid, {
+          ...newProduct,
+          id: `local-${Date.now()}`,
+        });
+
+        const fallbackMessage = isDevAutologin()
+          ? '⚠️ Dev-mode session detected; product draft saved locally.'
+          : '⚠️ Firebase sign-in not available; product draft saved locally.';
+
+        setSaveNotice(publish
+          ? `${fallbackMessage} Publish will work after signing in with a real Firebase account.`
+          : `${fallbackMessage} Draft saved locally in your browser.`);
       }
 
       // Clear form and redirect
@@ -310,6 +317,13 @@ export default function AddProductPage() {
       return;
     }
 
+    if (!auth?.currentUser || auth.currentUser.uid !== user.uid || isDevAutologin()) {
+      setUploadError(
+        'Image upload requires a real Firebase sign-in. Dev-mode sessions can still save drafts locally, but uploads are disabled.'
+      );
+      return;
+    }
+
     setUploadError(null);
     setIsUploading(true);
     setUploadProgress(0);
@@ -345,8 +359,17 @@ export default function AddProductPage() {
           }
         );
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload error', err);
+      if (err?.code === 'storage/unauthorized') {
+        setUploadError('You do not have permission to upload this image. Please sign in and try again.');
+      } else if (typeof err === 'string') {
+        setUploadError(err);
+      } else if (err instanceof Error) {
+        setUploadError(err.message);
+      } else {
+        setUploadError('Unable to upload image. Please try again.');
+      }
     } finally {
       setIsUploading(false);
     }
@@ -376,6 +399,12 @@ export default function AddProductPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
             {error}
+          </div>
+        )}
+
+        {saveNotice && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-lg">
+            {saveNotice}
           </div>
         )}
 
@@ -479,6 +508,8 @@ export default function AddProductPage() {
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={formData.price}
                 onChange={(e) => handleInputChange('price', e.target.value)}
                 placeholder="Enter price"
@@ -501,6 +532,8 @@ export default function AddProductPage() {
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={formData.originalPrice}
                 onChange={(e) => handleInputChange('originalPrice', e.target.value)}
                 placeholder="Leave blank if no discount"
@@ -521,6 +554,8 @@ export default function AddProductPage() {
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={formData.wholesalePrice}
                   onChange={(e) => handleInputChange('wholesalePrice', e.target.value)}
                   placeholder="Enter wholesale price"
@@ -541,6 +576,8 @@ export default function AddProductPage() {
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={formData.wholesaleMinOrder}
                   onChange={(e) => handleInputChange('wholesaleMinOrder', e.target.value)}
                   placeholder="Minimum order"
@@ -582,6 +619,8 @@ export default function AddProductPage() {
               </label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={formData.stock}
                 onChange={(e) => handleInputChange('stock', e.target.value)}
                 placeholder="Enter quantity"

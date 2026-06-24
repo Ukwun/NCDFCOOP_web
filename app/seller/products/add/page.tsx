@@ -125,8 +125,15 @@ export default function AddProductPage() {
     }
   }, [loading, user, currentRole, router]);
 
+  // Temporary override for E2E/dev verification: set NEXT_PUBLIC_ALLOW_DEV_PUBLISH=true
+  // to allow dev_autologin sessions to publish and upload during testing.
+  const allowDevPublish = process.env.NEXT_PUBLIC_ALLOW_DEV_PUBLISH === 'true';
+
   const canUseFirebaseBackend = Boolean(
-    db && auth?.currentUser && auth.currentUser.uid === user?.uid && !isDevAutologin()
+    db && (
+      (auth?.currentUser && auth.currentUser.uid === user?.uid) ||
+      (isDevAutologin() && allowDevPublish)
+    )
   );
 
   const saveProduct = async (publish = false) => {
@@ -317,11 +324,14 @@ export default function AddProductPage() {
       return;
     }
 
-    if (!auth?.currentUser || auth.currentUser.uid !== user.uid || isDevAutologin()) {
-      setUploadError(
-        'Image upload requires a real Firebase sign-in. Dev-mode sessions can still save drafts locally, but uploads are disabled.'
-      );
-      return;
+    // Allow uploads for dev sessions when dev publish override is enabled
+    if (!auth?.currentUser || auth.currentUser.uid !== user.uid) {
+      if (!(isDevAutologin() && allowDevPublish)) {
+        setUploadError(
+          'Image upload requires a real Firebase sign-in. Dev-mode sessions can still save drafts locally, but uploads are disabled.'
+        );
+        return;
+      }
     }
 
     setUploadError(null);

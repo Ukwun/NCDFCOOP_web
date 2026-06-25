@@ -201,11 +201,10 @@ service cloud.firestore {
       // Product catalog is visible to signed-in marketplace users.
       allow read: if isAuthenticated();
 
-      // Sellers/admin manage inventory records.
-      allow create: if isAuthenticated() && (
-        request.resource.data.sellerId == request.auth.uid || isAdmin()
-      );
+      // Any authenticated user can create a product if they set their UID as sellerId
+      allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid;
 
+      // Only the seller or admin can update/delete
       allow update, delete: if isAuthenticated() && (
         resource.data.sellerId == request.auth.uid || isAdmin()
       );

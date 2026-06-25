@@ -2,19 +2,46 @@ const { chromium } = require('playwright');
 
 (async () => {
   const base = process.env.E2E_BASE || 'http://localhost:3000';
-  const browser = await chromium.launch({ headless: true });
+  const headless = process.env.HEADLESS !== 'false';
+  const browser = await chromium.launch({ headless, slowMo: headless ? 0 : 80 });
   const page = await browser.newPage();
 
   try {
     console.log('Visiting dev-login to enable dev autologin');
-    await page.goto(`${base}/dev-login`, { waitUntil: 'networkidle' });
-    // dev-login writes localStorage and redirects; wait a moment
-    await page.waitForTimeout(800);
+    // Navigate directly with role query to trigger auto-redirect and localStorage setup
+    await page.goto(`${base}/dev-login?role=seller`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(700);
+    // Inject dev_autologin directly to ensure headless autologin (works around redirect execution timing)
+    await page.evaluate(() => {
+      try {
+        const devUser = {
+          uid: 'dev-seller',
+          email: 'dev-seller@local',
+          displayName: 'Dev Seller',
+          roles: ['seller'],
+          selectedRole: 'seller',
+          currentRole: 'seller',
+          roleSelectionComplete: true,
+          onboardingCompleted: true,
+        };
+        window.localStorage.setItem('dev_autologin', JSON.stringify(devUser));
+        window.localStorage.setItem('selectedRoleOverride', devUser.selectedRole);
+        window.localStorage.setItem('userId', devUser.uid);
+        window.localStorage.setItem('userEmail', devUser.email);
+        window.localStorage.setItem('userRole', devUser.selectedRole);
+        window.localStorage.setItem('displayName', devUser.displayName);
+      } catch (e) {
+        // ignore
+      }
+    });
+    console.log('Injected dev_autologin and localStorage keys, current url:', await page.url());
 
     // Retail product
     console.log('Opening add product page (retail)');
     await page.goto(`${base}/seller/products/add`, { waitUntil: 'networkidle' });
-    await page.waitForSelector('input[type="text"]');
+    // Wait for form to render and hydrate
+    await page.waitForSelector('form', { timeout: 20000 });
+    await page.waitForTimeout(400);
 
     console.log('Filling retail product form');
     await page.fill('input[type="text"]', 'Automated Retail Tomatoes 1kg');
@@ -46,7 +73,9 @@ const { chromium } = require('playwright');
     // Wholesale product
     console.log('Opening add product page (wholesale)');
     await page.goto(`${base}/seller/products/add`, { waitUntil: 'networkidle' });
-    await page.waitForSelector('input[type="text"]');
+    // Wait for form to render and hydrate
+    await page.waitForSelector('form', { timeout: 20000 });
+    await page.waitForTimeout(400);
 
     console.log('Filling wholesale product form');
     await page.fill('input[type="text"]', 'Automated Wholesale Beans 25kg');

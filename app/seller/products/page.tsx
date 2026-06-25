@@ -130,9 +130,9 @@ export default function SellerProductsPage() {
         ...doc.data(),
       } as SellerProduct));
 
-      if (fetchedProducts.length === 0 && devMode && localProducts.length > 0) {
+      if (fetchedProducts.length === 0 && localProducts.length > 0) {
         setProducts(localProducts);
-        setError('Unable to load live products — showing local drafts.');
+        setError('No live products found. Showing local drafts saved in your browser.');
       } else {
         setProducts(fetchedProducts);
       }

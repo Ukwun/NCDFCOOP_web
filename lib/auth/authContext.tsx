@@ -368,7 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setError(errorMessage);
-      throw err;
+      throw new Error(errorMessage);
     }
   };
 
@@ -417,7 +417,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setError(errorMessage);
-      throw err;
+      throw new Error(errorMessage);
     }
   };
 

@@ -6,6 +6,8 @@ import { Bell, Boxes, ChartBar, ChevronRight, CircleCheck, Filter, Minus, Plus, 
 import { useAuth } from '@/lib/auth/authContext';
 import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
 import { getProducts } from '@/lib/services/productService';
+import { createInquiry } from '@/lib/services/inquiryService';
+import { createNotification } from '@/lib/services/notificationService';
 import { Product } from '@/lib/types/product';
 import { useBuyerOrders } from '@/lib/hooks/useBuyerOrders';
 import { addToCart, CART_CHANGED_EVENT, getUserCart } from '@/lib/services/cartService';
@@ -225,9 +227,75 @@ export default function WholesaleBuyerHomeScreen() {
   };
 
   const submitQuoteRequest = () => {
-    setIsQuoteOpen(false);
-    setBannerMessage('Quote request drafted. Continue the conversation in Inquiries.');
-    router.push('/inquiries');
+    // Send a real inquiry when a quote is submitted so sellers receive it
+    (async () => {
+      setIsQuoteOpen(false);
+
+      if (!user) {
+        setBannerMessage('Sign in is required to send quote requests.');
+        router.push('/signin');
+        return;
+      }
+
+      try {
+        const product = wholesaleProducts.find((p) => p.id === quoteDraft.productId);
+        const sellerId = product?.sellerId || '';
+        const sellerName = product?.sellerName || 'NCDFCOOP Seller';
+        const buyerName = user.displayName || user.email || 'Buyer';
+        const quantity = Number(quoteDraft.quantity) || 1;
+        const budget = Number(quoteDraft.targetPrice) || 0;
+
+        const message = `Quote request for ${quoteDraft.productName || 'item'}. Quantity: ${quantity}. Target price: ${budget ? `₦${budget}` : 'negotiable'}.`;
+
+        const inquiryId = await createInquiry({
+          sellerId,
+          sellerName,
+          buyerId: user.uid,
+          buyerName,
+          productId: quoteDraft.productId || '',
+          productName: quoteDraft.productName,
+          quantity,
+          budget,
+          message,
+          kind: 'inquiry',
+        });
+
+        if (sellerId) {
+          await createNotification(sellerId, {
+            title: `New quote request: ${quoteDraft.productName}`,
+            message,
+            type: 'message',
+            read: false,
+            data: {
+              productId: quoteDraft.productId,
+              link: '/seller/inquiries',
+              inquiryId,
+              buyerId: user.uid,
+              buyerName,
+            },
+          });
+        }
+
+        await createNotification(user.uid, {
+          title: `Quote request sent to ${sellerName}`,
+          message: `Your quote request for ${quoteDraft.productName} was sent. Await supplier response.`,
+          type: 'message',
+          read: false,
+          data: {
+            productId: quoteDraft.productId,
+            link: '/inquiries',
+            inquiryId,
+            sellerId,
+          },
+        });
+
+        setBannerMessage('Quote request sent. Continue the conversation in Inquiries.');
+        router.push('/inquiries');
+      } catch (err) {
+        console.error('Error sending quote request:', err);
+        setBannerMessage('Failed to send quote request. Please try again.');
+      }
+    })();
   };
 
   return (

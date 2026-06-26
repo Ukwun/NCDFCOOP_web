@@ -23,6 +23,26 @@ import { Order } from '@/lib/types/product';
 import { createNotification } from '@/lib/services/notificationService';
 import { sendOrderConfirmationEmail } from '@/lib/services/emailService';
 
+const sanitizeForFirestore = (data: any): any => {
+  if (data === undefined) return undefined;
+  if (data === null) return null;
+  if (Array.isArray(data)) {
+    return data
+      .map((item) => sanitizeForFirestore(item))
+      .filter((sanitized) => sanitized !== undefined);
+  }
+  if (typeof data === 'object' && !(data instanceof Timestamp)) {
+    return Object.entries(data).reduce((acc, [key, value]) => {
+      const sanitizedValue = sanitizeForFirestore(value);
+      if (sanitizedValue !== undefined) {
+        acc[key] = sanitizedValue;
+      }
+      return acc;
+    }, {} as any);
+  }
+  return data;
+};
+
 /**
  * Create order from cart
  */
@@ -62,7 +82,7 @@ export async function createOrder(
       )
     );
 
-    const order: Order = {
+    const order: Order = sanitizeForFirestore({
       id: generatedOrderId,
       userId,
       buyerId: userId,
@@ -81,7 +101,7 @@ export async function createOrder(
         Timestamp.now().seconds + 7 * 24 * 60 * 60,
         Timestamp.now().nanoseconds
       ), // 7 days
-    };
+    });
 
     // Save order
     await setDoc(doc(db, COLLECTIONS.ORDERS, generatedOrderId), order);

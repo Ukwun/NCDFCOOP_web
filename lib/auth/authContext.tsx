@@ -10,6 +10,7 @@ import {
   sendPasswordResetEmail,
   updateProfile,
   signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
   FacebookAuthProvider,
   OAuthProvider,
@@ -153,39 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (!currentUser) {
-          // Dev auto-login: if a dev_autologin object exists in localStorage,
-          // use it to simulate an authenticated user for local development.
-          if (typeof window !== 'undefined') {
-            const dev = window.localStorage.getItem('dev_autologin');
-            if (dev) {
-              try {
-                const devUser = JSON.parse(dev) as any;
-                const selectedRole = normalizeRoleInput(devUser.selectedRole || devUser.currentRole);
-                const authUser: AuthUser = {
-                  uid: devUser.uid || 'dev-seller',
-                  email: devUser.email || 'dev-seller@local',
-                  displayName: devUser.displayName || devUser.name || 'Dev Seller',
-                  roles: devUser.roles || [selectedRole],
-                  selectedRole,
-                  currentRole: selectedRole,
-                  membershipStatus: devUser.membershipStatus || 'inactive',
-                  roleSelectionComplete: !!devUser.roleSelectionComplete,
-                  onboardingCompleted: !!devUser.onboardingCompleted,
-                } as AuthUser;
-
-                setUser(authUser);
-                setCurrentRole(selectedRole);
-                setRoleSelectionComplete(!!authUser.roleSelectionComplete);
-                setOnboardingCompleted(!!authUser.onboardingCompleted);
-                setError(null);
-                setLoading(false);
-                return;
-              } catch (e) {
-                console.warn('dev_autologin parse error', e);
-              }
-            }
-          }
-
           setUser(null);
           setCurrentRole(null);
           setRoleSelectionComplete(false);
@@ -448,6 +416,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const normalizeSocialError = (err: any, providerName: string) => {
+    const message = err?.message || `${providerName} sign-in failed`;
+    if (err?.code === 'auth/unauthorized-domain') {
+      return `OAuth not authorized for this domain. Add ${window.location.hostname} to Firebase Authentication authorized domains.`;
+    }
+    if (err?.code === 'auth/popup-blocked') {
+      return `${providerName} popup was blocked. Please allow popups for this site and try again.`;
+    }
+    if (err?.code === 'auth/popup-closed-by-user') {
+      return `${providerName} sign-in popup was closed before completing.`;
+    }
+    return message;
+  };
+
   const signInWithGoogle = async () => {
     if (!auth) throw new Error('Firebase not initialized');
     const provider = new GoogleAuthProvider();
@@ -456,8 +438,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithPopup(auth, provider);
       setUser(result.user as AuthUser);
     } catch (err: any) {
-      setError(err?.message || 'Google sign-in failed');
-      throw err;
+      // If popup flow is blocked or not allowed, fallback to redirect flow
+      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/unauthorized-domain' || err?.code === 'auth/popup-closed-by-user') {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr: any) {
+          const errorMessage = normalizeSocialError(redirectErr, 'Google');
+          setError(errorMessage);
+          throw new Error(errorMessage);
+        }
+      }
+
+      const errorMessage = normalizeSocialError(err, 'Google');
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -469,8 +464,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithPopup(auth, provider);
       setUser(result.user as AuthUser);
     } catch (err: any) {
-      setError(err?.message || 'Facebook sign-in failed');
-      throw err;
+      // Fallback to redirect if popup is blocked or not permitted
+      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/unauthorized-domain' || err?.code === 'auth/popup-closed-by-user') {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr: any) {
+          const errorMessage = normalizeSocialError(redirectErr, 'Facebook');
+          setError(errorMessage);
+          throw new Error(errorMessage);
+        }
+      }
+
+      const errorMessage = normalizeSocialError(err, 'Facebook');
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -482,8 +490,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithPopup(auth, provider);
       setUser(result.user as AuthUser);
     } catch (err: any) {
-      setError(err?.message || 'Apple sign-in failed');
-      throw err;
+      const errorMessage = normalizeSocialError(err, 'Apple');
+      setError(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 

@@ -429,8 +429,9 @@ export default function WholesaleBuyerHomeScreen() {
             </div>
           ) : (
             filteredProducts.slice(0, 24).map((product) => {
+              const displayPrice = product.wholesalePrice || product.price;
               const quantity = getDesiredQuantity(product);
-              const savings = product.originalPrice && product.wholesalePrice ? product.originalPrice - product.wholesalePrice : 0;
+              const savings = product.originalPrice && displayPrice ? product.originalPrice - displayPrice : 0;
 
               return (
                 <article key={product.id} className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800 transition-all hover:shadow-md hover:scale-[1.01]">
@@ -447,7 +448,7 @@ export default function WholesaleBuyerHomeScreen() {
                       <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{product.description}</p>
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-lg font-bold text-[#164A2E] dark:text-[#8FD8AE]">{formatCurrency(product.price)}</span>
+                        <span className="text-lg font-bold text-[#164A2E] dark:text-[#8FD8AE]">{formatCurrency(displayPrice)}</span>
                         {product.originalPrice && <span className="text-xs text-gray-400 line-through">{formatCurrency(product.originalPrice)}</span>}
                         <Tag text={`Save ${formatCurrency(savings)} / unit`} />
                         <Tag text={`MOQ ${product.minOrderQuantity || 1}`} />

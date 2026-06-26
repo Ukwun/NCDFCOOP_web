@@ -167,6 +167,7 @@ export interface Order {
   createdAt: Date | Timestamp;
   updatedAt: Date | Timestamp;
   estimatedDelivery?: Date | Timestamp;
+  deliveryDate?: string | Date | Timestamp;
   buyerType?: 'member' | 'wholesale'; // Added to distinguish retail vs wholesale orders
 }
 

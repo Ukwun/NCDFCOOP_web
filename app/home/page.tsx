@@ -70,26 +70,30 @@ export default function HomePage() {
     );
   }
 
-  // Render appropriate home screen based on role
+  const isWholesaleBuyer =
+    currentRole === USER_ROLES.INSTITUTIONAL_BUYER ||
+    currentRole === 'wholesale_buyer';
 
+  // Render appropriate home screen based on role
   const renderHomeScreen = () => {
-    switch (currentRole) {
-      case USER_ROLES.MEMBER:
-        return (
-          <MemberOnly>
-            <MemberHomeScreen />
-          </MemberOnly>
-        );
-      case USER_ROLES.INSTITUTIONAL_BUYER:
-        return <WholesaleBuyerHomeScreen />;
-      default:
-        // Default to member home, but still protect it
-        return (
-          <MemberOnly>
-            <MemberHomeScreen />
-          </MemberOnly>
-        );
+    if (currentRole === USER_ROLES.MEMBER) {
+      return (
+        <MemberOnly>
+          <MemberHomeScreen />
+        </MemberOnly>
+      );
     }
+
+    if (isWholesaleBuyer) {
+      return <WholesaleBuyerHomeScreen />;
+    }
+
+    // Default to member home, but still protect it
+    return (
+      <MemberOnly>
+        <MemberHomeScreen />
+      </MemberOnly>
+    );
   };
 
   return (

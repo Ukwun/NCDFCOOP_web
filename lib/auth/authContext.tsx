@@ -399,14 +399,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       if (!auth) throw new Error('Firebase not initialized');
-      await sendPasswordResetEmail(auth, email, {
-        url: typeof window !== 'undefined' ? `${window.location.origin}/signin` : undefined,
-        handleCodeInApp: true,
-      });
+
+      const actionCodeSettings =
+        typeof window !== 'undefined'
+          ? { url: `${window.location.origin}/signin` }
+          : undefined;
+
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
     } catch (err: any) {
       // Sanitize error messages
       let errorMessage = 'Failed to send reset email. Please try again later.';
-      
+
       if (err.code === 'auth/user-not-found') {
         // Don't reveal if email exists or not for security
         errorMessage = 'If an account exists with this email, you will receive a password reset link shortly.';
@@ -415,7 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (err.code === 'auth/too-many-requests') {
         errorMessage = 'Too many requests. Please try again later.';
       }
-      
+
       setError(errorMessage);
       throw new Error(errorMessage);
     }

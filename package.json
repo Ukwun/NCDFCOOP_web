@@ -19,6 +19,7 @@
     "test:all": "npm run test:website && npm run audit:website"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@sentry/nextjs": "^10.47.0",
     "@swc/core": "^1.15.41",
     "autoprefixer": "^10.4.0",

@@ -66,13 +66,33 @@ class OrderService {
         updatedAt: Timestamp.now(),
       };
 
+      // Helper to remove undefined fields recursively (Firestore rejects undefined)
+      const sanitize = (input: any): any => {
+        if (input === undefined) return undefined;
+        if (input === null) return null;
+        if (Array.isArray(input)) return input.map((v) => sanitize(v)).filter((v) => v !== undefined);
+        if (typeof input === 'object' && !(input instanceof Timestamp)) {
+          const out: any = {};
+          Object.keys(input).forEach((k) => {
+            const v = input[k];
+            const s = sanitize(v);
+            if (s !== undefined) out[k] = s;
+          });
+          return out;
+        }
+        return input;
+      };
+
+      const sanitizedOrderData = sanitize(orderData);
+
       const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-      await setDoc(orderRef, orderData);
+      await setDoc(orderRef, sanitizedOrderData);
 
       // Create order items as a subcollection
       const itemsRef = collection(orderRef, 'items');
       for (const item of payload.items) {
-        await setDoc(doc(itemsRef), item);
+        const sanitizedItem = sanitize(item);
+        await setDoc(doc(itemsRef), sanitizedItem);
       }
 
       ErrorHandler.logInfo('ORDER_CREATED', `Order ${orderId} created successfully`);

@@ -13,12 +13,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createRateLimiter, getRateLimitStatus } from '@/lib/middleware/rateLimiting';
+import sgMail from '@sendgrid/mail';
 
-// Example using SendGrid (uncomment and configure if using SendGrid)
-// import sgMail from '@sendgrid/mail';
-// if (process.env.SENDGRID_API_KEY) {
-//   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-// }
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 // Example using Mailgun (uncomment and configure if using Mailgun)
 // import FormData from 'form-data';
@@ -47,7 +46,7 @@ export async function POST(request: NextRequest) {
     // 🔒 APPLY RATE LIMITING (5 emails per minute)
     const limitResult = await emailRateLimiter(request);
 
-    const { to, subject, html } = (await request.json()) as EmailPayload;
+    const { to, subject, html, text } = (await request.json()) as EmailPayload;
 
     // Validate inputs
     if (!to || !subject || !html) {
@@ -63,31 +62,24 @@ export async function POST(request: NextRequest) {
     // Check rate limit status for response info
     const rateLimitStatus = getRateLimitStatus(to, 'email');
 
-    // Implement with your chosen email service
-    // Example with SendGrid:
-    /*
+    if (!process.env.SENDGRID_API_KEY) {
+      console.error('Email provider not configured. Set SENDGRID_API_KEY in the environment.');
+      return NextResponse.json(
+        { error: 'Email provider not configured. Please set SENDGRID_API_KEY.' },
+        {
+          status: 500,
+          headers: limitResult.headers,
+        }
+      );
+    }
+
     await sgMail.send({
       to,
       from: process.env.SENDGRID_FROM_EMAIL || 'noreply@ncdfcoop.com',
       subject,
       html,
-      text: text || '',
+      text: text || undefined,
     });
-    */
-
-    // Example with Mailgun:
-    /*
-    await mg.messages.create(process.env.MAILGUN_DOMAIN || 'mail.ncdfcoop.com', {
-      from: 'NCDF COOP <noreply@ncdfcoop.com>',
-      to,
-      subject,
-      html,
-      text: text || '',
-    });
-    */
-
-    // Placeholder: Log email for development
-    console.log(`📧 Email sent to ${to}:`, { subject, html: html.substring(0, 100) });
 
     return NextResponse.json(
       {

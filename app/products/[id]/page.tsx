@@ -16,6 +16,7 @@ import { getProduct, getProducts } from '@/lib/services/productService';
 import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
 import { Product } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { USER_ROLES } from '@/lib/constants/database';
 import { ownershipBadgeClasses, ownershipLabel, resolveProductOwnership } from '@/lib/utils/productOwnership';
 
 const REVIEW_SNIPPETS = [
@@ -43,7 +44,16 @@ function formatMoney(value: number | undefined): string {
   return `₦${(value || 0).toLocaleString()}`;
 }
 
-function getEffectivePrice(product: Product): number {
+function getEffectivePrice(product: Product, currentRole?: string): number {
+  if (
+    currentRole === USER_ROLES.INSTITUTIONAL_BUYER ||
+    currentRole === 'wholesale_buyer'
+  ) {
+    if (product.wholesalePrice && (product.type === 'wholesale' || product.type === 'both')) {
+      return product.wholesalePrice;
+    }
+  }
+
   const raw = Number(product.price);
   if (Number.isFinite(raw) && raw > 0) return raw;
 
@@ -77,8 +87,8 @@ function getImageForIndex(product: Product | null, index: number): string {
   return images[index] || images[0] || '/images/logo/NCDFCOOPLOGO.png';
 }
 
-function hasValidPrice(product: Product): boolean {
-  return getEffectivePrice(product) > 0;
+function hasValidPrice(product: Product, currentRole?: string): boolean {
+  return getEffectivePrice(product, currentRole) > 0;
 }
 
 function getProductSearchTerms(product: Product): string[] {
@@ -122,7 +132,7 @@ function RatingBars({ rating, reviews }: { rating: number; reviews: number }) {
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { user } = useAuth();
+  const { user, currentRole } = useAuth();
   const { isFavorited, toggleFavorite } = useFavorites({ userId: user?.uid || '', autoFetch: true });
   const productId = params?.id as string;
 
@@ -226,10 +236,15 @@ export default function ProductDetailPage() {
     loadMostSearchedRecommendations();
   }, [user?.uid]);
 
+  const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER || currentRole === 'wholesale_buyer';
+  const wholesaleMode = product ? isWholesaleBuyer && (product.type === 'wholesale' || product.type === 'both') : false;
+  const minOrderQuantity = product && wholesaleMode ? Math.max(1, product.minOrderQuantity || 1) : 1;
+  const displayPrice = product ? getEffectivePrice(product, currentRole) : 0;
+
   useEffect(() => {
     setSelectedImage(0);
-    setQuantity(1);
-  }, [productId]);
+    setQuantity(product ? minOrderQuantity : 1);
+  }, [productId, product?.id, minOrderQuantity]);
 
   const safeImages = useMemo(() => getSafeImages(product), [product]);
   const ownershipType = useMemo(() => (product ? resolveProductOwnership(product) : 'seller'), [product]);
@@ -256,7 +271,7 @@ export default function ProductDetailPage() {
     const fromTrending = mostSearchedRecommendations
       .map((rec) => catalogById.get(rec.productId))
       .filter((candidate): candidate is Product => !!candidate)
-      .filter((candidate) => hasValidPrice(candidate))
+      .filter((candidate) => hasValidPrice(candidate, currentRole))
       .filter((candidate) => candidate.id !== product.id);
 
     const deduped = new Map<string, Product>();
@@ -268,7 +283,7 @@ export default function ProductDetailPage() {
     if (deduped.size === 0) {
       const fallbackCandidates = [...catalogProducts]
         .filter((candidate) => candidate.id !== product.id)
-        .filter((candidate) => hasValidPrice(candidate))
+        .filter((candidate) => hasValidPrice(candidate, currentRole))
         .sort((a, b) => {
           const scoreA = (a.reviews || 0) * 2 + (a.rating || 0) * 20;
           const scoreB = (b.reviews || 0) * 2 + (b.rating || 0) * 20;
@@ -291,7 +306,7 @@ export default function ProductDetailPage() {
 
     const pool = [...similarProducts, ...mostSearchedProducts]
       .filter((candidate) => candidate.id !== product.id)
-      .filter((candidate) => hasValidPrice(candidate));
+      .filter((candidate) => hasValidPrice(candidate, currentRole));
 
     const deduped = new Map<string, Product>();
     pool.forEach((candidate) => {
@@ -313,17 +328,17 @@ export default function ProductDetailPage() {
 
   const frequentlyBoughtTotal = useMemo(() => {
     if (!product) return 0;
-    return [product, ...frequentlyBoughtSelection].reduce((sum, item) => sum + getEffectivePrice(item), 0);
-  }, [frequentlyBoughtSelection, product]);
+    return [product, ...frequentlyBoughtSelection].reduce((sum, item) => sum + getEffectivePrice(item, currentRole), 0);
+  }, [frequentlyBoughtSelection, product, currentRole]);
 
   const rating = product?.rating || 0;
   const reviewCount = product?.reviews || 0;
   const discountPercentage = product?.discount || 0;
-  const discountValue = product?.originalPrice ? product.originalPrice - getEffectivePrice(product) : 0;
-  const inquiryItemSubtotal = (product ? getEffectivePrice(product) : 0) * inquiryQuantity;
+  const discountValue = product?.originalPrice ? product.originalPrice - getEffectivePrice(product, currentRole) : 0;
+  const inquiryItemSubtotal = displayPrice * inquiryQuantity;
 
   const addProductToCart = async (targetProduct: Product, targetQuantity: number) => {
-    const safePrice = getEffectivePrice(targetProduct);
+    const safePrice = getEffectivePrice(targetProduct, currentRole);
     const cartUserId = user?.uid || 'guest';
 
     await addToCart(
@@ -338,12 +353,29 @@ export default function ProductDetailPage() {
     return true;
   };
 
+  const getMinimumCartQuantity = (targetProduct: Product) => {
+    const isWholesaleBuyer =
+      currentRole === USER_ROLES.INSTITUTIONAL_BUYER ||
+      currentRole === 'wholesale_buyer';
+
+    const isWholesaleProduct =
+      targetProduct.type === 'wholesale' || targetProduct.type === 'both';
+
+    if (isWholesaleBuyer && isWholesaleProduct) {
+      return Math.max(targetProduct.minOrderQuantity || 1, 1);
+    }
+
+    return 1;
+  };
+
   const handleAddToCart = async () => {
     if (!product) return;
 
     try {
       setIsAdding(true);
-      const added = await addProductToCart(product, quantity);
+      const quantityToAdd = Math.max(minOrderQuantity, quantity);
+      setQuantity(quantityToAdd);
+      const added = await addProductToCart(product, quantityToAdd);
       if (!added) return;
       toast.success(`${product.name} added to cart`);
     } catch (err) {
@@ -359,7 +391,9 @@ export default function ProductDetailPage() {
 
     try {
       setIsBuying(true);
-      const added = await addProductToCart(product, quantity);
+      const quantityToAdd = Math.max(minOrderQuantity, quantity);
+      setQuantity(quantityToAdd);
+      const added = await addProductToCart(product, quantityToAdd);
       if (!added) return;
       router.push('/checkout');
     } catch (err) {
@@ -394,7 +428,8 @@ export default function ProductDetailPage() {
 
     try {
       for (const candidate of targets) {
-        const added = await addProductToCart(candidate, 1);
+        const quantity = getMinimumCartQuantity(candidate);
+        const added = await addProductToCart(candidate, quantity);
         if (!added) return;
       }
       toast.success(`${targets.length} items added to cart`);
@@ -420,7 +455,7 @@ export default function ProductDetailPage() {
     try {
       await toggleFavorite(targetProduct.id, {
         productName: targetProduct.name,
-        productPrice: getEffectivePrice(targetProduct),
+        productPrice: getEffectivePrice(targetProduct, currentRole),
         productImage: getImageForIndex(targetProduct, 0),
         productCategory: targetProduct.category || 'general',
         sellerId: targetProduct.sellerId || 'unknown-seller',
@@ -540,7 +575,7 @@ export default function ProductDetailPage() {
         productId: product.id,
         productName: product.name,
         quantity: Math.max(1, inquiryQuantity),
-        budget: Math.max(getEffectivePrice(product), inquiryItemSubtotal),
+        budget: Math.max(getEffectivePrice(product, currentRole), inquiryItemSubtotal),
         message: chatMessage,
         kind: 'chat',
       });
@@ -769,8 +804,8 @@ export default function ProductDetailPage() {
 
               <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/30 border border-blue-100 dark:border-blue-900/40 p-5 mb-5">
                 <div className="flex items-baseline gap-3 mb-1">
-                  <span className="text-3xl font-bold text-blue-700 dark:text-blue-300">{formatMoney(getEffectivePrice(product))}</span>
-                  {product.originalPrice && product.originalPrice > getEffectivePrice(product) && (
+                  <span className="text-3xl font-bold text-blue-700 dark:text-blue-300">{formatMoney(displayPrice)}</span>
+                  {product.originalPrice && product.originalPrice > displayPrice && (
                     <span className="text-gray-500 line-through text-lg">{formatMoney(product.originalPrice)}</span>
                   )}
                 </div>
@@ -779,12 +814,19 @@ export default function ProductDetailPage() {
                     Save {formatMoney(discountValue)} ({discountPercentage}%)
                   </p>
                 )}
-                <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">Price per {product.unit || 'item'}. Checkout uses the live cart flow.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+                  {wholesaleMode ? 'Wholesale price per unit. Checkout uses the live cart flow.' : `Price per ${product.unit || 'item'}. Checkout uses the live cart flow.`}
+                </p>
               </div>
 
-              <div className="flex items-center gap-4 mb-5">
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity</span>
-                <div className="flex items-center border border-gray-300 dark:border-gray-700 rounded-2xl overflow-hidden">
+              <div className="flex flex-col gap-2 mb-5">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity</span>
+                  {wholesaleMode && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Min order {minOrderQuantity} {product.unit || 'item'}</span>
+                  )}
+                </div>
+                <div className="flex items-center border border-gray-300 dark:border-gray-700 rounded-2xl overflow-hidden w-fit">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="w-11 h-11 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -794,10 +836,10 @@ export default function ProductDetailPage() {
                   </button>
                   <input
                     type="number"
-                    min="1"
+                    min={minOrderQuantity}
                     max={product.maxOrder || 999}
                     value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) => setQuantity(Math.max(minOrderQuantity, parseInt(e.target.value) || minOrderQuantity))}
                     className="w-20 h-11 text-center outline-none bg-transparent text-gray-900 dark:text-white"
                   />
                   <button
@@ -1001,7 +1043,7 @@ export default function ProductDetailPage() {
             <article className="rounded-2xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/20 p-4">
               <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold mb-2">Base Product</p>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{product.name}</h3>
-              <p className="text-sm text-blue-700 dark:text-blue-300 font-bold mt-1">{formatMoney(getEffectivePrice(product))}</p>
+              <p className="text-sm text-blue-700 dark:text-blue-300 font-bold mt-1">{formatMoney(getEffectivePrice(product, currentRole))}</p>
             </article>
 
             {frequentlyBoughtTogetherProducts.map((candidate) => {
@@ -1026,7 +1068,7 @@ export default function ProductDetailPage() {
                       <button onClick={() => openProduct(candidate.id)} className="text-left w-full">
                         <p className="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2">{candidate.name}</p>
                       </button>
-                      <p className="text-sm text-blue-700 dark:text-blue-300 font-bold mt-1">{formatMoney(getEffectivePrice(candidate))}</p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 font-bold mt-1">{formatMoney(getEffectivePrice(candidate, currentRole))}</p>
                     </div>
                   </div>
                 </label>
@@ -1186,7 +1228,7 @@ export default function ProductDetailPage() {
                     <div className="p-4">
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{related.sellerName || 'NCDFCOOP'}</p>
                       <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">{related.name}</h3>
-                      <p className="text-sm font-bold text-blue-700 dark:text-blue-300 mb-1">{formatMoney(getEffectivePrice(related))}</p>
+                      <p className="text-sm font-bold text-blue-700 dark:text-blue-300 mb-1">{formatMoney(getEffectivePrice(related, currentRole))}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{related.stock} in stock</p>
                     </div>
                   </button>
@@ -1200,7 +1242,8 @@ export default function ProductDetailPage() {
                     <button
                       onClick={async () => {
                         try {
-                          const added = await addProductToCart(related, 1);
+                          const quantity = getMinimumCartQuantity(related);
+                          const added = await addProductToCart(related, quantity);
                           if (!added) return;
                           alert(`${related.name} added to cart`);
                         } catch (err) {
@@ -1254,7 +1297,7 @@ export default function ProductDetailPage() {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{popular.sellerName || 'NCDFCOOP'}</p>
                       <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">{popular.name}</h3>
                       <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-bold text-blue-700 dark:text-blue-300">{formatMoney(getEffectivePrice(popular))}</span>
+                        <span className="font-bold text-blue-700 dark:text-blue-300">{formatMoney(getEffectivePrice(popular, currentRole))}</span>
                         <span className="text-gray-500 dark:text-gray-400">★ {((popular.rating || 0).toFixed(1))}</span>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{popular.category}</p>
@@ -1270,7 +1313,8 @@ export default function ProductDetailPage() {
                     <button
                       onClick={async () => {
                         try {
-                          const added = await addProductToCart(popular, 1);
+                          const quantity = getMinimumCartQuantity(popular);
+                          const added = await addProductToCart(popular, quantity);
                           if (!added) return;
                           alert(`${popular.name} added to cart`);
                         } catch (err) {

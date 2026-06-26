@@ -18,135 +18,40 @@ export default function OrdersPage() {
   
   // Use real-time orders hook for live updates
   const { orders: realTimeOrders, isLoading: rtIsLoading, error: rtError } = useRealTimeOrders(user?.uid);
-  
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasFetchedFallback, setHasFetchedFallback] = useState(false);
 
-  // Update local state when real-time orders change
+  // Keep local state synchronized with real-time order updates.
   useEffect(() => {
-    if (realTimeOrders.length > 0) {
-      setOrders(realTimeOrders);
-      setIsLoading(false);
-      setError(null);
-    } else if (!rtIsLoading && realTimeOrders.length === 0) {
-      // Only set empty if we're done loading and there really are no orders
-      setOrders([]);
-      setIsLoading(false);
-    }
     if (rtError) {
       setError(rtError.message);
+    } else {
+      setError(null);
     }
+
+    setOrders(realTimeOrders);
+    setIsLoading(rtIsLoading);
   }, [realTimeOrders, rtIsLoading, rtError]);
 
-  // Fallback: fetch orders if real-time fails
+  // Fallback: fetch orders once if real-time subscription returns no data.
   useEffect(() => {
     const fetchOrdersFallback = async () => {
-      if (!user || realTimeOrders.length > 0) return;
+      if (!user || realTimeOrders.length > 0 || hasFetchedFallback) return;
 
       try {
-        if (isLoading) return; // Don't refetch if already loading
         setIsLoading(true);
         setError(null);
 
         const userOrders = await getUserOrders(user.uid);
-        if (userOrders.length > 0) {
-          setOrders(userOrders);
-        }
+        setOrders(userOrders);
       } catch (err) {
         console.error('Error fetching orders:', err);
-        // Fallback to mock orders instead of blank page
-        const mockOrders: Order[] = [
-          {
-            id: 'ORD-2024-001',
-            userId: user.uid,
-            items: [
-              {
-                productId: '1',
-                productName: 'Fresh Tomatoes (1kg)',
-                productImage: '',
-                quantity: 2,
-                price: 1200,
-              },
-              {
-                productId: '3',
-                productName: 'Organic Leafy Greens Bundle',
-                productImage: '',
-                quantity: 1,
-                price: 1800,
-              },
-            ],
-            totalAmount: 4200,
-            status: 'delivered',
-            createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-            deliveryDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-            shippingAddress: '123 Main Street, Lagos, Nigeria',
-          } as any,
-          {
-            id: 'ORD-2024-002',
-            userId: user.uid,
-            items: [
-              {
-                productId: '2',
-                productName: 'Premium Grains Mix (5kg)',
-                productImage: '',
-                quantity: 1,
-                price: 3500,
-              },
-            ],
-            totalAmount: 3500,
-            status: 'shipped',
-            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-            deliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-            shippingAddress: '123 Main Street, Lagos, Nigeria',
-          } as any,
-          {
-            id: 'ORD-2024-003',
-            userId: user.uid,
-            items: [
-              {
-                productId: '5',
-                productName: 'Premium Palm Oil (5L)',
-                productImage: '',
-                quantity: 2,
-                price: 4500,
-              },
-              {
-                productId: '6',
-                productName: 'Dried Chili Peppers (500g)',
-                productImage: '',
-                quantity: 3,
-                price: 2200,
-              },
-            ],
-            totalAmount: 15600,
-            status: 'processing',
-            createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-            deliveryDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
-            shippingAddress: '123 Main Street, Lagos, Nigeria',
-          } as any,
-          {
-            id: 'ORD-2024-004',
-            userId: user.uid,
-            items: [
-              {
-                productId: '4',
-                productName: 'Carrots & Root Vegetables (2kg)',
-                productImage: '',
-                quantity: 1,
-                price: 1500,
-              },
-            ],
-            totalAmount: 1500,
-            status: 'pending',
-            createdAt: new Date(),
-            shippingAddress: '123 Main Street, Lagos, Nigeria',
-          } as any,
-        ];
-        setOrders(mockOrders);
-        setError(null);
+        setError('Unable to load your orders at this time.');
       } finally {
         setIsLoading(false);
+        setHasFetchedFallback(true);
       }
     };
 
@@ -155,7 +60,7 @@ export default function OrdersPage() {
     } else if (!authLoading && !user) {
       router.push('/welcome');
     }
-  }, [user, authLoading, router, realTimeOrders, isLoading]);
+  }, [user, authLoading, router, realTimeOrders.length, hasFetchedFallback]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -477,7 +382,7 @@ export default function OrdersPage() {
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/order-confirmation/${order.id}`);
+                      router.push(`/orders/${order.id}`);
                     }}
                   >
                     View Details

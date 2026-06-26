@@ -53,7 +53,7 @@ export default function ProductCard({
   const ownershipType = resolveProductOwnership(product);
 
   // Intelligence: Determine if viewing as a wholesale buyer
-  const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER;
+  const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER || currentRole === 'wholesale_buyer';
   const showWholesaleInfo = isWholesaleBuyer && (product.type === 'wholesale' || product.type === 'both');
   
   // Logic: Use wholesale price if applicable

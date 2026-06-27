@@ -4,8 +4,13 @@ import { getApps, initializeApp } from 'firebase/app';
 
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     const auth = request.headers.get('authorization');
-    if (auth !== 'Bearer seed-key-coop-2026') {
+    const seedSecret = process.env.DEVELOPMENT_SEED_SECRET;
+    if (!seedSecret || auth !== `Bearer ${seedSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

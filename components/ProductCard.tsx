@@ -95,14 +95,14 @@ export default function ProductCard({
 
   return (
     <div
-      className="group rounded-3xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-transform duration-300 ease-out hover:scale-[1.01] flex flex-col h-full"
+      className="group rounded-3xl overflow-hidden bg-white dark:bg-gray-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-transform duration-300 ease-out hover:scale-[1.01] flex flex-col h-full motion-reduce:transform-none"
       style={{
         borderRadius: '18px',
       }}
     >
       {/* Image Container */}
       <div 
-        className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:shadow-md transition-shadow cursor-pointer"
+            className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:shadow-md transition-shadow cursor-pointer motion-safe:transform-gpu"
         onClick={() => onViewDetails?.(product.id)}
       >
         {product.thumbnail ? (
@@ -110,7 +110,7 @@ export default function ProductCard({
             src={product.thumbnail}
             alt={product.name}
             fill
-            className="object-cover group-hover:scale-110 transition-transform duration-500"
+            className="object-cover group-hover:scale-110 transition-transform duration-500 will-change-transform"
             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
             priority={false}
             onError={(e) => {

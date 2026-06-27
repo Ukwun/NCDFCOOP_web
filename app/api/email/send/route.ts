@@ -1,32 +1,7 @@
-/**
- * Email API Route - Generic Email Sending with Rate Limiting
- * 
- * This is a template for sending emails via SendGrid, Mailgun, or similar services.
- * Includes 🔒 RATE LIMITING to prevent abuse (5 emails per minute)
- * 
- * To use this, install your preferred email service SDK:
- * - SendGrid: npm install @sendgrid/mail
- * - Mailgun: npm install mailgun.js
- * 
- * Then update the implementation below with your chosen service.
- */
-
 import { NextRequest, NextResponse } from 'next/server';
-import { createRateLimiter, getRateLimitStatus } from '@/lib/middleware/rateLimiting';
-import sgMail from '@sendgrid/mail';
-
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-}
-
-// Example using Mailgun (uncomment and configure if using Mailgun)
-// import FormData from 'form-data';
-// import Mailgun from 'mailgun.js';
-// const mailgun = new Mailgun(FormData);
-// const mg = mailgun.client({
-//   username: 'api',
-//   key: process.env.MAILGUN_API_KEY || '',
-// });
+import { createRateLimiter } from '@/lib/middleware/rateLimiting';
+import { sendTransactionalEmail } from '@/lib/server/emailSender';
+import { isInternalOrTrustedRequest } from '@/lib/server/requestAuth';
 
 interface EmailPayload {
   to: string;
@@ -35,82 +10,48 @@ interface EmailPayload {
   text?: string;
 }
 
-// Create rate limiter: 5 emails per minute per email address
 const emailRateLimiter = createRateLimiter(
-  (req: any) => req.body?.to || req.headers.get('x-forwarded-for') || 'unknown',
+  (input: { identifier: string }) => input.identifier,
   'email'
 );
 
 export async function POST(request: NextRequest) {
   try {
-    // 🔒 APPLY RATE LIMITING (5 emails per minute)
-    const limitResult = await emailRateLimiter(request);
+    if (!(await isInternalOrTrustedRequest(request))) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { to, subject, html, text } = (await request.json()) as EmailPayload;
+    const recipient = String(to || '').trim().toLowerCase();
 
-    // Validate inputs
-    if (!to || !subject || !html) {
+    if (!recipient || !subject || !html) {
       return NextResponse.json(
         { error: 'Missing required fields' },
-        {
-          status: 400,
-          headers: limitResult.headers,
-        }
+        { status: 400 }
       );
     }
 
-    // Check rate limit status for response info
-    const rateLimitStatus = getRateLimitStatus(to, 'email');
-
-    if (!process.env.SENDGRID_API_KEY) {
-      console.error('Email provider not configured. Set SENDGRID_API_KEY in the environment.');
-      return NextResponse.json(
-        { error: 'Email provider not configured. Please set SENDGRID_API_KEY.' },
-        {
-          status: 500,
-          headers: limitResult.headers,
-        }
-      );
-    }
-
-    await sgMail.send({
-      to,
-      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@ncdfcoop.com',
+    const limitResult = await emailRateLimiter({ identifier: recipient });
+    await sendTransactionalEmail({
+      to: recipient,
       subject,
       html,
       text: text || undefined,
     });
 
     return NextResponse.json(
-      {
-        message: 'Email sent successfully',
-        to,
-        rateLimitRemaining: rateLimitStatus.remaining,
-      },
-      {
-        status: 200,
-        headers: limitResult.headers, // 🔒 Include rate limit info in response
-      }
+      { message: 'Email sent successfully' },
+      { status: 200, headers: limitResult.headers }
     );
   } catch (error: any) {
-    // 🔒 Handle rate limit error specifically
     if (error?.status === 429) {
       return NextResponse.json(
-        {
-          error: 'Too many emails. Maximum 5 per minute. Please try again in a moment.',
-        },
-        {
-          status: 429,
-          headers: error.headers,
-        }
+        { error: 'Too many emails. Please try again shortly.' },
+        { status: 429, headers: error.headers }
       );
     }
 
-    // Log other errors
     console.error('Error sending email:', error);
-    return NextResponse.json(
-      { error: 'Failed to send email' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
   }
 }

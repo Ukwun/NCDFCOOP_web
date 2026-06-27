@@ -205,8 +205,7 @@ export default function EnhancedNavigation() {
       window.addEventListener(CART_CHANGED_EVENT, handleCartChanged);
     }
 
-    const isDevSession = typeof window !== 'undefined' && Boolean(window.localStorage.getItem('dev_autologin'));
-    if (!db || isDevSession) {
+    if (!db) {
       return () => {
         active = false;
         if (typeof window !== 'undefined') {

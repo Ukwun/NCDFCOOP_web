@@ -50,6 +50,10 @@ export async function initiateFlutterwavePayment(
 
     const reference = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+    if (!process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY) {
+      throw new Error('Flutterwave public key is not configured. Set NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY in your environment.');
+    }
+
     // Create payment record
     await setDoc(doc(db, COLLECTIONS.TRANSACTIONS, reference), {
       id: reference,
@@ -64,7 +68,14 @@ export async function initiateFlutterwavePayment(
       metadata: { fullName },
     });
 
+    // Instrumentation: log transaction reference for E2E capture
+    try {
+      // eslint-disable-next-line no-console
+      console.info(`[initiateFlutterwavePayment] transaction_created: ${reference} order:${orderId} amount:${amount}`);
+    } catch (e) {}
+
     // Initialize Flutterwave checkout
+
     window.FlutterwaveCheckout({
       public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
       tx_ref: reference,

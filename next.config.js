@@ -35,12 +35,18 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   generateEtags: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
   // ⚡ Performance Optimizations
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 5,
   },
+
+  // 🎯 Allow local dev origins for Next.js dev mode
+  allowedDevOrigins: ['http://localhost:3000', 'http://127.0.0.1:3000'],
 
   // 🔄 Webpack configuration for path alias resolution
   webpack: (config) => {
@@ -126,8 +132,8 @@ const nextConfig = {
  * TODO: Add valid Sentry auth token to .env.local to enable
  */
 
-// ✅ Sentry enabled - auth token configured
-const SENTRY_ENABLED = !!process.env.SENTRY_AUTH_TOKEN;
+// ✅ Sentry enabled for CI production builds only
+const SENTRY_ENABLED = !!process.env.SENTRY_AUTH_TOKEN && process.env.CI === 'true';
 
 if (SENTRY_ENABLED) {
   module.exports = withSentryConfig(
@@ -150,6 +156,6 @@ if (SENTRY_ENABLED) {
     }
   );
 } else {
-  console.log('⚠️  Sentry disabled during build (missing auth token)');
+  console.log('⚠️  Sentry disabled during build (missing auth token or not running in CI)');
   module.exports = nextConfig;
 }

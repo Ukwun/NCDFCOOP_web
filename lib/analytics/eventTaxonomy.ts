@@ -43,6 +43,7 @@ export const EVENT_TAXONOMY = {
   SETTINGS_CHANGE: 'settings_change',
   ONBOARDING_COMPLETED: 'onboarding_completed',
   ONBOARDING_SKIPPED: 'onboarding_skipped',
+  ROLE_CHANGED: 'role_changed',
 
   // Engagement
   OFFER_VIEWED: 'offer_viewed',

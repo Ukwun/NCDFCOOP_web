@@ -7,24 +7,6 @@ import { useState, useEffect } from 'react';
 import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
 import { ProductPopularity } from '@/lib/services/analyticsService';
 
-function isDevSellerSession(): boolean {
-  if (typeof window === 'undefined') return false;
-  return Boolean(window.localStorage.getItem('dev_autologin'));
-}
-
-function loadDevSellerProducts(sellerId: string) {
-  if (typeof window === 'undefined' || !sellerId) return [];
-
-  try {
-    const raw = window.localStorage.getItem(`dev_seller_products_${sellerId}`);
-    if (!raw) return [];
-    return JSON.parse(raw) as any[];
-  } catch (error) {
-    console.warn('Unable to load dev seller products', error);
-    return [];
-  }
-}
-
 import { AnalyticsDashboard } from '@/components/AnalyticsDashboard';
 import { getSellerRecentOrders } from '@/lib/services/sellerService';
 import { ORDER_STATUS } from '@/lib/constants/database';
@@ -68,36 +50,6 @@ export default function SellerDashboardHomeScreen() {
   // Fetch seller analytics
   useEffect(() => {
     if (!user?.uid) return;
-
-    const devMode = isDevSellerSession();
-    if (devMode) {
-      const localProducts = loadDevSellerProducts(user.uid);
-      if (localProducts.length > 0) {
-        const top = localProducts
-          .slice()
-          .sort((a, b) => (b.stock || b.quantity || 0) - (a.stock || a.quantity || 0))
-          .slice(0, 5)
-          .map((p) => ({
-            productId: p.id,
-            productName: p.name,
-            category: p.category,
-            price: p.price,
-            viewCount: 0,
-            addToCartCount: 0,
-            purchaseCount: 0,
-            viewToCartRate: 0,
-            cartToPurchaseRate: 0,
-            reason: 'Local seller inventory',
-            score: Math.min(100, p.stock || p.quantity || 0),
-          } as ProductPopularity));
-
-        setTopProducts(top);
-        setOrderTrends([12, 18, 22, 15]);
-        setAvgOrderValue(15000);
-        setRecentOrders([]);
-        return;
-      }
-    }
 
     const fetchAnalytics = async () => {
       // Keep seller dashboard scoped to seller-owned product data.

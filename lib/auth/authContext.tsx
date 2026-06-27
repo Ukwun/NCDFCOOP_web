@@ -7,7 +7,6 @@ import {
   User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail,
   updateProfile,
   signInWithPopup,
   signInWithRedirect,
@@ -18,6 +17,7 @@ import {
 import { doc, setDoc, getDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { COLLECTIONS, USER_ROLES, MEMBER_TIERS } from '@/lib/constants/database';
+import { logActivity } from '@/lib/services/activityService';
 
 export interface AuthUser extends User {
   roles?: string[];
@@ -146,6 +146,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (!user) {
+      window.localStorage.removeItem('userId');
+      window.localStorage.removeItem('userEmail');
+      window.localStorage.removeItem('userRole');
+      window.localStorage.removeItem('membershipTier');
+      return;
+    }
+
+    window.localStorage.setItem('userId', user.uid);
+    window.localStorage.setItem('userEmail', user.email || '');
+    window.localStorage.setItem('userRole', currentRole || '');
+    window.localStorage.setItem('membershipType', currentRole || '');
+    window.localStorage.setItem('membershipTier', user.memberTier || '');
+  }, [currentRole, user]);
+
+  useEffect(() => {
     if (!auth || !db) {
       setLoading(false);
       return;
@@ -153,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
+        const validRoles = Object.values(USER_ROLES) as string[];
         if (!currentUser) {
           setUser(null);
           setCurrentRole(null);
@@ -166,7 +185,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = userDoc.data();
 
         if (userData) {
-          const validRoles = Object.values(USER_ROLES) as string[];
           const selectedRole = getRoleOverrideFromStorage(validRoles)
             || normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
           const roles = Array.from(new Set([...(Array.isArray(userData.roles)
@@ -307,6 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentRole(membershipType);
       setRoleSelectionComplete(false);
       setOnboardingCompleted(false);
+      void logActivity(uid, 'signup', { signupMethod: 'password' });
     } catch (err: any) {
       setError(err?.message || 'Failed to create account');
       throw err;
@@ -319,6 +338,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!auth) throw new Error('Firebase not initialized');
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       setUser(userCredential.user as AuthUser);
+      void logActivity(userCredential.user.uid, 'login', {
+        loginMethod: 'password',
+      });
     } catch (err: any) {
       // Sanitize error messages to not expose system details
       let errorMessage = 'Unable to sign in. Please check your credentials and try again.';
@@ -366,14 +388,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string) => {
     try {
       setError(null);
-      if (!auth) throw new Error('Firebase not initialized');
+      const response = await fetch('/api/email/send-password-reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
-      const actionCodeSettings =
-        typeof window !== 'undefined'
-          ? { url: `${window.location.origin}/signin` }
-          : undefined;
+      const payload = await response.json().catch(() => ({}));
 
-      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to send reset email. Please try again later.');
+      }
     } catch (err: any) {
       // Sanitize error messages
       let errorMessage = 'Failed to send reset email. Please try again later.';
@@ -385,6 +412,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         errorMessage = 'Please enter a valid email address.';
       } else if (err.code === 'auth/too-many-requests') {
         errorMessage = 'Too many requests. Please try again later.';
+      } else if (err.message) {
+        errorMessage = err.message;
       }
 
       setError(errorMessage);
@@ -427,6 +456,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (err?.code === 'auth/popup-closed-by-user') {
       return `${providerName} sign-in popup was closed before completing.`;
     }
+    if (err?.code === 'auth/operation-not-allowed') {
+      return `${providerName} sign-in is not enabled yet. Please contact support or sign in with email and password.`;
+    }
     return message;
   };
 
@@ -437,6 +469,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const result = await signInWithPopup(auth, provider);
       setUser(result.user as AuthUser);
+      void logActivity(result.user.uid, 'login', { loginMethod: 'google' });
     } catch (err: any) {
       // If popup flow is blocked or not allowed, fallback to redirect flow
       if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/unauthorized-domain' || err?.code === 'auth/popup-closed-by-user') {
@@ -463,6 +496,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const result = await signInWithPopup(auth, provider);
       setUser(result.user as AuthUser);
+      void logActivity(result.user.uid, 'login', { loginMethod: 'facebook' });
     } catch (err: any) {
       // Fallback to redirect if popup is blocked or not permitted
       if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/unauthorized-domain' || err?.code === 'auth/popup-closed-by-user') {
@@ -489,6 +523,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const result = await signInWithPopup(auth, provider);
       setUser(result.user as AuthUser);
+      void logActivity(result.user.uid, 'login', { loginMethod: 'apple' });
     } catch (err: any) {
       const errorMessage = normalizeSocialError(err, 'Apple');
       setError(errorMessage);
@@ -574,6 +609,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           roles: Array.from(new Set([...existingRoles, normalizedRole])),
         });
       }
+      void logActivity(auth.currentUser.uid, 'role_changed', {
+        previousRole: currentRole,
+        selectedRole: normalizedRole,
+        mode: 'initial_selection',
+      });
     } catch (err: any) {
       setError(err?.message || 'Failed to select role');
       throw err;
@@ -591,10 +631,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const existingRoles = user.roles || [];
       if (!existingRoles.includes(normalizedRole)) {
-        await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
-          roles: arrayUnion(normalizedRole),
-          updatedAt: Timestamp.now(),
-        }, { merge: true });
+        throw new Error(
+          'This role is not active on your account yet. Complete its onboarding or contact support.'
+        );
       }
 
       await setDoc(doc(db, COLLECTIONS.USERS, auth.currentUser.uid), {
@@ -608,6 +647,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setCurrentRole(normalizedRole);
       setUser({ ...user, selectedRole: normalizedRole, roles: Array.from(new Set([...existingRoles, normalizedRole])) });
+      void logActivity(auth.currentUser.uid, 'role_changed', {
+        previousRole: currentRole,
+        selectedRole: normalizedRole,
+        mode: 'switch',
+      });
     } catch (err: any) {
       const errorCode = String(err?.code || '');
       const canFallbackToLocalRole =

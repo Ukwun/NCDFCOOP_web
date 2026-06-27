@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { isDevAutologin } from '@/lib/utils/devSession';
 import {
   collection,
   doc,
@@ -74,7 +73,7 @@ export function useUtilityLiveData(userId: string, role: UtilityRole): UtilityLi
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId || !db || isDevAutologin()) {
+    if (!userId || !db) {
       setNotifications([]);
       setOrdersByUserId([]);
       setOrdersByBuyerId([]);

@@ -3,6 +3,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyRequestUser } from '@/lib/server/requestAuth';
+import { sendTransactionalEmail } from '@/lib/server/emailSender';
 
 interface VerificationPayload {
   email: string;
@@ -11,6 +13,11 @@ interface VerificationPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await verifyRequestUser(request);
+    if (!user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { email, verificationLink } = (await request.json()) as VerificationPayload;
 
     if (!email || !verificationLink) {
@@ -18,6 +25,10 @@ export async function POST(request: NextRequest) {
         { error: 'Missing email or verification link' },
         { status: 400 }
       );
+    }
+
+    if (email.trim().toLowerCase() !== user.email.toLowerCase()) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const html = `
@@ -87,26 +98,12 @@ What's Next?
 - Start shopping and earning loyalty points!
     `.trim();
 
-    // Call the main email sending endpoint
-    const response = await fetch(
-      new URL('/api/email/send', request.nextUrl.origin),
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: email,
-          subject: '✉️ Verify Your Email Address - NCDF COOP',
-          html,
-          text,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to send verification email');
-    }
+    await sendTransactionalEmail({
+      to: user.email,
+      subject: 'Verify Your Email Address - NCDF COOP',
+      html,
+      text,
+    });
 
     return NextResponse.json(
       { message: 'Verification email sent successfully' },

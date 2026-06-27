@@ -12,47 +12,6 @@ import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
 import { AppColors, AppTextStyles } from '@/lib/theme';
 import Image from 'next/image';
 
-const getDevSellerProductsKey = (sellerId: string) => `dev_seller_products_${sellerId}`;
-
-function loadDevSellerProducts(sellerId: string) {
-  if (typeof window === 'undefined') return [] as SellerProduct[];
-  try {
-    const raw = window.localStorage.getItem(getDevSellerProductsKey(sellerId));
-    if (!raw) return [] as SellerProduct[];
-    return JSON.parse(raw) as SellerProduct[];
-  } catch (error) {
-    console.warn('Unable to load local seller products', error);
-    return [] as SellerProduct[];
-  }
-}
-
-function saveDevSellerProducts(sellerId: string, products: SellerProduct[]) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(getDevSellerProductsKey(sellerId), JSON.stringify(products));
-  } catch (error) {
-    console.warn('Unable to save local seller products', error);
-  }
-}
-
-function isDevSellerSession(): boolean {
-  if (typeof window === 'undefined') return false;
-  return Boolean(window.localStorage.getItem('dev_autologin'));
-}
-
-function updateDevSellerProductStockLocal(sellerId: string, productId: string, newStock: number) {
-  const products = loadDevSellerProducts(sellerId);
-  const next = products.map((product) =>
-    product.id === productId ? { ...product, stock: newStock, updatedAt: new Date().toISOString() } : product
-  );
-  saveDevSellerProducts(sellerId, next);
-}
-
-function deleteDevSellerProductLocal(sellerId: string, productId: string) {
-  const products = loadDevSellerProducts(sellerId);
-  const next = products.filter((product) => product.id !== productId);
-  saveDevSellerProducts(sellerId, next);
-}
 
 interface SellerProduct {
   id: string;
@@ -77,7 +36,6 @@ export default function SellerProductsPage() {
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStock, setEditStock] = useState<number>(0);
 
@@ -95,24 +53,9 @@ export default function SellerProductsPage() {
   const fetchSellerProducts = async () => {
     if (!user) return;
 
-    const devMode = isDevSellerSession();
-    const localProducts = loadDevSellerProducts(user.uid);
-
-    if (devMode && localProducts.length > 0) {
-      setProducts(localProducts);
-      // Show a subtle info message for developer sessions (non-blocking)
-      setInfoMessage('Developer seller session enabled; showing local product drafts.');
-      setIsLoading(false);
-      return;
-    }
-
     if (!db) {
-      setProducts(localProducts);
-      setError(
-        localProducts.length > 0
-          ? 'Firebase unavailable; showing local product drafts.'
-          : 'Database not initialized. Please refresh the page.'
-      );
+      setProducts([]);
+      setError('Database not initialized. Please refresh the page.');
       setIsLoading(false);
       return;
     }
@@ -132,26 +75,10 @@ export default function SellerProductsPage() {
         ...doc.data(),
       } as SellerProduct));
 
-      if (fetchedProducts.length === 0 && localProducts.length > 0) {
-        // Prefer to show local drafts without an alarming error message.
-        setProducts(localProducts);
-        setInfoMessage(null);
-      } else {
-        setProducts(fetchedProducts);
-      }
+      setProducts(fetchedProducts);
     } catch (err) {
       console.error('Error fetching products:', err);
-      if (user) {
-        if (localProducts.length > 0) {
-          setProducts(localProducts);
-          // Keep silent about the fallback for end users; this is non-critical.
-          setInfoMessage(null);
-        } else {
-          setError('Failed to load products');
-        }
-      } else {
-        setError('Failed to load products');
-      }
+      setError('Failed to load products');
     } finally {
       setIsLoading(false);
     }
@@ -159,9 +86,7 @@ export default function SellerProductsPage() {
 
   const handleUpdateStock = async (productId: string, newStock: number) => {
     if (!db) {
-      updateDevSellerProductStockLocal(user.uid, productId, newStock);
-      setEditingId(null);
-      fetchSellerProducts();
+      setError('Database not initialized. Please refresh the page.');
       return;
     }
 
@@ -172,13 +97,7 @@ export default function SellerProductsPage() {
       fetchSellerProducts();
     } catch (err) {
       console.error('Error updating stock:', err);
-      if (user) {
-        updateDevSellerProductStockLocal(user.uid, productId, newStock);
-        setEditingId(null);
-        fetchSellerProducts();
-      } else {
-        setError('Failed to update stock');
-      }
+      setError('Failed to update stock');
     }
   };
 
@@ -186,8 +105,7 @@ export default function SellerProductsPage() {
     if (!confirm('Are you sure you want to delete this product?')) return;
 
     if (!db) {
-      deleteDevSellerProductLocal(user.uid, productId);
-      fetchSellerProducts();
+      setError('Database not initialized. Please refresh the page.');
       return;
     }
 
@@ -196,12 +114,7 @@ export default function SellerProductsPage() {
       fetchSellerProducts();
     } catch (err) {
       console.error('Error deleting product:', err);
-      if (user) {
-        deleteDevSellerProductLocal(user.uid, productId);
-        fetchSellerProducts();
-      } else {
-        setError('Failed to delete product');
-      }
+      setError('Failed to delete product');
     }
   };
 
@@ -365,11 +278,6 @@ export default function SellerProductsPage() {
         )}
 
         {/* Informational Message (non-blocking) */}
-        {infoMessage && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg">
-            {infoMessage}
-          </div>
-        )}
 
         {/* Empty State */}
         {products.length === 0 && (
@@ -396,15 +304,6 @@ export default function SellerProductsPage() {
             >
               Start selling by adding your first product!
             </p>
-            {isDevSellerSession() && (
-              <button
-                onClick={() => router.push('/dev/seed-seller-products')}
-                className="mt-4 inline-flex items-center justify-center px-5 py-3 rounded-full font-semibold text-white transition-all hover:shadow-lg"
-                style={{ backgroundColor: AppColors.primary }}
-              >
-                Seed Local Seller Products
-              </button>
-            )}
           </div>
         )}
 

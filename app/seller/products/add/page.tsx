@@ -7,44 +7,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { auth, db, storage } from '@/lib/firebase/config';
-import { isDevAutologin } from '@/lib/utils/devSession';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { USER_ROLES } from '@/lib/constants/database';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { AppColors, AppTextStyles } from '@/lib/theme';
 import styles from './animations.module.css';
-
-const getDevSellerProductsKey = (sellerId: string) => `dev_seller_products_${sellerId}`;
-
-function loadDevSellerProducts(sellerId: string) {
-  if (typeof window === 'undefined') return [] as any[];
-
-  try {
-    const raw = window.localStorage.getItem(getDevSellerProductsKey(sellerId));
-    if (!raw) return [] as any[];
-    return JSON.parse(raw) as any[];
-  } catch (error) {
-    console.warn('Unable to read local seller product drafts', error);
-    return [] as any[];
-  }
-}
-
-function saveDevSellerProducts(sellerId: string, products: any[]) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    window.localStorage.setItem(getDevSellerProductsKey(sellerId), JSON.stringify(products));
-  } catch (error) {
-    console.warn('Unable to save local seller product drafts', error);
-  }
-}
-
-function createLocalSellerProduct(sellerId: string, product: any) {
-  const currentProducts = loadDevSellerProducts(sellerId);
-  const nextProducts = [...currentProducts, product];
-  saveDevSellerProducts(sellerId, nextProducts);
-}
 
 const PRODUCT_CATEGORIES = [
   { id: 'vegetables', name: 'Vegetables', emoji: '🥬' },
@@ -129,8 +97,6 @@ export default function AddProductPage() {
   const canUseFirebaseBackend = Boolean(db && auth?.currentUser && auth.currentUser.uid === user?.uid);
 
   const saveProduct = async (publish = false) => {
-    // publish=true will set status to 'live' (published), false sets to 'pending' (draft)
-
     if (!user) {
       setError('You must be logged in to save products');
       return;
@@ -175,7 +141,7 @@ export default function AddProductPage() {
       const finalStockValue = parseInt(formData.stock || '0', 10);
       const finalWholesaleMinOrderValue = parseInt(formData.wholesaleMinOrder || '1', 10);
 
-      const timestampValue = canUseFirebaseBackend ? Timestamp.now() : new Date().toISOString();
+      const timestampValue = Timestamp.now();
 
       const newProduct = {
         name: formData.name.trim(),
@@ -206,147 +172,55 @@ export default function AddProductPage() {
         updatedAt: timestampValue,
       };
 
-      if (canUseFirebaseBackend) {
-        const sanitizedProduct = Object.fromEntries(
-          Object.entries(newProduct).filter(([, v]) => v !== undefined)
-        );
-        // Prefer server-side write via Admin SDK endpoint to avoid client-rule race conditions.
-        try {
-          const currentUser = auth.currentUser;
-          const idToken = currentUser ? await currentUser.getIdToken() : null;
-          if (!idToken) throw new Error('Missing auth token');
+      const sanitizedProduct = Object.fromEntries(
+        Object.entries(newProduct).filter(([, v]) => v !== undefined)
+      );
 
-          const resp = await fetch('/api/products/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${idToken}`,
-            },
-            body: JSON.stringify(sanitizedProduct),
-          });
-
-          if (!resp.ok) {
-            const body = await resp.json().catch(() => ({}));
-            throw new Error(body?.error || `Server error: ${resp.status}`);
-          }
-
-          const json = await resp.json();
-          const successMsg = publish
-            ? `🎉 Product published successfully!\nProduct ID: ${json.id}`
-            : `💾 Product saved to draft!\nProduct ID: ${json.id}`;
-          alert(successMsg);
-          setSaveNotice(null);
-        } catch (apiErr) {
-          console.warn('Server-side product save failed, falling back to client Firestore write or local storage:', apiErr);
-          // Attempt client-side Firestore write as a fallback
-          try {
-            const sanitizedProduct = Object.fromEntries(
-              Object.entries(newProduct).filter(([, v]) => v !== undefined)
-            );
-            const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
-            const successMsg = publish
-              ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}`
-              : `💾 Product saved to draft!\nProduct ID: ${docRef.id}`;
-            alert(successMsg);
-            setSaveNotice(null);
-          } catch (clientErr) {
-            console.error('Client Firestore write failed:', clientErr);
-            // Final fallback to local storage
-            createLocalSellerProduct(user.uid, {
-              ...newProduct,
-              id: `local-${Date.now()}`,
-            });
-
-            const fallbackMessage = isDevAutologin()
-              ? '⚠️ Dev-mode session detected; product draft saved locally.'
-              : '⚠️ Firebase publish failed; product draft saved locally.';
-
-            setSaveNotice(publish
-              ? `${fallbackMessage} Publish will work after resolving connectivity/auth.`
-              : `${fallbackMessage} Draft saved locally in your browser.`);
-          }
-        }
-      } else {
-        createLocalSellerProduct(user.uid, {
-          ...newProduct,
-          id: `local-${Date.now()}`,
-        });
-
-        const fallbackMessage = isDevAutologin()
-          ? '⚠️ Dev-mode session detected; product draft saved locally.'
-          : '⚠️ Firebase sign-in not available; product draft saved locally.';
-
-        setSaveNotice(publish
-          ? `${fallbackMessage} Publish will work after signing in with a real Firebase account.`
-          : `${fallbackMessage} Draft saved locally in your browser.`);
+      if (!canUseFirebaseBackend) {
+        setError('Firebase sign-in is required to save products. Please sign in and try again.');
+        return;
       }
 
-      // Clear form and redirect
-      setFormData({
-        name: '',
-        description: '',
-        price: '',
-        wholesalePrice: '',
-        originalPrice: '',
-        category: 'vegetables',
-        stock: '',
-        unit: 'kg',
-        productType: 'retail',
-        wholesaleMinOrder: '',
-        images: [],
-        thumbnail: '',
-      });
+      try {
+        const currentUser = auth.currentUser;
+        const idToken = currentUser ? await currentUser.getIdToken() : null;
+        if (!idToken) throw new Error('Missing auth token');
 
-      setFieldErrors({});
-      setError(null);
-      
-      // Redirect to products list after 1 second to show the success message
-      setTimeout(() => {
+        const resp = await fetch('/api/products/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${idToken}`,
+          },
+          body: JSON.stringify(sanitizedProduct),
+        });
+
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          throw new Error(body?.error || `Server error: ${resp.status}`);
+        }
+
+        const json = await resp.json();
+        const successMsg = publish
+          ? `🎉 Product published successfully!\nProduct ID: ${json.id}`
+          : `💾 Product saved to draft!\nProduct ID: ${json.id}`;
+        alert(successMsg);
         router.push('/seller/products');
-      }, 1000);
+        return;
+      } catch (apiErr) {
+        console.warn('Server-side product save failed, falling back to client Firestore write:', apiErr);
+        const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
+        const successMsg = publish
+          ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}`
+          : `💾 Product saved to draft!\nProduct ID: ${docRef.id}`;
+        alert(successMsg);
+        router.push('/seller/products');
+        return;
+      }
     } catch (err) {
       console.error('Error saving product:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to save product';
-      
-      // Fallback to local storage on error
-      if (user) {
-        try {
-          const timestampValue = new Date().toISOString();
-          const newProduct = {
-            name: formData.name.trim(),
-            description: formData.description.trim(),
-            category: formData.category,
-            type: formData.productType,
-            price: parseFloat(formData.price || '0'),
-            retailPrice: parseFloat(formData.price || '0'),
-            stock: parseInt(formData.stock || '0', 10),
-            unit: formData.unit,
-            status: publish ? 'live' : 'pending',
-            thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
-            sellerId: user.uid,
-            sellerName: user.displayName || 'Seller',
-            createdAt: timestampValue,
-            updatedAt: timestampValue,
-          };
-          
-          createLocalSellerProduct(user.uid, {
-            ...newProduct,
-            id: `local-${Date.now()}`,
-          });
-          
-          alert(`⚠️ Saved to device (offline mode). Sync when back online.\nDetails: ${errorMessage}`);
-          
-          // Still redirect after saving locally
-          setTimeout(() => {
-            router.push('/seller/products');
-          }, 1000);
-        } catch (fallbackErr) {
-          console.error('Error saving to local storage:', fallbackErr);
-          setError(`Failed to save product: ${errorMessage}`);
-        }
-      } else {
-        setError(`Failed to save product: ${errorMessage}`);
-      }
+      setError(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -364,14 +238,11 @@ export default function AddProductPage() {
       return;
     }
 
-    // Allow uploads for real Firebase auth users
-    // Also allow dev autologin sessions to test file upload behavior locally
     const isRealAuth = auth?.currentUser && auth.currentUser.uid === user.uid;
-    const isDevMode = isDevAutologin();
     
-    if (!isRealAuth && !isDevMode) {
+    if (!isRealAuth) {
       setUploadError(
-        'Image upload requires a real Firebase sign-in. Dev-mode sessions can still save drafts locally, but uploads are disabled.'
+        'Image upload requires a real Firebase sign-in. Please sign in and try again.'
       );
       return;
     }

@@ -2,12 +2,13 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import SocialSignInButtons from '@/components/SocialSignInButtons';
 import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,6 +16,46 @@ export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setSocialLoading(true);
+    try {
+      await signInWithGoogle();
+      router.push('/home');
+    } catch (err: any) {
+      setError(err?.message || 'Google sign-in failed.');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    setError('');
+    setSocialLoading(true);
+    try {
+      await signInWithFacebook();
+      router.push('/home');
+    } catch (err: any) {
+      setError(err?.message || 'Facebook sign-in failed.');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setError('');
+    setSocialLoading(true);
+    try {
+      await signInWithApple();
+      router.push('/home');
+    } catch (err: any) {
+      setError(err?.message || 'Apple sign-in failed.');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -121,6 +162,24 @@ export default function SignInScreen() {
           >
             Welcome back to NCDFCOOP
           </div>
+        </div>
+
+        {/* Social Auth Buttons */}
+        <SocialSignInButtons
+          onGoogleSignIn={handleGoogleSignIn}
+          onFacebookSignIn={handleFacebookSignIn}
+          onAppleSignIn={handleAppleSignIn}
+          isLoading={socialLoading}
+        />
+
+        <div
+          style={{
+            textAlign: 'center',
+            margin: '18px 0',
+            color: AppColors.textSecondary,
+          }}
+        >
+          or continue with email
         </div>
 
         {/* Form */}
@@ -348,45 +407,6 @@ export default function SignInScreen() {
             </button>
           </div>
 
-          {process.env.NODE_ENV === 'development' ? (
-            <div className="space-y-3">
-              <p
-                style={{
-                  ...AppTextStyles.bodySmall,
-                  color: AppColors.textSecondary,
-                  marginTop: AppSpacing.sm,
-                }}
-              >
-                Development login shortcuts
-              </p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <button
-                  type="button"
-                  onClick={() => router.push('/dev-login?role=member')}
-                  disabled={isLoading}
-                  className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-blue-500 hover:bg-blue-50"
-                >
-                  Dev Member
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.push('/dev-login?role=wholesale')}
-                  disabled={isLoading}
-                  className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-blue-500 hover:bg-blue-50"
-                >
-                  Dev Wholesale
-                </button>
-                <button
-                  type="button"
-                  onClick={() => router.push('/dev-login?role=seller')}
-                  disabled={isLoading}
-                  className="rounded-full border border-blue-600 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
-                >
-                  Dev Seller
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
       </div>

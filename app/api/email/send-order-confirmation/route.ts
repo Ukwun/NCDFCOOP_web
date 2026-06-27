@@ -3,6 +3,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { verifyRequestUser } from '@/lib/server/requestAuth';
+import { sendTransactionalEmail } from '@/lib/server/emailSender';
 
 interface OrderConfirmationPayload {
   email: string;
@@ -16,6 +19,11 @@ interface OrderConfirmationPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await verifyRequestUser(request);
+    if (!user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { email, orderDetails } = (await request.json()) as OrderConfirmationPayload;
 
     if (!email || !orderDetails) {
@@ -23,6 +31,15 @@ export async function POST(request: NextRequest) {
         { error: 'Missing email or order details' },
         { status: 400 }
       );
+    }
+
+    const orderSnapshot = await getAdminDb()
+      .collection('orders')
+      .doc(orderDetails.orderId)
+      .get();
+    const order = orderSnapshot.data();
+    if (!orderSnapshot.exists || (order?.userId !== user.uid && order?.buyerId !== user.uid)) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     const itemsHtml = orderDetails.items
@@ -129,26 +146,12 @@ What's Next?
 If you have questions, contact our customer support.
     `.trim();
 
-    // Call the main email sending endpoint
-    const response = await fetch(
-      new URL('/api/email/send', request.nextUrl.origin),
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: email,
-          subject: `✅ Order Confirmation #${orderDetails.orderId} - NCDF COOP`,
-          html,
-          text,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to send order confirmation');
-    }
+    await sendTransactionalEmail({
+      to: user.email,
+      subject: `Order Confirmation #${orderDetails.orderId} - NCDF COOP`,
+      html,
+      text,
+    });
 
     return NextResponse.json(
       { message: 'Order confirmation email sent successfully' },

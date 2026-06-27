@@ -6,6 +6,7 @@ import {
   getFirestore as getClientFirestore,
   setDoc as clientSetDoc,
 } from 'firebase/firestore/lite';
+import { NextRequest } from 'next/server';
 
 // Keep seed data portable across Admin SDK and client SDK fallbacks.
 const Timestamp = {
@@ -249,8 +250,26 @@ const seedProducts = [
   },
 ];
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return new Response(JSON.stringify({ error: 'Not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const seedSecret = process.env.DEVELOPMENT_SEED_SECRET;
+    if (
+      !seedSecret ||
+      request.headers.get('authorization') !== `Bearer ${seedSecret}`
+    ) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     // Use Firebase client SDK for seeding (works with authenticated context)
     let addedCount = 0;
 

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getUserCart } from '@/lib/services/cartService';
@@ -14,6 +14,7 @@ import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
 import { getExperimentVariant } from '@/lib/services/featureFlagsService';
 import RecommendationRail from '@/components/RecommendationRail';
+import { emitGlobalActivity } from '@/components/GlobalActivityTracker';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -40,6 +41,8 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [e2eInfo, setE2eInfo] = useState<{ orderId?: string; txnRef?: string } | null>(null);
+  const checkoutTrackedRef = useRef(false);
 
   const recommendationVariant = user?.uid
     ? getExperimentVariant(user.uid, 'checkout_recommendation_rail', 50)
@@ -61,6 +64,17 @@ export default function CheckoutPage() {
         }
 
         setCart(cartData);
+        if (!checkoutTrackedRef.current) {
+          checkoutTrackedRef.current = true;
+          emitGlobalActivity('checkout_start', {
+            cartTotal: cartData.total,
+            itemCount: cartData.items.reduce(
+              (sum, item) => sum + item.quantity,
+              0
+            ),
+            role: currentRole,
+          });
+        }
         setShippingAddress((prev) => ({
           ...prev,
           email: user.email || '',
@@ -78,7 +92,7 @@ export default function CheckoutPage() {
     } else if (!authLoading && !user) {
       router.push('/welcome');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, currentRole]);
 
   useEffect(() => {
     const fetchRecommendations = async () => {
@@ -180,6 +194,16 @@ export default function CheckoutPage() {
         buyerType
       );
 
+      // Write order id to localStorage for E2E capture and show temporary banner
+      try {
+        if (orderId) {
+          localStorage.setItem('coop_e2e_lastOrderId', orderId);
+          setE2eInfo({ orderId });
+        }
+      } catch (writeErr) {
+        console.warn('Failed to write E2E order id to localStorage', writeErr);
+      }
+
       if (paymentMethod === 'flutterwave') {
         // Initiate Flutterwave payment
         await initiateFlutterwavePayment(
@@ -190,9 +214,30 @@ export default function CheckoutPage() {
           orderId,
           async (_reference) => {
             // Payment successful
+            try {
+              if (_reference) {
+                localStorage.setItem('coop_e2e_lastTransactionRef', String(_reference));
+                setE2eInfo((prev) => ({ ...(prev || {}), txnRef: String(_reference) }));
+              }
+            } catch (writeErr) {
+              console.warn('Failed to write E2E txn ref to localStorage', writeErr);
+            }
+            emitGlobalActivity('purchase_complete', {
+              orderId,
+              orderTotal: cart.total,
+              itemCount: cart.items.length,
+              paymentMethod: 'flutterwave',
+              paymentReference: _reference,
+            });
             router.push(`/order-confirmation/${orderId}`);
           },
           (error) => {
+            emitGlobalActivity('payment_failed', {
+              orderId,
+              orderTotal: cart.total,
+              paymentMethod: 'flutterwave',
+              errorMessage: error,
+            });
             setError(error);
             setIsProcessing(false);
           }
@@ -204,14 +249,45 @@ export default function CheckoutPage() {
           user.uid,
           cart.total
         );
+        try {
+          localStorage.setItem('coop_e2e_lastOrderId', orderId);
+          localStorage.setItem('coop_e2e_lastTransactionRef', 'BANK_TRANSFER');
+          setE2eInfo({ orderId, txnRef: 'BANK_TRANSFER' });
+        } catch (writeErr) {
+          console.warn('Failed to write E2E bank transfer info', writeErr);
+        }
+        emitGlobalActivity('checkout_progress', {
+          orderId,
+          orderTotal: cart.total,
+          paymentMethod: 'bank_transfer',
+          checkoutStep: 'awaiting_bank_transfer',
+        });
         // Redirect to bank transfer details page
         router.push(`/payment/bank-transfer/${orderId}`);
       } else if (paymentMethod === 'cash_on_delivery') {
         // Order confirmed, cash on delivery
+        try {
+          localStorage.setItem('coop_e2e_lastOrderId', orderId);
+          localStorage.setItem('coop_e2e_lastTransactionRef', 'COD');
+          setE2eInfo({ orderId, txnRef: 'COD' });
+        } catch (writeErr) {
+          console.warn('Failed to write E2E COD info', writeErr);
+        }
+        emitGlobalActivity('purchase_complete', {
+          orderId,
+          orderTotal: cart.total,
+          itemCount: cart.items.length,
+          paymentMethod: 'cash_on_delivery',
+        });
         router.push(`/order-confirmation/${orderId}`);
       }
     } catch (err: any) {
       console.error('Checkout error:', err);
+      emitGlobalActivity('purchase_failed', {
+        orderTotal: cart?.total || 0,
+        paymentMethod,
+        errorMessage: err?.message || 'Checkout failed',
+      });
       setError(err.message || 'Checkout failed');
       setIsProcessing(false);
     }
@@ -243,6 +319,14 @@ export default function CheckoutPage() {
         backgroundColor: AppColors.background,
       }}
     >
+      {/* E2E capture banner (temporary) */}
+      {e2eInfo && (
+        <div className="fixed top-4 right-4 z-50 p-3 rounded-md shadow-lg bg-white border" style={{ borderColor: AppColors.border }}>
+          <div className="text-sm font-semibold" style={{ color: AppColors.textPrimary }}>E2E Capture</div>
+          <div className="text-xs text-gray-700">Order: {e2eInfo.orderId}</div>
+          <div className="text-xs text-gray-700">Txn: {e2eInfo.txnRef}</div>
+        </div>
+      )}
       {/* Header */}
       <div
         className="py-8 border-b"
@@ -600,7 +684,7 @@ export default function CheckoutPage() {
               <button
                 onClick={handlePayment}
                 disabled={isProcessing}
-                className="w-full py-4 rounded-lg text-white font-bold transition-all hover:shadow-lg disabled:opacity-50"
+                className="w-full py-4 rounded-lg text-white font-bold transition-transform transform-gpu motion-safe:will-change-transform hover:scale-105 active:scale-95 duration-150 shadow-sm hover:shadow-lg disabled:opacity-50"
                 style={{
                   backgroundColor: AppColors.primary,
                 }}

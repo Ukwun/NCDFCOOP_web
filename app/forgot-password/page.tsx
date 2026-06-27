@@ -54,6 +54,26 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <style>{`
+        .forgot-page-card {
+          animation: fadeInUp 0.55s ease-out both;
+        }
+        .forgot-page-card:hover {
+          transform: translateY(-1px);
+          transition: transform 220ms ease;
+        }
+        .forgot-button {
+          transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+        }
+        .forgot-button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 14px 30px rgba(59, 130, 246, 0.2);
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
@@ -64,7 +84,7 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8">
+        <div className="forgot-page-card bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8">
           {error && (
             <div className="mb-6 p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
               <p className="text-red-800 dark:text-red-100 text-sm">{error}</p>
@@ -73,10 +93,14 @@ export default function ForgotPasswordPage() {
 
           <form onSubmit={handleSubmit}>
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+              <label
+                htmlFor="forgot-password-email"
+                className="block text-sm font-semibold text-gray-900 dark:text-white mb-2"
+              >
                 Email Address
               </label>
               <input
+                id="forgot-password-email"
                 type="email"
                 required
                 value={email}

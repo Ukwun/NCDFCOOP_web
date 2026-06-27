@@ -9,7 +9,6 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
-import { isDevAutologin } from '@/lib/utils/devSession';
 
 export interface MemberDataState {
   memberId: string;
@@ -36,7 +35,7 @@ export function useMemberData(userId: string): UseMemberDataReturn {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!userId || !db || isDevAutologin()) {
+    if (!userId || !db) {
       setLoading(false);
       return;
     }

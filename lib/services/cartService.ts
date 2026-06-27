@@ -7,7 +7,6 @@ import { doc, setDoc, updateDoc, deleteDoc, getDoc, collection, getDocs, query, 
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { Cart, CartItem } from '@/lib/types/product';
-import { isDevAutologin } from '@/lib/utils/devSession';
 
 const CART_STORAGE_PREFIX = 'coop_commerce_cart_';
 export const CART_CHANGED_EVENT = 'coop-commerce:cart-changed';
@@ -55,30 +54,8 @@ export async function addToCart(
   quantity: number = 1
 ): Promise<void> {
   try {
-    if (!db || isDevAutologin()) {
-      const items = readBrowserCart(userId);
-      const cartItemId = `${userId}_${productId}`;
-      const existingIndex = items.findIndex((item) => item.id === cartItemId);
-      const nextItem: CartItem = {
-        id: cartItemId,
-        userId,
-        productId,
-        productName,
-        price,
-        quantity,
-        image,
-        addedAt: new Date() as any,
-      };
-
-      if (existingIndex >= 0) {
-        items[existingIndex] = nextItem;
-      } else {
-        items.unshift(nextItem);
-      }
-
-      writeBrowserCart(userId, items);
-      notifyCartChanged();
-      return;
+    if (!db) {
+      throw new Error('Firebase not initialized. Cart service unavailable.');
     }
 
     const cartItemId = `${userId}_${productId}`;
@@ -97,32 +74,6 @@ export async function addToCart(
     notifyCartChanged();
   } catch (error) {
     console.error('Error adding to cart:', error);
-    if (typeof window !== 'undefined') {
-      const items = readBrowserCart(userId);
-      const cartItemId = `${userId}_${productId}`;
-      const nextItem: CartItem = {
-        id: cartItemId,
-        userId,
-        productId,
-        productName,
-        price,
-        quantity,
-        image,
-        addedAt: new Date() as any,
-      };
-
-      const existingIndex = items.findIndex((item) => item.id === cartItemId);
-      if (existingIndex >= 0) {
-        items[existingIndex] = nextItem;
-      } else {
-        items.unshift(nextItem);
-      }
-
-      writeBrowserCart(userId, items);
-      notifyCartChanged();
-      return;
-    }
-
     throw error;
   }
 }
@@ -133,13 +84,7 @@ export async function addToCart(
 export async function removeFromCart(userId: string, productId: string): Promise<void> {
   try {
     if (!db) {
-      const cartItemId = `${userId}_${productId}`;
-      writeBrowserCart(
-        userId,
-        readBrowserCart(userId).filter((item) => item.id !== cartItemId)
-      );
-      notifyCartChanged();
-      return;
+      throw new Error('Firebase not initialized. Cart service unavailable.');
     }
 
     const cartItemId = `${userId}_${productId}`;
@@ -147,16 +92,6 @@ export async function removeFromCart(userId: string, productId: string): Promise
     notifyCartChanged();
   } catch (error) {
     console.error('Error removing from cart:', error);
-    if (typeof window !== 'undefined') {
-      const cartItemId = `${userId}_${productId}`;
-      writeBrowserCart(
-        userId,
-        readBrowserCart(userId).filter((item) => item.id !== cartItemId)
-      );
-      notifyCartChanged();
-      return;
-    }
-
     throw error;
   }
 }
@@ -167,19 +102,7 @@ export async function removeFromCart(userId: string, productId: string): Promise
 export async function updateCartItemQuantity(userId: string, productId: string, quantity: number): Promise<void> {
   try {
     if (!db) {
-      if (quantity <= 0) {
-        await removeFromCart(userId, productId);
-        return;
-      }
-
-      const cartItemId = `${userId}_${productId}`;
-      const items = readBrowserCart(userId);
-      const nextItems = items.map((item) =>
-        item.id === cartItemId ? { ...item, quantity } : item
-      );
-      writeBrowserCart(userId, nextItems);
-      notifyCartChanged();
-      return;
+      throw new Error('Firebase not initialized. Cart service unavailable.');
     }
 
     const cartItemId = `${userId}_${productId}`;
@@ -193,22 +116,6 @@ export async function updateCartItemQuantity(userId: string, productId: string, 
     }
   } catch (error) {
     console.error('Error updating cart item:', error);
-    if (typeof window !== 'undefined') {
-      if (quantity <= 0) {
-        await removeFromCart(userId, productId);
-        return;
-      }
-
-      const cartItemId = `${userId}_${productId}`;
-      const items = readBrowserCart(userId);
-      writeBrowserCart(
-        userId,
-        items.map((item) => (item.id === cartItemId ? { ...item, quantity } : item))
-      );
-      notifyCartChanged();
-      return;
-    }
-
     throw error;
   }
 }
@@ -218,22 +125,8 @@ export async function updateCartItemQuantity(userId: string, productId: string, 
  */
 export async function getUserCart(userId: string): Promise<Cart> {
   try {
-    if (!db || isDevAutologin()) {
-      const items = readBrowserCart(userId);
-      const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const tax = subtotal * 0.1;
-      const shipping = subtotal > 50000 ? 0 : 2500;
-      const total = subtotal + tax + shipping;
-
-      return {
-        userId,
-        items,
-        subtotal,
-        tax,
-        shipping,
-        total,
-        updatedAt: new Date(),
-      };
+    if (!db) {
+      throw new Error('Firebase not initialized. Cart service unavailable.');
     }
 
     const q = query(collection(db, COLLECTIONS.CART_ITEMS), where('userId', '==', userId));
@@ -282,24 +175,6 @@ export async function getUserCart(userId: string): Promise<Cart> {
     };
   } catch (error) {
     console.error('Error fetching cart:', error);
-    if (typeof window !== 'undefined') {
-      const items = readBrowserCart(userId);
-      const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const tax = subtotal * 0.1;
-      const shipping = subtotal > 50000 ? 0 : 2500;
-      const total = subtotal + tax + shipping;
-
-      return {
-        userId,
-        items,
-        subtotal,
-        tax,
-        shipping,
-        total,
-        updatedAt: new Date(),
-      };
-    }
-
     throw error;
   }
 }
@@ -309,12 +184,8 @@ export async function getUserCart(userId: string): Promise<Cart> {
  */
 export async function clearCart(userId: string): Promise<void> {
   try {
-    if (!db || isDevAutologin()) {
-      if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(`${CART_STORAGE_PREFIX}${userId}`);
-      }
-      notifyCartChanged();
-      return;
+    if (!db) {
+      throw new Error('Firebase not initialized. Cart service unavailable.');
     }
 
     const q = query(collection(db, COLLECTIONS.CART_ITEMS), where('userId', '==', userId));
@@ -325,12 +196,6 @@ export async function clearCart(userId: string): Promise<void> {
     notifyCartChanged();
   } catch (error) {
     console.error('Error clearing cart:', error);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(`${CART_STORAGE_PREFIX}${userId}`);
-      notifyCartChanged();
-      return;
-    }
-
     throw error;
   }
 }

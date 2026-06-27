@@ -10,7 +10,6 @@ import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestor
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { ErrorHandler } from '@/lib/error/errorHandler';
-import { isDevAutologin } from '@/lib/utils/devSession';
 
 export interface SellerOrder {
   id: string;
@@ -45,7 +44,7 @@ export function useSellerOrders(sellerId: string): UseSellerOrdersReturn {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!sellerId || !db || isDevAutologin()) {
+    if (!sellerId || !db) {
       setOrders([]);
       setLoading(false);
       return;

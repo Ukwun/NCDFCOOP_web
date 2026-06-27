@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const diagnosticSecret = process.env.DEVELOPMENT_DIAGNOSTICS_SECRET;
+    if (
+      !diagnosticSecret ||
+      request.headers.get('authorization') !== `Bearer ${diagnosticSecret}`
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { email, password } = await request.json();
 
     if (!email || !password) {

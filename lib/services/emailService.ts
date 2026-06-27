@@ -4,11 +4,25 @@
  * Requires email service integration (SendGrid, Mailgun, or Firebase Functions)
  */
 
+import { auth } from '@/lib/firebase/config';
+
 export interface EmailPayload {
   to: string;
   subject: string;
   html: string;
   text?: string;
+}
+
+async function authenticatedHeaders(): Promise<Record<string, string>> {
+  const token = await auth?.currentUser?.getIdToken();
+  if (!token) {
+    throw new Error('You must be signed in to send this email');
+  }
+
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
 }
 
 /**
@@ -44,9 +58,7 @@ export async function sendVerificationEmail(email: string, verificationLink: str
   try {
     const response = await fetch('/api/email/send-verification', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await authenticatedHeaders(),
       body: JSON.stringify({
         email,
         verificationLink,
@@ -84,9 +96,7 @@ export async function sendOrderConfirmationEmail(
   try {
     const response = await fetch('/api/email/send-order-confirmation', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await authenticatedHeaders(),
       body: JSON.stringify({
         email,
         orderDetails,
@@ -109,9 +119,7 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
   try {
     const response = await fetch('/api/email/send', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await authenticatedHeaders(),
       body: JSON.stringify(payload),
     });
 

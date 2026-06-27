@@ -11,47 +11,6 @@ import { BarChart3, Package, TrendingUp, Settings, LogOut } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { USER_ROLES } from '@/lib/constants/database';
 
-function isDevSellerSession(): boolean {
-  if (typeof window === 'undefined') return false;
-  return Boolean(window.localStorage.getItem('dev_autologin'));
-}
-
-function loadDevSellerProducts(sellerId: string) {
-  if (typeof window === 'undefined' || !sellerId) return [];
-  try {
-    const raw = window.localStorage.getItem(`dev_seller_products_${sellerId}`);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch (error) {
-    console.warn('Unable to load dev seller products', error);
-    return [];
-  }
-}
-
-function getSellerStatsFromLocalProducts(products: any[]) {
-  const totalProducts = products.length;
-  const totalRevenue = products.reduce((sum, item) => sum + (item.price || item.retailPrice || 0) * (item.stock || item.quantity || 0), 0);
-  const totalOrders = 0;
-  const retailRevenue = products.reduce((sum, item) => {
-    const isWholesale = item.type === 'wholesale' || item.productType === 'wholesale';
-    return sum + (!isWholesale ? (item.price || item.retailPrice || 0) * (item.stock || item.quantity || 0) : 0);
-  }, 0);
-  const wholesaleRevenue = products.reduce((sum, item) => {
-    const isWholesale = item.type === 'wholesale' || item.productType === 'wholesale';
-    return sum + (isWholesale ? (item.wholesalePrice || item.price || 0) * (item.stock || item.quantity || 0) : 0);
-  }, 0);
-
-  return {
-    totalProducts,
-    totalRevenue,
-    totalOrders,
-    retailRevenue,
-    wholesaleRevenue,
-    averageOrderValue: totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0,
-    conversionRate: 0,
-    lastUpdated: new Date(),
-  };
-}
 
 export default function SellerDashboardPage() {
   const router = useRouter();
@@ -77,19 +36,6 @@ export default function SellerDashboardPage() {
   const loadDashboardData = async () => {
     try {
       if (!user?.uid) return;
-      const devMode = isDevSellerSession();
-
-      if (devMode) {
-        const localProducts = loadDevSellerProducts(user.uid);
-        if (localProducts.length > 0) {
-          const statsData = getSellerStatsFromLocalProducts(localProducts);
-          setStats(statsData);
-          setRecentOrders([]);
-          setTopProducts(localProducts.slice(0, 5));
-          setPageLoading(false);
-          return;
-        }
-      }
 
       const [statsData, ordersData, productsData] = await Promise.all([
         getSellerStats(user.uid),
@@ -103,16 +49,6 @@ export default function SellerDashboardPage() {
       setPageLoading(false);
     } catch (err) {
       console.error('Error loading dashboard:', err);
-      if (user?.uid && isDevSellerSession()) {
-        const localProducts = loadDevSellerProducts(user.uid);
-        if (localProducts.length > 0) {
-          setStats(getSellerStatsFromLocalProducts(localProducts));
-          setRecentOrders([]);
-          setTopProducts(localProducts.slice(0, 5));
-          setPageLoading(false);
-          return;
-        }
-      }
       setError('Failed to load dashboard data');
       setPageLoading(false);
     }

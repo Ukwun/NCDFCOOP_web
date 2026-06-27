@@ -17,7 +17,6 @@ import {
   FavoriteItem,
   FAVORITES_CHANGED_EVENT,
 } from '@/lib/services';
-import { isDevAutologin } from '@/lib/utils/devSession';
 
 interface UseFavoritesOptions {
   userId: string;
@@ -65,7 +64,9 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
 
     fetchFavorites();
 
-    if (!db || isDevAutologin()) {
+    if (!db) {
+      setError('Firestore is not configured');
+      setLoading(false);
       return;
     }
 

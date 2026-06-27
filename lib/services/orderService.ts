@@ -59,6 +59,12 @@ export async function createOrder(
     const generatedOrderId =
       orderId || `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+    // Instrumentation: log generated order id for E2E capture
+    try {
+      // eslint-disable-next-line no-console
+      console.info(`[createOrder] generatedOrderId: ${generatedOrderId}`);
+    } catch (e) {}
+
     const normalizedItems = items.map((item) => ({
       productId: item.productId,
       productName: item.productName || item.name || '',
@@ -103,8 +109,17 @@ export async function createOrder(
       ), // 7 days
     });
 
-    // Save order
+    if (!db) {
+      throw new Error('Firebase not initialized. Order cannot be created.');
+    }
+
     await setDoc(doc(db, COLLECTIONS.ORDERS, generatedOrderId), order);
+
+    // Log after save for E2E capture
+    try {
+      // eslint-disable-next-line no-console
+      console.info(`[createOrder] order_saved: ${generatedOrderId}`);
+    } catch (e) {}
 
     // Reduce product stock for each item in the order
     for (const item of items) {

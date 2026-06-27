@@ -33,7 +33,7 @@ export default function CartPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      router.push('/welcome');
+      router.push('/signin');
       return;
     }
 

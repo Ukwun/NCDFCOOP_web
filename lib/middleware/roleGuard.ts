@@ -53,7 +53,7 @@ export function getNextRoute(
   currentRoute: string
 ): string | null {
   // Public routes that don't require auth
-  const publicRoutes = ['/splash', '/welcome', '/signin', '/signup', '/forgot-password', '/onboarding'];
+  const publicRoutes = ['/splash', '/signin', '/signup', '/forgot-password', '/onboarding'];
   if (publicRoutes.includes(currentRoute)) {
     return null;
   }
@@ -65,7 +65,7 @@ export function getNextRoute(
 
   // Step 2: After onboarding, not authenticated - go to signup
   if (!user && onboardingCompleted) {
-    return '/welcome';
+    return '/signin';
   }
 
   // Step 3: Authenticated but role not selected - go to role selection

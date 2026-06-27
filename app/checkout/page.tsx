@@ -90,7 +90,7 @@ export default function CheckoutPage() {
     if (!authLoading && user) {
       fetchCart();
     } else if (!authLoading && !user) {
-      router.push('/welcome');
+      router.push('/signin');
     }
   }, [user, authLoading, router, currentRole]);
 

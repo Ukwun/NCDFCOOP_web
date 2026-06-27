@@ -58,7 +58,7 @@ export default function OrdersPage() {
     if (!authLoading && user) {
       fetchOrdersFallback();
     } else if (!authLoading && !user) {
-      router.push('/welcome');
+      router.push('/signin');
     }
   }, [user, authLoading, router, realTimeOrders.length, hasFetchedFallback]);
 

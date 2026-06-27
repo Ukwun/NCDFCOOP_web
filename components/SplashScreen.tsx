@@ -15,9 +15,9 @@ export default function SplashScreen() {
   }, []);
 
   useEffect(() => {
-    // Redirect to welcome after 3 seconds
+    // Continue into the live sign-in flow after the splash animation.
     const timer = setTimeout(() => {
-      router.push('/welcome');
+      router.push('/signin');
     }, 3000);
 
     return () => clearTimeout(timer);

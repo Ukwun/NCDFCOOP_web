@@ -46,7 +46,7 @@ export default function OrderConfirmationPage() {
     if (!authLoading && user) {
       fetchOrder();
     } else if (!authLoading && !user) {
-      router.push('/welcome');
+      router.push('/signin');
     }
   }, [user, orderId, authLoading, router]);
 

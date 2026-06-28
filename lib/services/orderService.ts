@@ -5,44 +5,29 @@
 
 import {
   doc,
-  setDoc,
   getDoc,
   getDocs,
   query,
   where,
   orderBy,
-  updateDoc,
   collection,
-  Timestamp,
-  increment,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { COLLECTIONS, ORDER_STATUS } from '@/lib/constants/database';
-import { clearCart } from '@/lib/services/cartService';
-import { Order } from '@/lib/types/product';
-import { createNotification } from '@/lib/services/notificationService';
-import { sendOrderConfirmationEmail } from '@/lib/services/emailService';
+} from "firebase/firestore";
+import { auth, db } from "@/lib/firebase/config";
+import { COLLECTIONS } from "@/lib/constants/database";
+import { Order } from "@/lib/types/product";
 
-const sanitizeForFirestore = (data: any): any => {
-  if (data === undefined) return undefined;
-  if (data === null) return null;
-  if (Array.isArray(data)) {
-    return data
-      .map((item) => sanitizeForFirestore(item))
-      .filter((sanitized) => sanitized !== undefined);
-  }
-  if (typeof data === 'object' && !(data instanceof Timestamp)) {
-    return Object.entries(data).reduce((acc, [key, value]) => {
-      const sanitizedValue = sanitizeForFirestore(value);
-      if (sanitizedValue !== undefined) {
-        acc[key] = sanitizedValue;
-      }
-      return acc;
-    }, {} as any);
-  }
-  return data;
-};
-
+export interface CreatedOrderResult {
+  orderId: string;
+  transactionRef: string | null;
+  totals: {
+    subtotal: number;
+    tax: number;
+    shipping: number;
+    totalAmount: number;
+    currency: "NGN";
+  };
+  pricingAdjusted: boolean;
+}
 /**
  * Create order from cart
  */
@@ -51,139 +36,40 @@ export async function createOrder(
   items: any[],
   totalAmount: number,
   shippingAddress: string,
-  paymentMethod: 'flutterwave' | 'bank_transfer' | 'cash_on_delivery',
-  buyerType: 'member' | 'wholesale', // Added buyerType
-  orderId?: string
-): Promise<string> {
-  try {
-    const generatedOrderId =
-      orderId || `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // Instrumentation: log generated order id for E2E capture
-    try {
-      // eslint-disable-next-line no-console
-      console.info(`[createOrder] generatedOrderId: ${generatedOrderId}`);
-    } catch (e) {}
-
-    const normalizedItems = items.map((item) => ({
-      productId: item.productId,
-      productName: item.productName || item.name || '',
-      quantity: item.quantity,
-      price: item.price,
-      sellerId: item.sellerId || item.productData?.sellerId || '',
-      sellerName:
-        item.sellerName || item.productData?.sellerName || item.productData?.seller || '',
-      productImage:
-        item.productImage || item.image || item.productData?.image || item.productData?.thumbnail || '',
-      minOrderQuantity: item.minOrderQuantity ?? item.productData?.minOrderQuantity,
-      unitOfMeasure: item.unitOfMeasure ?? item.productData?.unitOfMeasure,
-      type: item.type ?? item.productData?.type,
-    }));
-
-    const sellerIds = Array.from(
-      new Set(
-        normalizedItems
-          .map((item) => item.sellerId)
-          .filter((sellerId) => typeof sellerId === 'string' && sellerId)
-      )
-    );
-
-    const order: Order = sanitizeForFirestore({
-      id: generatedOrderId,
-      userId,
-      buyerId: userId,
-      items: normalizedItems,
-      totalAmount,
-      status: ORDER_STATUS.PENDING,
-      paymentStatus: 'pending',
-      shippingAddress,
-      buyerType, // Store buyerType with the order
-      paymentMethod,
-      sellerIds,
-      ...(sellerIds.length === 1 ? { sellerId: sellerIds[0] } : {}),
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-      estimatedDelivery: new Timestamp(
-        Timestamp.now().seconds + 7 * 24 * 60 * 60,
-        Timestamp.now().nanoseconds
-      ), // 7 days
-    });
-
-    if (!db) {
-      throw new Error('Firebase not initialized. Order cannot be created.');
-    }
-
-    await setDoc(doc(db, COLLECTIONS.ORDERS, generatedOrderId), order);
-
-    // Log after save for E2E capture
-    try {
-      // eslint-disable-next-line no-console
-      console.info(`[createOrder] order_saved: ${generatedOrderId}`);
-    } catch (e) {}
-
-    // Reduce product stock for each item in the order
-    for (const item of items) {
-      try {
-        const productRef = doc(db, COLLECTIONS.PRODUCTS, item.productId);
-        const productDoc = await getDoc(productRef);
-        
-        if (productDoc.exists()) {
-          const currentStock = productDoc.data()?.stock || 0;
-          const newStock = Math.max(0, currentStock - item.quantity);
-          
-          await updateDoc(productRef, {
-            stock: newStock,
-            updatedAt: Timestamp.now(),
-          });
-        }
-      } catch (error) {
-        console.error(`Error updating stock for product ${item.productId}:`, error);
-        // Continue with other items even if one fails
-      }
-    }
-
-    // Clear cart
-    await clearCart(userId);
-
-    // Update member stats
-    await updateDoc(doc(db, COLLECTIONS.MEMBERS, userId), {
-      totalPurchases: increment(items.reduce((sum, item) => sum + item.quantity, 0)),
-    });
-
-    // Notify user (buyer)
-    try {
-      await createNotification(userId, {
-        title: 'Order Placed',
-        message: `Your order #${generatedOrderId} has been placed successfully!`,
-        type: 'order',
-        read: false,
-        data: { orderId: generatedOrderId },
-      });
-    } catch (e) { /* ignore */ }
-
-    // Send order confirmation email (buyer)
-    try {
-      const buyerEmail = items[0]?.buyerEmail || 'demo@buyer.com';
-      await sendOrderConfirmationEmail(buyerEmail, {
-        orderId: generatedOrderId,
-        items: items.map((item: any) => ({ 
-          name: item.productName, 
-          quantity: item.quantity, 
-          price: item.price,
-          minOrderQuantity: item.minOrderQuantity,
-          unitOfMeasure: item.unitOfMeasure,
-          isWholesale: item.type === 'wholesale' || item.type === 'both',
-        })),
-        total: totalAmount,
-        shippingAddress,
-      });
-    } catch (e) { /* ignore */ }
-
-    return generatedOrderId;
-  } catch (error) {
-    console.error('Error creating order:', error);
-    throw error;
+  paymentMethod: "flutterwave" | "bank_transfer" | "cash_on_delivery",
+  buyerType: "member" | "wholesale", // Added buyerType
+  orderId?: string,
+): Promise<CreatedOrderResult> {
+  if (!auth?.currentUser || auth.currentUser.uid !== userId) {
+    throw new Error("You must be signed in to create an order.");
   }
+
+  const token = await auth.currentUser.getIdToken();
+  const response = await fetch("/api/orders/create", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
+      shippingAddress,
+      paymentMethod,
+      buyerType,
+      clientTotal: totalAmount,
+      requestedOrderId: orderId,
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "We could not create the order.");
+  }
+
+  return payload as CreatedOrderResult;
 }
 
 /**
@@ -193,21 +79,23 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
   try {
     const q = query(
       collection(db, COLLECTIONS.ORDERS),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc"),
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Order));
+    return snapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        }) as Order,
+    );
   } catch (error) {
-    console.error('Error fetching user orders:', error);
+    console.error("Error fetching user orders:", error);
     throw error;
   }
 }
-
 /**
  * Get order by ID
  */
@@ -221,7 +109,7 @@ export async function getOrder(orderId: string): Promise<Order | null> {
         } as Order)
       : null;
   } catch (error) {
-    console.error('Error fetching order:', error);
+    console.error("Error fetching order:", error);
     throw error;
   }
 }
@@ -229,94 +117,29 @@ export async function getOrder(orderId: string): Promise<Order | null> {
 /**
  * Update order status
  */
-export async function updateOrderStatus(orderId: string, status: string): Promise<void> {
+export async function updateOrderStatus(
+  orderId: string,
+  status: string,
+): Promise<void> {
   try {
-    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-      status,
-      updatedAt: Timestamp.now(),
-    });
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) throw new Error("You must be signed in to update an order.");
 
-    // Fetch order to get userId
-    const orderSnap = await getDoc(doc(db, COLLECTIONS.ORDERS, orderId));
-    if (orderSnap.exists()) {
-      const order = orderSnap.data() as Order;
-      // Create notification for user
-      await createNotification(order.userId, {
-        title: 'Order Status Updated',
-        message: `Your order #${orderId} status changed to: ${status}`,
-        type: 'order',
-        read: false,
-        data: { orderId, status },
-      });
-      // Email user on status update
-      try {
-        const firstItem = order.items[0] as (typeof order.items[number] & { buyerEmail?: string }) | undefined;
-        const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
-        await sendOrderConfirmationEmail(buyerEmail, {
-          orderId,
-          items: order.items.map((item: any) => ({ 
-            name: item.productName, 
-            quantity: item.quantity, 
-            price: item.price,
-            minOrderQuantity: item.minOrderQuantity,
-            unitOfMeasure: item.unitOfMeasure,
-            isWholesale: item.type === 'wholesale' || item.type === 'both',
-          })),
-          total: order.totalAmount,
-          shippingAddress: order.shippingAddress,
-        });
-      } catch (e) { /* ignore */ }
-    }
+    const response = await fetch(
+      `/api/orders/${encodeURIComponent(orderId)}/status`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      },
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Order update failed.");
   } catch (error) {
-    console.error('Error updating order status:', error);
-    throw error;
-  }
-}
-
-/**
- * Update payment status
- */
-export async function updatePaymentStatus(orderId: string, paymentStatus: string): Promise<void> {
-  try {
-    await updateDoc(doc(db, COLLECTIONS.ORDERS, orderId), {
-      paymentStatus,
-      status: paymentStatus === 'completed' ? ORDER_STATUS.PAID : ORDER_STATUS.PENDING,
-      updatedAt: Timestamp.now(),
-    });
-
-    // Fetch order to get userId
-    const orderSnap = await getDoc(doc(db, COLLECTIONS.ORDERS, orderId));
-    if (orderSnap.exists()) {
-      const order = orderSnap.data() as Order;
-      // Create notification for user
-      await createNotification(order.userId, {
-        title: 'Payment Status Updated',
-        message: `Your order #${orderId} payment status: ${paymentStatus}`,
-        type: 'order',
-        read: false,
-        data: { orderId, paymentStatus },
-      });
-      // Email user on payment update
-      try {
-        const firstItem = order.items[0] as (typeof order.items[number] & { buyerEmail?: string }) | undefined;
-        const buyerEmail = firstItem?.buyerEmail || 'demo@buyer.com';
-        await sendOrderConfirmationEmail(buyerEmail, {
-          orderId,
-          items: order.items.map((item: any) => ({ 
-            name: item.productName, 
-            quantity: item.quantity, 
-            price: item.price,
-            minOrderQuantity: item.minOrderQuantity,
-            unitOfMeasure: item.unitOfMeasure,
-            isWholesale: item.type === 'wholesale' || item.type === 'both',
-          })),
-          total: order.totalAmount,
-          shippingAddress: order.shippingAddress,
-        });
-      } catch (e) { /* ignore */ }
-    }
-  } catch (error) {
-    console.error('Error updating payment status:', error);
+    console.error("Error updating order status:", error);
     throw error;
   }
 }

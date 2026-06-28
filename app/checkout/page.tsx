@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getUserCart } from '@/lib/services/cartService';
 import { initiateFlutterwavePayment } from '@/lib/services/paymentService';
-import { recordBankTransferIntent } from '@/lib/services/bankTransferService';
 import { createOrder } from '@/lib/services/orderService';
 import { Cart, Address } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
@@ -185,7 +184,7 @@ export default function CheckoutPage() {
       const buyerType = currentRole === 'institutional_buyer' ? 'wholesale' : 'member';
 
       // Create order
-      const orderId = await createOrder(
+      const createdOrder = await createOrder(
         user.uid,
         cart.items,
         cart.total,
@@ -193,6 +192,8 @@ export default function CheckoutPage() {
         paymentMethod,
         buyerType
       );
+      const { orderId, transactionRef, totals } = createdOrder;
+      const trustedTotal = totals.totalAmount;
 
       // Write order id to localStorage for E2E capture and show temporary banner
       try {
@@ -207,11 +208,12 @@ export default function CheckoutPage() {
       if (paymentMethod === 'flutterwave') {
         // Initiate Flutterwave payment
         await initiateFlutterwavePayment(
-          cart.total,
+          trustedTotal,
           user.email || shippingAddress.email,
           user.uid,
           `${shippingAddress.firstName} ${shippingAddress.lastName}`,
           orderId,
+          transactionRef || '',
           async (_reference) => {
             // Payment successful
             try {
@@ -224,7 +226,7 @@ export default function CheckoutPage() {
             }
             emitGlobalActivity('purchase_complete', {
               orderId,
-              orderTotal: cart.total,
+              orderTotal: trustedTotal,
               itemCount: cart.items.length,
               paymentMethod: 'flutterwave',
               paymentReference: _reference,
@@ -234,7 +236,7 @@ export default function CheckoutPage() {
           (error) => {
             emitGlobalActivity('payment_failed', {
               orderId,
-              orderTotal: cart.total,
+              orderTotal: trustedTotal,
               paymentMethod: 'flutterwave',
               errorMessage: error,
             });
@@ -243,22 +245,16 @@ export default function CheckoutPage() {
           }
         );
       } else if (paymentMethod === 'bank_transfer') {
-        // Record bank transfer intent
-        await recordBankTransferIntent(
-          orderId,
-          user.uid,
-          cart.total
-        );
         try {
           localStorage.setItem('coop_e2e_lastOrderId', orderId);
-          localStorage.setItem('coop_e2e_lastTransactionRef', 'BANK_TRANSFER');
-          setE2eInfo({ orderId, txnRef: 'BANK_TRANSFER' });
+          localStorage.setItem('coop_e2e_lastTransactionRef', transactionRef || 'BANK_TRANSFER');
+          setE2eInfo({ orderId, txnRef: transactionRef || 'BANK_TRANSFER' });
         } catch (writeErr) {
           console.warn('Failed to write E2E bank transfer info', writeErr);
         }
         emitGlobalActivity('checkout_progress', {
           orderId,
-          orderTotal: cart.total,
+          orderTotal: trustedTotal,
           paymentMethod: 'bank_transfer',
           checkoutStep: 'awaiting_bank_transfer',
         });
@@ -275,7 +271,7 @@ export default function CheckoutPage() {
         }
         emitGlobalActivity('purchase_complete', {
           orderId,
-          orderTotal: cart.total,
+          orderTotal: trustedTotal,
           itemCount: cart.items.length,
           paymentMethod: 'cash_on_delivery',
         });

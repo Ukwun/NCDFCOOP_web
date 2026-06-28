@@ -3,8 +3,8 @@
  * Handles payment processing with Flutterwave and Bank Transfers
  */
 
-import { doc, setDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase/config';
 import { COLLECTIONS, TRANSACTION_STATUS } from '@/lib/constants/database';
 
 export interface FlutterwavePayment {
@@ -39,6 +39,7 @@ export async function initiateFlutterwavePayment(
   userId: string,
   fullName: string,
   orderId: string,
+  transactionReference: string,
   onSuccess: (reference: string) => Promise<void>,
   onError: (error: string) => void
 ) {
@@ -48,25 +49,15 @@ export async function initiateFlutterwavePayment(
       await loadFlutterwaveScript();
     }
 
-    const reference = `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const reference = transactionReference;
 
     if (!process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY) {
       throw new Error('Flutterwave public key is not configured. Set NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY in your environment.');
     }
 
-    // Create payment record
-    await setDoc(doc(db, COLLECTIONS.TRANSACTIONS, reference), {
-      id: reference,
-      userId,
-      orderId,
-      type: 'order_payment',
-      amount,
-      email,
-      status: TRANSACTION_STATUS.PENDING,
-      paymentMethod: 'flutterwave',
-      createdAt: Timestamp.now(),
-      metadata: { fullName },
-    });
+    if (!reference) {
+      throw new Error('The server did not create a payment reference.');
+    }
 
     // Instrumentation: log transaction reference for E2E capture
     try {
@@ -95,17 +86,9 @@ export async function initiateFlutterwavePayment(
         try {
           if (data.status === 'successful') {
             // Verify payment with Flutterwave
-            const isValid = await verifyFlutterwavePayment(data.transaction_id, userId, orderId);
+            const isValid = await verifyFlutterwavePayment(data.transaction_id, orderId);
 
             if (isValid) {
-              // Update payment record
-              await updateDoc(doc(db, COLLECTIONS.TRANSACTIONS, reference), {
-                status: TRANSACTION_STATUS.COMPLETED,
-                paymentRef: data.transaction_id,
-                flutterwaveReference: data.tx_ref,
-                updatedAt: Timestamp.now(),
-              });
-
               await onSuccess(data.transaction_id);
             } else {
               throw new Error('Payment verification failed');
@@ -145,19 +128,21 @@ function loadFlutterwaveScript(): Promise<void> {
  */
 async function verifyFlutterwavePayment(
   transactionId: string,
-  userId: string,
   orderId: string
 ): Promise<boolean> {
   try {
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) return false;
+
     // Call server-side verification endpoint
     const response = await fetch('/api/payments/verify-flutterwave', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         transactionId,
-        userId,
         orderId,
       }),
     });

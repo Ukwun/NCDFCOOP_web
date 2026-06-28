@@ -1,168 +1,130 @@
+import { createHmac, timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { COLLECTIONS, TRANSACTION_STATUS } from '@/lib/constants/database';
+import { getAdminDb } from '@/lib/firebase/admin';
+import {
+  matchesExpectedPayment,
+  verifyFlutterwaveTransaction,
+} from '@/lib/server/flutterwave';
+import { completeOrderPayment, failOrderPayment } from '@/lib/server/orderPayment';
+import { sendOrderReceipt } from '@/lib/server/orderEmail';
+import { completeMembershipPayment } from '@/lib/server/membershipPayment';
+import { Timestamp } from 'firebase-admin/firestore';
 
-/**
- * Flutterwave Webhook Handler
- * Handles payment confirmations from Flutterwave
- * 
- * Called by Flutterwave after payment is completed/failed
- * See: https://developer.flutterwave.com/docs/webhooks/
- */
+function safeEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return (
+    leftBuffer.length === rightBuffer.length &&
+    timingSafeEqual(leftBuffer, rightBuffer)
+  );
+}
+
+function hasValidSignature(
+  request: NextRequest,
+  rawBody: string,
+  secretHash: string
+): boolean {
+  const currentSignature = request.headers.get('flutterwave-signature');
+  if (currentSignature) {
+    const expected = createHmac('sha256', secretHash)
+      .update(rawBody)
+      .digest('base64');
+    if (safeEqual(currentSignature, expected)) return true;
+  }
+
+  const legacySignature =
+    request.headers.get('verif-hash') ||
+    request.headers.get('verificationhash');
+  return Boolean(legacySignature && safeEqual(legacySignature, secretHash));
+}
+
 export async function POST(request: NextRequest) {
+  const secretHash =
+    process.env.FLUTTERWAVE_WEBHOOK_SECRET || process.env.FLW_SECRET_HASH;
+  if (!secretHash) {
+    console.error('Flutterwave webhook secret is not configured.');
+    return NextResponse.json({ success: false }, { status: 503 });
+  }
+
+  const rawBody = await request.text();
+  if (!hasValidSignature(request, rawBody, secretHash)) {
+    return NextResponse.json({ success: false }, { status: 401 });
+  }
+
   try {
-    const signature = request.headers.get('verificationhash');
-    const body = await request.json();
-
-    // 1. VERIFY WEBHOOK SIGNATURE
-    if (!signature) {
-      console.error('Missing webhook signature');
-      return NextResponse.json(
-        { success: false, message: 'Missing signature' },
-        { status: 401 }
-      );
+    const payload = JSON.parse(rawBody);
+    if (payload?.event !== 'charge.completed' || !payload?.data) {
+      return NextResponse.json({ success: true });
     }
 
-    const flutterwaveSecretHash = process.env.FLUTTERWAVE_WEBHOOK_SECRET;
-    if (!flutterwaveSecretHash) {
-      console.error('Flutterwave webhook secret not configured');
-      return NextResponse.json(
-        { success: false, message: 'Server configuration error' },
-        { status: 500 }
-      );
+    const eventPayment = payload.data;
+    const transactionRef = String(eventPayment.tx_ref || '');
+    if (!transactionRef) {
+      return NextResponse.json({ success: false }, { status: 400 });
     }
 
-    // Verify signature using crypto
-    const crypto = require('crypto');
-    const hash = crypto.createHmac('sha256', flutterwaveSecretHash);
-    hash.update(JSON.stringify(body));
-    const expectedSignature = hash.digest('hex');
-
-    if (signature !== expectedSignature) {
-      console.error('Invalid webhook signature');
-      return NextResponse.json(
-        { success: false, message: 'Invalid signature' },
-        { status: 401 }
-      );
+    const db = getAdminDb();
+    const expectedSnapshot = await db
+      .collection('transactions')
+      .doc(transactionRef)
+      .get();
+    if (!expectedSnapshot.exists) {
+      return NextResponse.json({ success: false }, { status: 404 });
     }
+    const expected = expectedSnapshot.data() || {};
 
-    // 2. PROCESS WEBHOOK EVENT
-    const event = body.event;
-    const data = body.data;
-
-    console.log(`[Flutterwave Webhook] Event: ${event}`, {
-      txRef: data.tx_ref,
-      transactionId: data.id,
-      status: data.status,
-      amount: data.amount,
-    });
-
-    // Only process charge.completed events
-    if (event === 'charge.completed') {
-      // Extract order ID from tx_ref (format: TXN-{timestamp}-{random}-{orderId})
-      const txRef = data.tx_ref;
-      const transactionId = data.id;
-      const transactionStatus = data.status; // 'successful', 'pending', 'failed'
-
-      // 3. UPDATE TRANSACTION RECORD
-      const transactionRef = doc(db!, COLLECTIONS.TRANSACTIONS, txRef);
-      const transactionDoc = await getDoc(transactionRef);
-
-      if (!transactionDoc.exists()) {
-        console.warn(`Transaction not found: ${txRef}`);
-        return NextResponse.json(
-          { success: false, message: 'Transaction not found' },
-          { status: 404 }
-        );
+    if (eventPayment.status === 'successful') {
+      const verified = await verifyFlutterwaveTransaction(eventPayment.id);
+      if (
+        !matchesExpectedPayment(verified, {
+          reference: transactionRef,
+          amount: Number(expected.amount),
+          currency: String(expected.currency || 'NGN'),
+        })
+      ) {
+        return NextResponse.json({ success: false }, { status: 409 });
       }
 
-      const transaction = transactionDoc.data();
-      const orderId = transaction.orderId;
-
-      // Update transaction status
-      await updateDoc(transactionRef, {
-        status:
-          transactionStatus === 'successful'
-            ? TRANSACTION_STATUS.COMPLETED
-            : TRANSACTION_STATUS.FAILED,
-        flutterwaveTransactionId: transactionId,
-        flutterwaveStatus: transactionStatus,
-        updatedAt: new Date(),
-      });
-
-      // 4. UPDATE ORDER PAYMENT STATUS
-      if (orderId && transactionStatus === 'successful') {
-        const orderRef = doc(db!, COLLECTIONS.ORDERS, orderId);
-        const orderDoc = await getDoc(orderRef);
-
-        if (orderDoc.exists()) {
-          await updateDoc(orderRef, {
-            paymentStatus: 'completed',
-            transactionRef: txRef,
-            updatedAt: new Date(),
-            // Change order status from pending to confirmed
-            status: 'confirmed',
-          });
-
-          // Send confirmation email (implemented later)
-          // await sendOrderConfirmationEmail(orderId);
-
-          console.log(`✅ Order ${orderId} payment confirmed and status updated to 'confirmed'`);
+      if (expected.type === 'membership_activation') {
+        await completeMembershipPayment({
+          reference: transactionRef,
+          providerTransactionId: verified.id,
+          providerStatus: verified.status,
+        });
+      } else {
+        const completion = await completeOrderPayment({
+          transactionRef,
+          providerTransactionId: verified.id,
+          providerStatus: verified.status,
+        });
+        if (!completion.alreadyCompleted) {
+          await sendOrderReceipt(completion.orderId);
         }
-      } else if (transactionStatus === 'failed') {
-        // Update order to payment failed
-        const orderRef = doc(db!, COLLECTIONS.ORDERS, orderId);
-        const orderDoc = await getDoc(orderRef);
-
-        if (orderDoc.exists()) {
-          await updateDoc(orderRef, {
-            paymentStatus: 'failed',
-            transactionRef: txRef,
-            failureReason: data.processor_response || 'Payment failed',
-            updatedAt: new Date(),
-          });
-
-          console.log(`❌ Order ${orderId} payment failed`);
-        }
+      }
+    } else if (eventPayment.status === 'failed') {
+      if (expected.type === 'membership_activation') {
+        await expectedSnapshot.ref.update({
+          status: 'failed',
+          providerTransactionId: String(eventPayment.id || ''),
+          failureReason: eventPayment.processor_response || 'Payment failed',
+          updatedAt: Timestamp.now(),
+        });
+      } else {
+        await failOrderPayment({
+          transactionRef,
+          providerTransactionId: eventPayment.id,
+          reason: eventPayment.processor_response || 'Payment failed',
+        });
       }
     }
 
-    // Acknowledge receipt of webhook (keep response simple)
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Webhook processed',
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('[Flutterwave Webhook Error]', {
-      message: error.message,
-      stack: error.stack,
-    });
-
-    // Still return 200 to prevent Flutterwave from retrying
-    return NextResponse.json(
-      {
-        success: false,
-        message: error.message,
-      },
-      { status: 200 } // Flutterwave expects 200 even on error to stop retries
-    );
+    console.error('Flutterwave webhook processing failed:', error?.message);
+    return NextResponse.json({ success: false }, { status: 500 });
   }
 }
 
-/**
- * GET handler for webhook verification
- * Flutterwave sends a GET request to verify endpoint is active
- */
 export async function GET() {
-  return NextResponse.json(
-    {
-      status: 'active',
-      message: 'Flutterwave webhook endpoint is ready',
-    },
-    { status: 200 }
-  );
+  return NextResponse.json({ status: 'active' });
 }

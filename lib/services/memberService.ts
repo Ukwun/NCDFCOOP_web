@@ -5,7 +5,8 @@
 
 import { doc, getDoc, setDoc, updateDoc, Timestamp, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { COLLECTIONS, MEMBER_TIERS, TRANSACTION_TYPES, TRANSACTION_STATUS } from '@/lib/constants/database';
+import { COLLECTIONS, TRANSACTION_TYPES, TRANSACTION_STATUS } from '@/lib/constants/database';
+import { membershipTierForSpend } from '@/lib/membership/tiers';
 
 export interface MemberData {
   userId: string;
@@ -50,16 +51,8 @@ export async function updateMemberTier(userId: string): Promise<void> {
     const memberData = await getMemberData(userId);
     if (!memberData) return;
 
-    let newTier: 'bronze' | 'silver' | 'gold' | 'platinum' = MEMBER_TIERS.BRONZE;
     const totalSpent = memberData.totalPurchases;
-
-    if (totalSpent >= 1000000) {
-      newTier = MEMBER_TIERS.PLATINUM;
-    } else if (totalSpent >= 500000) {
-      newTier = MEMBER_TIERS.GOLD;
-    } else if (totalSpent >= 200000) {
-      newTier = MEMBER_TIERS.SILVER;
-    }
+    const newTier = membershipTierForSpend(totalSpent).id;
 
     if (newTier !== memberData.tier) {
       const docRef = doc(db, COLLECTIONS.MEMBERS, userId);

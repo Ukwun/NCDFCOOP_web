@@ -18,6 +18,7 @@ import { Product } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { USER_ROLES } from '@/lib/constants/database';
 import { ownershipBadgeClasses, ownershipLabel, resolveProductOwnership } from '@/lib/utils/productOwnership';
+import { applyMemberDiscount } from '@/lib/membership/tiers';
 
 const REVIEW_SNIPPETS = [
   {
@@ -44,7 +45,7 @@ function formatMoney(value: number | undefined): string {
   return `₦${(value || 0).toLocaleString()}`;
 }
 
-function getEffectivePrice(product: Product, currentRole?: string): number {
+function getBaseEffectivePrice(product: Product, currentRole?: string): number {
   if (
     currentRole === USER_ROLES.INSTITUTIONAL_BUYER ||
     currentRole === 'wholesale_buyer'
@@ -88,7 +89,7 @@ function getImageForIndex(product: Product | null, index: number): string {
 }
 
 function hasValidPrice(product: Product, currentRole?: string): boolean {
-  return getEffectivePrice(product, currentRole) > 0;
+  return getBaseEffectivePrice(product, currentRole) > 0;
 }
 
 function getProductSearchTerms(product: Product): string[] {
@@ -133,6 +134,12 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
   const { user, currentRole } = useAuth();
+  const getEffectivePrice = (targetProduct: Product, role?: string) => {
+    const basePrice = getBaseEffectivePrice(targetProduct, role);
+    return role === USER_ROLES.MEMBER && user?.membershipStatus === 'active'
+      ? applyMemberDiscount(basePrice, user.memberTier)
+      : basePrice;
+  };
   const { isFavorited, toggleFavorite } = useFavorites({ userId: user?.uid || '', autoFetch: true });
   const productId = params?.id as string;
 

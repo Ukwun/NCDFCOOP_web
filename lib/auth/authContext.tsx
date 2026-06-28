@@ -104,10 +104,10 @@ function clearLocalOnboardingCompleted(): void {
   window.localStorage.removeItem(LOCAL_ONBOARDING_KEY);
 }
 
-function getRoleOverrideFromStorage(validRoles: string[]): string | null {
+function getRoleOverrideFromStorage(activeRoles: string[]): string | null {
   if (typeof window === 'undefined') return null;
   const overrideRole = sanitizeRoleInput(window.localStorage.getItem(LOCAL_ROLE_OVERRIDE_KEY) || undefined);
-  return overrideRole && validRoles.includes(overrideRole) ? overrideRole : null;
+  return overrideRole && activeRoles.includes(overrideRole) ? overrideRole : null;
 }
 
 function resolveSignupInputs(nameOrMembershipType?: string, membershipTypeMaybe?: string) {
@@ -185,11 +185,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = userDoc.data();
 
         if (userData) {
-          const selectedRole = getRoleOverrideFromStorage(validRoles)
-            || normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
-          const roles = Array.from(new Set([...(Array.isArray(userData.roles)
+          const roles = Array.from(new Set(Array.isArray(userData.roles)
             ? userData.roles.map(sanitizeRoleInput).filter(Boolean)
-            : [USER_ROLES.MEMBER]), selectedRole]));
+            : [USER_ROLES.MEMBER])) as string[];
+          const storedRole = normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
+          const selectedRole = getRoleOverrideFromStorage(roles)
+            || (roles.includes(storedRole) ? storedRole : roles[0] || USER_ROLES.MEMBER);
           const localOnboarding = getLocalOnboardingCompleted();
           const onboardingFromStorage = userData.onboardingCompleted || localOnboarding;
           const authUser: AuthUser = {
@@ -233,7 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             membershipType: selectedRole,
             roleSelectionComplete: false,
             onboardingCompleted: localOnboarding,
-            membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'active' : 'inactive',
+            membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'pending' : 'inactive',
             memberTier: MEMBER_TIERS.BRONZE,
             createdAt: Timestamp.now(),
             updatedAt: Timestamp.now(),
@@ -248,7 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             roles: [selectedRole],
             selectedRole,
             currentRole: selectedRole,
-            membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'active' : 'inactive',
+            membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'pending' : 'inactive',
             roleSelectionComplete: false,
             onboardingCompleted: false,
             memberTier: MEMBER_TIERS.BRONZE,
@@ -291,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         membershipType,
         roleSelectionComplete: false,
         onboardingCompleted: false,
+        membershipStatus: membershipType === USER_ROLES.MEMBER ? 'pending' : 'inactive',
         memberTier: MEMBER_TIERS.BRONZE,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -308,6 +310,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         totalPurchases: 0,
         referralCode: generateReferralCode(),
         isVerified: false,
+        isActive: false,
         kycStatus: 'pending',
       });
 
@@ -316,7 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...userCredential.user,
         roles: [membershipType],
         selectedRole: membershipType,
-        membershipStatus: membershipType === USER_ROLES.MEMBER ? 'active' : 'inactive',
+        membershipStatus: membershipType === USER_ROLES.MEMBER ? 'pending' : 'inactive',
         roleSelectionComplete: false,
         onboardingCompleted: localOnboarding,
         memberTier: MEMBER_TIERS.BRONZE,
@@ -653,24 +656,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         mode: 'switch',
       });
     } catch (err: any) {
-      const errorCode = String(err?.code || '');
-      const canFallbackToLocalRole =
-        errorCode === 'permission-denied' ||
-        errorCode === 'unavailable' ||
-        errorCode === 'auth/network-request-failed' ||
-        errorCode.includes('permission');
-
-      if (canFallbackToLocalRole) {
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem('selectedRoleOverride', normalizedRole);
-        }
-
-        const existingRoles = user.roles || [];
-        setCurrentRole(normalizedRole);
-        setUser({ ...user, selectedRole: normalizedRole, roles: Array.from(new Set([...existingRoles, normalizedRole])) });
-        return;
-      }
-
       setError(err?.message || 'Failed to switch role');
       throw err;
     }
@@ -686,10 +671,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = userDoc.data();
       if (!userData) return;
 
-      const validRoles = Object.values(USER_ROLES) as string[];
-      const selectedRole = getRoleOverrideFromStorage(validRoles)
-        || normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
-      const roles = Array.from(new Set([...(userData.roles || [USER_ROLES.MEMBER]), selectedRole]));
+      const roles = Array.from(
+        new Set(
+          (Array.isArray(userData.roles) ? userData.roles : [USER_ROLES.MEMBER])
+            .map(sanitizeRoleInput)
+            .filter(Boolean)
+        )
+      ) as string[];
+      const storedRole = normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
+      const selectedRole = getRoleOverrideFromStorage(roles)
+        || (roles.includes(storedRole) ? storedRole : roles[0] || USER_ROLES.MEMBER);
       const refreshedUser: AuthUser = {
         ...auth.currentUser,
         roles,

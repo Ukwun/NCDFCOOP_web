@@ -15,6 +15,7 @@ import {
   resolveProductOwnership,
 } from '@/lib/utils/productOwnership';
 import { addToCart } from '@/lib/services/cartService';
+import { applyMemberDiscount, getMembershipTier } from '@/lib/membership/tiers';
 
 interface ProductCardProps {
   product: Product;
@@ -55,9 +56,16 @@ export default function ProductCard({
   // Intelligence: Determine if viewing as a wholesale buyer
   const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER || currentRole === 'wholesale_buyer';
   const showWholesaleInfo = isWholesaleBuyer && (product.type === 'wholesale' || product.type === 'both');
+  const isActiveMember =
+    currentRole === USER_ROLES.MEMBER && user?.membershipStatus === 'active';
+  const memberTier = getMembershipTier(user?.memberTier);
   
   // Logic: Use wholesale price if applicable
-  const displayPrice = showWholesaleInfo && product.wholesalePrice ? product.wholesalePrice : cartPrice;
+  const displayPrice = showWholesaleInfo && product.wholesalePrice
+    ? product.wholesalePrice
+    : isActiveMember
+      ? applyMemberDiscount(cartPrice, memberTier.id)
+      : cartPrice;
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -264,6 +272,11 @@ export default function ProductCard({
             </div>
             {showWholesaleInfo && (
               <span className="text-[10px] text-blue-600 font-bold uppercase">Institutional Bulk Rate</span>
+            )}
+            {isActiveMember && !showWholesaleInfo && (
+              <span className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400">
+                {memberTier.name} member price · {memberTier.discountPercentage}% off
+              </span>
             )}
           </div>
           {discountValue > 0 && (

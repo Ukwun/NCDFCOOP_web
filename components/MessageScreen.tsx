@@ -27,41 +27,7 @@ export default function MessageScreen() {
       } catch (err) {
         console.error('Error fetching conversations:', err);
         setError('Failed to load conversations');
-        // Fallback to mock data
-        setConversations([
-          {
-            id: '1',
-            participants: [user?.uid || ''],
-            lastMessage: 'Your order has been shipped!',
-            lastMessageTime: { toDate: () => new Date(Date.now() - 2 * 60 * 1000) } as any,
-            unreadCount: 2,
-            isArchived: false,
-          },
-          {
-            id: '2',
-            participants: [user?.uid || ''],
-            lastMessage: 'How can we help you today?',
-            lastMessageTime: { toDate: () => new Date(Date.now() - 60 * 60 * 1000) } as any,
-            unreadCount: 0,
-            isArchived: false,
-          },
-          {
-            id: '3',
-            participants: [user?.uid || ''],
-            lastMessage: 'Thank you for your purchase',
-            lastMessageTime: { toDate: () => new Date(Date.now() - 5 * 60 * 60 * 1000) } as any,
-            unreadCount: 0,
-            isArchived: false,
-          },
-          {
-            id: '4',
-            participants: [user?.uid || ''],
-            lastMessage: 'Do you have more of this product?',
-            lastMessageTime: { toDate: () => new Date(Date.now() - 24 * 60 * 60 * 1000) } as any,
-            unreadCount: 1,
-            isArchived: false,
-          },
-        ]);
+        setConversations([]);
       } finally {
         setLoading(false);
       }

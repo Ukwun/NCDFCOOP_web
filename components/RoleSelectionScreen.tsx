@@ -5,10 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { Building2, CheckCircle2, Loader2, Store, UserRound, type LucideIcon } from 'lucide-react';
 
 interface RoleOption {
   id: string;
-  icon: string;
+  Icon: LucideIcon;
   title: string;
   description: string;
   color: string;
@@ -18,8 +19,8 @@ interface RoleOption {
 const ROLE_OPTIONS: RoleOption[] = [
   {
     id: USER_ROLES.MEMBER,
-    icon: '👤',
-    title: '👤 Member',
+    Icon: UserRound,
+    title: 'Member',
     description: 'Access discounts and loyalty rewards',
     color: AppColors.roles.member,
     benefits: [
@@ -31,8 +32,8 @@ const ROLE_OPTIONS: RoleOption[] = [
   },
   {
     id: USER_ROLES.INSTITUTIONAL_BUYER,
-    icon: '🛒',
-    title: '🛒 Wholesale Buyer',
+    Icon: Building2,
+    title: 'Wholesale Buyer',
     description: 'Bulk buying with wholesale pricing',
     color: AppColors.roles.wholesaleBuyer,
     benefits: [
@@ -45,8 +46,8 @@ const ROLE_OPTIONS: RoleOption[] = [
   },
   {
     id: USER_ROLES.SELLER,
-    icon: '🚀',
-    title: '🚀 Start Selling',
+    Icon: Store,
+    title: 'Start Selling',
     description: 'Sell to members and wholesalers',
     color: AppColors.roles.seller,
     benefits: [
@@ -192,27 +193,20 @@ export default function RoleSelectionScreen() {
         }}
       >
         {ROLE_OPTIONS.map((role) => (
-          <div
+          <button
+            type="button"
             key={role.id}
             onClick={() => handleSelectRole(role.id)}
+            disabled={isLoading}
+            aria-pressed={selectedRole === role.id}
+            className="text-left outline-none transition duration-200 hover:-translate-y-1 hover:shadow-lg focus:ring-2 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none"
             style={{
               padding: AppSpacing.lg,
               borderRadius: AppSpacing.md,
               border: `2px solid ${selectedRole === role.id ? role.color : 'transparent'}`,
               backgroundColor: selectedRole === role.id ? `${role.color}15` : AppColors.surface,
-              cursor: 'pointer',
-              transition: 'all 200ms ease-out',
+              cursor: isLoading ? 'wait' : 'pointer',
               boxShadow: selectedRole === role.id ? `0 0 0 3px ${role.color}30` : 'none',
-            }}
-            onMouseEnter={(e: any) => {
-              if (selectedRole !== role.id) {
-                e.currentTarget.style.boxShadow = `0 4px 12px ${role.color}40`;
-              }
-            }}
-            onMouseLeave={(e: any) => {
-              if (selectedRole !== role.id) {
-                e.currentTarget.style.boxShadow = 'none';
-              }
             }}
           >
             {/* Icon and Radio */}
@@ -224,24 +218,13 @@ export default function RoleSelectionScreen() {
                 marginBottom: AppSpacing.md,
               }}
             >
-              <div style={{ fontSize: '2.5rem' }}>{role.icon}</div>
+              <role.Icon size={34} color={role.color} aria-hidden="true" />
               {selectedRole === role.id && (
-                <div
-                  style={{
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: role.color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  ✓
-                </div>
+                isLoading ? (
+                  <Loader2 size={20} className="animate-spin" color={role.color} aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 size={20} color={role.color} aria-hidden="true" />
+                )
               )}
             </div>
 
@@ -279,7 +262,7 @@ export default function RoleSelectionScreen() {
                     color: AppColors.textSecondary,
                   }}
                 >
-                  <span style={{ color: role.color }}>✓</span>
+                  <CheckCircle2 size={15} color={role.color} aria-hidden="true" />
                   <span>{benefit}</span>
                 </div>
               ))}
@@ -301,7 +284,7 @@ export default function RoleSelectionScreen() {
                 {isLoading ? 'Selecting...' : 'Selected'}
               </div>
             )}
-          </div>
+          </button>
         ))}
       </div>
     </div>

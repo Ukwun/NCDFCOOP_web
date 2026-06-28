@@ -1,167 +1,106 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { COLLECTIONS, TRANSACTION_STATUS } from '@/lib/constants/database';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { verifyRequestUser } from '@/lib/server/requestAuth';
+import {
+  matchesExpectedPayment,
+  verifyFlutterwaveTransaction,
+} from '@/lib/server/flutterwave';
+import { completeOrderPayment } from '@/lib/server/orderPayment';
+import { sendOrderReceipt } from '@/lib/server/orderEmail';
 
-/**
- * Verify Flutterwave Payment
- * Server-side payment verification using Flutterwave API
- * Called by client after payment completes, before webhook arrives
- */
 export async function POST(request: NextRequest) {
   try {
+    const user = await verifyRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
+
     const { transactionId, orderId } = await request.json();
-
-    if (!transactionId) {
+    if (!transactionId || !orderId) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Transaction ID is required',
-        },
+        { success: false, message: 'Transaction and order are required.' },
         { status: 400 }
       );
     }
 
-    const flutterwaveSecretKey = process.env.FLUTTERWAVE_SECRET_KEY;
-    if (!flutterwaveSecretKey) {
-      console.error('Flutterwave secret key not configured');
+    const db = getAdminDb();
+    const orderSnapshot = await db.collection('orders').doc(String(orderId)).get();
+    if (!orderSnapshot.exists) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Server configuration error',
-        },
-        { status: 500 }
+        { success: false, message: 'Order not found.' },
+        { status: 404 }
       );
     }
 
-    // 1. VERIFY WITH FLUTTERWAVE API
-    console.log(`Verifying Flutterwave transaction: ${transactionId}`);
+    const order = orderSnapshot.data() || {};
+    if (order.userId !== user.uid && order.buyerId !== user.uid) {
+      return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
+    }
 
-    const verifyResponse = await fetch(
-      `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${flutterwaveSecretKey}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!verifyResponse.ok) {
-      console.error(`Flutterwave API error: ${verifyResponse.status}`);
+    const transactionRef = String(order.transactionRef || '');
+    const paymentSnapshot = await db.collection('transactions').doc(transactionRef).get();
+    const expectedPayment = paymentSnapshot.data();
+    if (
+      !transactionRef ||
+      !paymentSnapshot.exists ||
+      expectedPayment?.userId !== user.uid ||
+      String(expectedPayment?.orderId || '') !== String(orderId)
+    ) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Failed to verify payment with Flutterwave',
-        },
-        { status: verifyResponse.status }
+        { success: false, message: 'Payment intent not found.' },
+        { status: 409 }
       );
     }
 
-    const verificationData = await verifyResponse.json();
-
-    if (verificationData.status !== 'success') {
-      console.warn('Payment verification failed:', verificationData);
+    const payment = await verifyFlutterwaveTransaction(transactionId);
+    if (
+      !matchesExpectedPayment(payment, {
+        reference: transactionRef,
+        amount: Number(expectedPayment.amount),
+        currency: String(expectedPayment.currency || 'NGN'),
+      })
+    ) {
       return NextResponse.json(
-        {
-          success: false,
-          message: 'Payment could not be verified',
-          data: verificationData,
-        },
-        { status: 400 }
+        { success: false, message: 'Payment details did not match this order.' },
+        { status: 409 }
       );
     }
 
-    const paymentData = verificationData.data;
-
-    // 2. VERIFY TRANSACTION DETAILS
-    if (!paymentData || paymentData.status !== 'successful') {
-      console.warn('Payment status is not successful', paymentData?.status);
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Payment was not successful',
-        },
-        { status: 400 }
-      );
-    }
-
-    // 3. UPDATE ORDER AND TRANSACTION RECORDS
-    // Find transaction by tx_ref
-    const txRef = paymentData.tx_ref;
-
-    if (txRef && orderId) {
-      try {
-        // Update transaction record
-        const transactionRef = doc(db!, COLLECTIONS.TRANSACTIONS, txRef);
-        const transactionDoc = await getDoc(transactionRef);
-
-        if (transactionDoc.exists()) {
-          await updateDoc(transactionRef, {
-            status: TRANSACTION_STATUS.COMPLETED,
-            flutterwaveTransactionId: transactionId,
-            flutterwaveStatus: paymentData.status,
-            updatedAt: new Date(),
-          });
-        }
-
-        // Update order record
-        const orderRef = doc(db!, COLLECTIONS.ORDERS, orderId);
-        const orderDoc = await getDoc(orderRef);
-
-        if (orderDoc.exists()) {
-          await updateDoc(orderRef, {
-            paymentStatus: 'completed',
-            transactionRef: txRef,
-            updatedAt: new Date(),
-            status: 'confirmed',
-          });
-
-          console.log(`✅ Order ${orderId} payment verified and confirmed`);
-        }
-      } catch (error) {
-        console.error('Error updating Firebase records:', error);
-        // Don't fail response - payment is verified even if DB update fails
-      }
-    }
-
-    // 4. RETURN SUCCESS RESPONSE
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Payment verified successfully',
-        data: {
-          transactionId: paymentData.id,
-          reference: paymentData.tx_ref,
-          amount: paymentData.amount,
-          currency: paymentData.currency,
-          status: paymentData.status,
-          paymentType: paymentData.payment_type,
-          customer: {
-            id: paymentData.customer.id,
-            email: paymentData.customer.email,
-            name: paymentData.customer.name,
-            phone: paymentData.customer.phone_number,
-          },
-          chargeResponse: paymentData.processor_response,
-          verifiedAt: new Date().toISOString(),
-        },
-      },
-      { status: 200 }
-    );
-  } catch (error: any) {
-    console.error('Payment verification error:', {
-      message: error.message,
-      stack: error.stack,
+    const completion = await completeOrderPayment({
+      transactionRef,
+      providerTransactionId: payment.id,
+      providerStatus: payment.status,
     });
+    if (!completion.alreadyCompleted) {
+      await sendOrderReceipt(completion.orderId);
+    }
 
+    return NextResponse.json({
+      success: true,
+      message: completion.alreadyCompleted
+        ? 'Payment was already confirmed.'
+        : 'Payment verified successfully.',
+      data: {
+        transactionId: payment.id,
+        reference: payment.tx_ref,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        paymentType: payment.payment_type,
+        verifiedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error: any) {
+    const configurationError = error?.message === 'FLUTTERWAVE_NOT_CONFIGURED';
+    console.error('Payment verification failed:', error?.message);
     return NextResponse.json(
       {
         success: false,
-        message: error.message || 'Payment verification failed',
+        message: configurationError
+          ? 'Payment verification is temporarily unavailable.'
+          : 'We could not verify this payment. Please contact support if you were charged.',
       },
-      { status: 500 }
+      { status: configurationError ? 503 : 502 }
     );
   }
 }

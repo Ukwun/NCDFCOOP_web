@@ -13,10 +13,10 @@ export default function MembershipPage() {
       emoji: '🥉',
       color: '#8B6914',
       minSpend: '₦0',
-      maxSpend: '₦99,999',
+      maxSpend: '₦199,999',
       benefits: [
         'Member discount: 5%',
-        'Basic rewards (1pt = ₦1 spent)',
+        'Rewards: 1 point per ₦100 paid',
         'Monthly newsletter',
         'Access to community events',
         'Priority customer support',
@@ -31,11 +31,11 @@ export default function MembershipPage() {
       name: 'Silver',
       emoji: '🥈',
       color: '#A9A9A9',
-      minSpend: '₦100,000',
+      minSpend: '₦200,000',
       maxSpend: '₦499,999',
       benefits: [
         'Member discount: 10%',
-        'Double rewards (2pts = ₦1 spent)',
+        'Double rewards: 2 points per ₦100 paid',
         'Exclusive deals every week',
         'Free shipping on orders > ₦5,000',
         '24/7 member support line',
@@ -51,10 +51,10 @@ export default function MembershipPage() {
       emoji: '🥇',
       color: '#C9A227',
       minSpend: '₦500,000',
-      maxSpend: '₦1,999,999',
+      maxSpend: '₦999,999',
       benefits: [
         'Member discount: 15%',
-        'Triple rewards (3pts = ₦1 spent)',
+        'Triple rewards: 3 points per ₦100 paid',
         'Weekly exclusive member deals',
         'Free shipping on all orders',
         'Dedicated account manager',
@@ -70,11 +70,11 @@ export default function MembershipPage() {
       name: 'Platinum',
       emoji: '💎',
       color: '#9D4EDD',
-      minSpend: '₦2,000,000+',
+      minSpend: '₦1,000,000+',
       maxSpend: 'Unlimited',
       benefits: [
         'Member discount: 20%',
-        'Quad rewards (4pts = ₦1 spent)',
+        'Quad rewards: 4 points per ₦100 paid',
         'Daily exclusive deals',
         'Free shipping worldwide',
         'VIP concierge service',
@@ -205,7 +205,7 @@ export default function MembershipPage() {
             {[
               {
                 q: 'How much does it cost to become a member?',
-                a: 'Membership is FREE! You only pay for the products and services you use. We take a small commission on certain services to support operations.',
+                a: 'Membership activation is a one-time ₦5,000 payment. Your benefits activate only after the payment is verified by our server.',
               },
               {
                 q: 'Can I change my membership type later?',
@@ -213,7 +213,7 @@ export default function MembershipPage() {
               },
               {
                 q: 'How are rewards points calculated?',
-                a: 'Points vary by tier: Bronze (1pt = ₦1), Silver (2pts), Gold (3pts), Platinum (4pts). You earn points on every purchase and can redeem them for discounts or products.',
+                a: 'Points are awarded on completed payments per ₦100 spent: Bronze (1), Silver (2), Gold (3), and Platinum (4).',
               },
               {
                 q: 'What if I don\'t meet the spending requirement for my tier?',

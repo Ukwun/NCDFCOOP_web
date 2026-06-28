@@ -15,8 +15,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db } from '@/lib/firebase/config';
-import { storage } from '@/lib/firebase/config';
+import { auth, db, storage } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 
 export interface BankTransferPayment {
@@ -134,6 +133,10 @@ export async function uploadBankTransferProof(
   message: string;
 }> {
   try {
+    if (!auth?.currentUser) {
+      return { success: false, message: 'Sign in to upload payment proof.' };
+    }
+
     // Validate file
     const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
     if (!allowedMimes.includes(file.type)) {
@@ -152,7 +155,7 @@ export async function uploadBankTransferProof(
     }
 
     // Upload to Firebase Storage
-    const uploadPath = `bank-transfer-proofs/${paymentId}/${file.name}`;
+    const uploadPath = `bank-transfer-proofs/${auth.currentUser.uid}/${paymentId}/${file.name}`;
     const fileRef = ref(storage, uploadPath);
     
     // Upload file

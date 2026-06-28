@@ -10,6 +10,43 @@ function getPrivateKey(): string | undefined {
   return fromEnv.replace(/\\n/g, '\n');
 }
 
+interface ServiceAccountShape {
+  project_id?: string;
+  projectId?: string;
+  client_email?: string;
+  clientEmail?: string;
+  private_key?: string;
+  privateKey?: string;
+}
+
+function parseServiceAccount(value?: string): ServiceAccountShape | null {
+  if (!value) return null;
+
+  const candidates = [value];
+  try {
+    candidates.push(Buffer.from(value, 'base64').toString('utf8'));
+  } catch {
+    // The raw JSON candidate can still be valid.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as ServiceAccountShape;
+      if (
+        (parsed.project_id || parsed.projectId) &&
+        (parsed.client_email || parsed.clientEmail) &&
+        (parsed.private_key || parsed.privateKey)
+      ) {
+        return parsed;
+      }
+    } catch {
+      // Try the next supported representation.
+    }
+  }
+
+  return null;
+}
+
 export function getAdminApp(): App {
   if (adminApp) return adminApp;
 
@@ -19,9 +56,24 @@ export function getAdminApp(): App {
     return adminApp;
   }
 
-  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  const privateKey = getPrivateKey();
+  const serviceAccount = parseServiceAccount(
+    process.env.FIREBASE_SERVICE_ACCOUNT ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
+  );
+  const projectId =
+    serviceAccount?.project_id ||
+    serviceAccount?.projectId ||
+    process.env.FIREBASE_ADMIN_PROJECT_ID ||
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const clientEmail =
+    serviceAccount?.client_email ||
+    serviceAccount?.clientEmail ||
+    process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKey = (
+    serviceAccount?.private_key ||
+    serviceAccount?.privateKey ||
+    getPrivateKey()
+  )?.replace(/\\n/g, '\n');
 
   if (projectId && clientEmail && privateKey) {
     adminApp = initializeApp({

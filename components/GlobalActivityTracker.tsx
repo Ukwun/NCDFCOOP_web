@@ -24,6 +24,16 @@ export default function GlobalActivityTracker() {
   const searchParams = useSearchParams();
   const { user, currentRole } = useAuth();
   const lastPageRef = useRef('');
+  const sessionRef = useRef('');
+
+  useEffect(() => {
+    if (!sessionRef.current) {
+      sessionRef.current =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+  }, []);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -40,11 +50,10 @@ export default function GlobalActivityTracker() {
         page,
         pageTitle: document.title,
         referrer: document.referrer || undefined,
+        sessionId: sessionRef.current,
       },
       {
         userRole: currentRole || undefined,
-        userEmail: user.email || undefined,
-        userName: user.displayName || undefined,
       },
       {
         platform: navigator.platform,
@@ -70,11 +79,9 @@ export default function GlobalActivityTracker() {
       void logActivity(
         user.uid,
         detail.eventType,
-        detail.eventData || {},
+        { ...(detail.eventData || {}), sessionId: sessionRef.current },
         {
           userRole: currentRole || undefined,
-          userEmail: user.email || undefined,
-          userName: user.displayName || undefined,
         },
         {
           platform: navigator.platform,
@@ -87,6 +94,47 @@ export default function GlobalActivityTracker() {
     window.addEventListener(GLOBAL_ACTIVITY_EVENT, handleActivity);
     return () =>
       window.removeEventListener(GLOBAL_ACTIVITY_EVENT, handleActivity);
+  }, [currentRole, user]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const record = (eventType: string, eventData: Record<string, unknown>) => {
+      void logActivity(
+        user.uid,
+        eventType,
+        { ...eventData, sessionId: sessionRef.current, page: window.location.pathname },
+        { userRole: currentRole || undefined }
+      );
+    };
+    const handleError = (event: ErrorEvent) => {
+      record('page_error', {
+        message: event.message || 'Browser error',
+        source: event.filename || undefined,
+        line: event.lineno || undefined,
+      });
+    };
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      record('error', {
+        message:
+          event.reason instanceof Error
+            ? event.reason.message
+            : String(event.reason || 'Unhandled promise rejection'),
+      });
+    };
+    const handleOffline = () => record('network_error', { state: 'offline' });
+    const handlePageHide = () => record('page_exit', { page: window.location.pathname });
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, [currentRole, user]);
 
   return null;

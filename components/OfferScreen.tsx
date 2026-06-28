@@ -24,45 +24,7 @@ export default function OfferScreen() {
       } catch (err) {
         console.error('Error fetching offers:', err);
         setError('Failed to load offers. Please try again.');
-        // Fallback to mock data if Firebase is not configured
-        setOffers([
-          {
-            id: '1',
-            title: 'Fresh Vegetables Bundle',
-            description: 'Save ₦2,500 on fresh farm produce',
-            discount: 30,
-            status: 'active',
-            endDate: { toDate: () => new Date(Date.now() + 3 * 60 * 60 * 1000) } as any,
-            startDate: { toDate: () => new Date() } as any,
-          },
-          {
-            id: '2',
-            title: 'Premium Grains Package',
-            description: 'Bulk buy at wholesale rates',
-            discount: 25,
-            status: 'active',
-            endDate: { toDate: () => new Date(Date.now() + 5 * 60 * 60 * 1000) } as any,
-            startDate: { toDate: () => new Date() } as any,
-          },
-          {
-            id: '3',
-            title: 'Double Points Weekend',
-            description: 'Earn 2 points for every ₦1 spent',
-            discount: 100,
-            status: 'active',
-            endDate: { toDate: () => new Date(Date.now() + 48 * 60 * 60 * 1000) } as any,
-            startDate: { toDate: () => new Date() } as any,
-          },
-          {
-            id: '4',
-            title: 'Free Shipping ₦5000+',
-            description: 'No minimum order during member week',
-            discount: 0,
-            status: 'active',
-            endDate: { toDate: () => new Date(Date.now() + 24 * 60 * 60 * 1000) } as any,
-            startDate: { toDate: () => new Date() } as any,
-          },
-        ]);
+        setOffers([]);
       } finally {
         setLoading(false);
       }

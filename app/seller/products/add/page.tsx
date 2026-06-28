@@ -5,12 +5,11 @@ export const dynamic = 'force-dynamic';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 import { auth, db, storage } from '@/lib/firebase/config';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { USER_ROLES } from '@/lib/constants/database';
-import { COLLECTIONS } from '@/lib/constants/database';
 import { AppColors, AppTextStyles } from '@/lib/theme';
 import styles from './animations.module.css';
 
@@ -201,21 +200,13 @@ export default function AddProductPage() {
         }
 
         const json = await resp.json();
-        const successMsg = publish
-          ? `🎉 Product published successfully!\nProduct ID: ${json.id}`
-          : `💾 Product saved to draft!\nProduct ID: ${json.id}`;
+        const successMsg = `${json.message || 'Product saved successfully.'}\nProduct ID: ${json.id}`;
         alert(successMsg);
         router.push('/seller/products');
         return;
       } catch (apiErr) {
-        console.warn('Server-side product save failed, falling back to client Firestore write:', apiErr);
-        const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), sanitizedProduct as any);
-        const successMsg = publish
-          ? `🎉 Product published successfully!\nProduct ID: ${docRef.id}`
-          : `💾 Product saved to draft!\nProduct ID: ${docRef.id}`;
-        alert(successMsg);
-        router.push('/seller/products');
-        return;
+        console.error('Server-side product save failed:', apiErr);
+        throw apiErr;
       }
     } catch (err) {
       console.error('Error saving product:', err);

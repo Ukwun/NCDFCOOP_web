@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { auth } from "@/lib/firebase/config";
 
 const MEMBERSHIP_FEE = 5000;
 
@@ -19,13 +18,18 @@ function formatNaira(amount: number): string {
 }
 
 export default function MembershipPaymentPage() {
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [liveNow, setLiveNow] = useState<string>("--:--:--");
+  const [paymentIntent, setPaymentIntent] = useState<{
+    reference: string;
+    amount: number;
+    currency: string;
+  } | null>(null);
 
   useEffect(() => {
     const tick = () => {
@@ -44,9 +48,36 @@ export default function MembershipPaymentPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const txRef = useMemo(() => {
-    if (!user) return "";
-    return `NCDFCOOP_MEMBERSHIP_${user.uid}_${Date.now()}`;
+  useEffect(() => {
+    if (!user || !auth?.currentUser) return;
+
+    let cancelled = false;
+    const preparePayment = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const token = await auth.currentUser?.getIdToken();
+        const response = await fetch('/api/membership/intent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || 'Payment could not be prepared.');
+        if (!cancelled) setPaymentIntent(payload);
+      } catch (intentError: any) {
+        if (!cancelled) setError(intentError?.message || 'Payment could not be prepared.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void preparePayment();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   if (!user) {
@@ -91,24 +122,35 @@ export default function MembershipPaymentPage() {
   const flutterwavePublicKey =
     process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || process.env.NEXT_PUBLIC_FLUTTERWAVE_KEY;
 
-  const onPaymentSuccess = async () => {
+  const onPaymentSuccess = async (paymentResponse: any) => {
     setError("");
     setLoading(true);
 
     try {
-      await updateDoc(doc(db, "users", user.uid), {
-        role: "member",
-        membershipStatus: "active",
-        membershipTier: "Bronze",
-        membershipCode: `NCDF-${user.uid.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`,
-        membershipPaidAt: new Date().toISOString(),
+      const token = await auth?.currentUser?.getIdToken();
+      if (!token || !paymentIntent || !paymentResponse?.transaction_id) {
+        throw new Error('Payment verification details are incomplete.');
+      }
+      const response = await fetch('/api/membership/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          transactionId: paymentResponse.transaction_id,
+          reference: paymentIntent.reference,
+        }),
       });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || 'Membership verification failed.');
 
       setSuccess(true);
+      await refreshUserData();
       closePaymentModal();
-      router.push("/member/investments");
-    } catch {
-      setError("Payment was completed, but membership activation failed. Please contact support.");
+      router.push("/member-benefits");
+    } catch (paymentError: any) {
+      setError(paymentError?.message || "Payment was received, but verification is still pending. Contact support with your transaction reference.");
     } finally {
       setLoading(false);
     }
@@ -179,12 +221,20 @@ export default function MembershipPaymentPage() {
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
               Payment is temporarily unavailable because Flutterwave is not configured.
             </div>
+          ) : !paymentIntent ? (
+            <button
+              type="button"
+              disabled
+              className="mt-5 w-full rounded-lg bg-gray-300 px-4 py-3 text-sm font-semibold text-gray-600"
+            >
+              {loading ? 'Preparing secure payment...' : 'Payment unavailable'}
+            </button>
           ) : (
             <FlutterWaveButton
               public_key={flutterwavePublicKey}
-              tx_ref={txRef}
-              amount={MEMBERSHIP_FEE}
-              currency="NGN"
+              tx_ref={paymentIntent.reference}
+              amount={paymentIntent.amount}
+              currency={paymentIntent.currency}
               payment_options="card,ussd,banktransfer"
               customer={{
                 email: user.email || "",

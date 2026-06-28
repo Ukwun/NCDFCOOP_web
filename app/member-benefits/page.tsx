@@ -3,202 +3,194 @@
 export const dynamic = 'force-dynamic';
 
 import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  BadgePercent,
+  Check,
+  Gift,
+  Headphones,
+  ShoppingBag,
+  Sparkles,
+  Truck,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useMemberData } from '@/lib/hooks/useMemberData';
+import {
+  getMembershipTier,
+  MEMBERSHIP_TIERS,
+} from '@/lib/membership/tiers';
+
+function naira(amount: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 export default function MemberBenefitsPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const { data: memberData } = useMemberData(user?.uid || '');
+  const { user, loading: authLoading } = useAuth();
+  const { data, loading } = useMemberData(user?.uid || '');
+  const tier = getMembershipTier(data?.tier || user?.memberTier);
+  const active = user?.membershipStatus === 'active' && data?.isActive === true;
+  const tierIndex = MEMBERSHIP_TIERS.findIndex((item) => item.id === tier.id);
+  const nextTier = MEMBERSHIP_TIERS[tierIndex + 1];
+  const totalSpent = data?.totalSpent || 0;
+  const progress = nextTier
+    ? Math.min(100, Math.round((totalSpent / nextTier.minimumSpend) * 100))
+    : 100;
 
-  const currentTier = memberData?.tier.toUpperCase() || 'GOLD';
-
-  const tierBenefits = {
-    BRONZE: {
-      color: '#8B6914',
-      emoji: '🥉',
-      discount: 5,
-      benefits: [
-        '✓ 5% discount on all products',
-        '✓ 1 point per ₦100 spent',
-        '✓ Early access to flash deals',
-        '✓ Member-only product catalog',
-      ],
-      nextTier: 'SILVER at ₦200,000 spent',
-    },
-    SILVER: {
-      color: '#A9A9A9',
-      emoji: '🥈',
-      discount: 7,
-      benefits: [
-        '✓ 7% discount on all products',
-        '✓ 1.5 points per ₦100 spent',
-        '✓ Early access to flash deals',
-        '✓ Priority customer support',
-        '✓ Monthly bonus points (50 pts)',
-        '✓ Exclusive silver-tier products',
-      ],
-      nextTier: 'GOLD at ₦500,000 spent',
-    },
-    GOLD: {
-      color: '#C9A227',
-      emoji: '🥇',
-      discount: 10,
-      benefits: [
-        '✓ 10% discount on all products',
-        '✓ 2 points per ₦100 spent',
-        '✓ Early access to flash deals',
-        '✓ Premium customer support (24/7)',
-        '✓ Monthly bonus points (100 pts)',
-        '✓ Exclusive gold-tier products',
-        '✓ Quarterly rewards gift',
-        '✓ Voting rights on major decisions',
-      ],
-      nextTier: 'PLATINUM at ₦1,000,000 spent',
-    },
-    PLATINUM: {
-      color: '#9D4EDD',
-      emoji: '💎',
-      discount: 15,
-      benefits: [
-        '✓ 15% discount on all products',
-        '✓ 3 points per ₦100 spent',
-        '✓ VIP early access (24hrs)',
-        '✓ Dedicated VIP support line',
-        '✓ Monthly bonus points (200 pts)',
-        '✓ All platinum-exclusive products',
-        '✓ Quarterly rewards gift + bonus',
-        '✓ Full voting rights',
-        '✓ Invitation to exclusive VIP events',
-      ],
-      nextTier: 'You are at the highest tier!',
-    },
-  };
-
-  const benefits = tierBenefits[currentTier as keyof typeof tierBenefits] || tierBenefits.GOLD;
+  if (authLoading || loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="h-9 w-9 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" aria-label="Loading member benefits" />
+      </main>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
+    <main className="min-h-screen bg-gray-50 pb-16 dark:bg-gray-950">
+      <header className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5 sm:px-6">
           <button
+            type="button"
             onClick={() => router.back()}
-            className="text-2xl hover:text-[#C9A227]"
+            className="flex h-10 w-10 items-center justify-center rounded-md border border-gray-200 text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-700 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+            aria-label="Go back"
           >
-            ←
+            <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-              ⭐ Your Benefits
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">Tier: {currentTier}</p>
+            <h1 className="text-xl font-bold text-gray-950 dark:text-white sm:text-2xl">Member benefits</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Live rewards and pricing attached to your account</p>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Current Tier Banner */}
-        <div
-          className="rounded-lg p-6 sm:p-8 text-white shadow-lg"
-          style={{ background: `linear-gradient(135deg, ${benefits.color} 0%, ${benefits.color}CC 100%)` }}
-        >
-          <div className="flex items-center gap-4 mb-6">
-            <span className="text-5xl">{benefits.emoji}</span>
-            <div>
-              <h2 className="text-3xl font-bold">{currentTier} MEMBER</h2>
-              <p className="text-sm opacity-90">{benefits.discount}% discount on all purchases</p>
-            </div>
-          </div>
-          <p className="text-sm opacity-90 mb-4">Next milestone: {benefits.nextTier}</p>
-          <div className="opacity-75 text-sm">
-            💡 Earn more points by shopping with us to unlock higher tiers and even better benefits!
-          </div>
-        </div>
-
-        {/* Benefits Grid */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 sm:p-8 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Your Benefits</h3>
-          <div className="space-y-3">
-            {benefits.benefits.map((benefit, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-              >
-                <span className="text-xl">✨</span>
-                <p className="text-gray-900 dark:text-white font-medium">{benefit}</p>
+      <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
+        {!active ? (
+          <section className="overflow-hidden rounded-lg border border-emerald-200 bg-white dark:border-emerald-900 dark:bg-gray-900">
+            <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
+              <div>
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-950 dark:text-white">Activate your member pricing</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600 dark:text-gray-300">
+                  Your account is ready, but paid member benefits are not active yet. Activation is verified by the payment server before discounts and rewards are enabled.
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={() => router.push('/membership/payment')}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-emerald-800 px-5 py-3 font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+              >
+                <Gift className="h-5 w-5" />
+                Activate for {naira(5_000)}
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section className="rounded-lg bg-emerald-900 p-6 text-white shadow-lg md:p-8">
+            <div className="flex flex-col gap-7 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase text-emerald-200">Active membership</p>
+                <h2 className="mt-2 text-3xl font-bold">{tier.name} member</h2>
+                <p className="mt-2 text-sm text-emerald-100">Member since {data?.memberSince || 'activation'}</p>
+              </div>
+              <div className="grid grid-cols-3 gap-5 text-right">
+                <div>
+                  <p className="text-xs text-emerald-200">Spent</p>
+                  <p className="mt-1 font-bold">{naira(totalSpent)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-emerald-200">Points</p>
+                  <p className="mt-1 font-bold">{(data?.rewardsPoints || 0).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-emerald-200">Orders</p>
+                  <p className="mt-1 font-bold">{data?.ordersCount || 0}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-7">
+              <div className="mb-2 flex justify-between text-xs text-emerald-100">
+                <span>{nextTier ? `${progress}% to ${nextTier.name}` : 'Highest tier reached'}</span>
+                <span>{nextTier ? naira(nextTier.minimumSpend) : tier.name}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-emerald-950">
+                <div className="h-full rounded-full bg-yellow-300 transition-all duration-700" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section>
+          <div className="mb-5 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-950 dark:text-white">{tier.name} benefits</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Applied automatically when membership is active</p>
+            </div>
+            {active && (
+              <button
+                type="button"
+                onClick={() => router.push('/products')}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-white dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                Shop
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { icon: BadgePercent, label: 'Member pricing', value: `${tier.discountPercentage}% off retail prices` },
+              { icon: Gift, label: 'Rewards', value: `${tier.pointsPerHundredNaira} point${tier.pointsPerHundredNaira > 1 ? 's' : ''} per ₦100 paid` },
+              { icon: Truck, label: 'Shipping', value: tier.freeShippingThreshold === 0 ? 'Free shipping' : `Free above ${naira(tier.freeShippingThreshold)}` },
+              { icon: Headphones, label: 'Support', value: tier.supportLabel },
+            ].map((benefit) => (
+              <article key={benefit.label} className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <benefit.icon className="h-5 w-5 text-emerald-700 dark:text-emerald-400" />
+                <h3 className="mt-4 text-sm font-semibold text-gray-950 dark:text-white">{benefit.label}</h3>
+                <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">{benefit.value}</p>
+              </article>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Tier Comparison */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 sm:p-8 shadow-sm">
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-            Tier Comparison
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">
-                    Feature
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900 dark:text-white">
-                    🥉 Bronze
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900 dark:text-white">
-                    🥈 Silver
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900 dark:text-white">
-                    🥇 Gold
-                  </th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-900 dark:text-white">
-                    💎 Platinum
-                  </th>
+        <section className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <table className="min-w-[720px] w-full text-left text-sm">
+            <thead className="bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              <tr>
+                <th className="px-5 py-4">Tier</th>
+                <th className="px-5 py-4">Spend threshold</th>
+                <th className="px-5 py-4">Discount</th>
+                <th className="px-5 py-4">Points / ₦100</th>
+                <th className="px-5 py-4">Shipping</th>
+              </tr>
+            </thead>
+            <tbody>
+              {MEMBERSHIP_TIERS.map((item) => (
+                <tr key={item.id} className={`border-t border-gray-100 dark:border-gray-800 ${item.id === tier.id ? 'bg-emerald-50/70 dark:bg-emerald-950/30' : ''}`}>
+                  <td className="px-5 py-4 font-semibold text-gray-950 dark:text-white">
+                    <span className="inline-flex items-center gap-2">
+                      {item.id === tier.id && <Check className="h-4 w-4 text-emerald-700" />}
+                      {item.name}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-gray-600 dark:text-gray-300">{naira(item.minimumSpend)}</td>
+                  <td className="px-5 py-4 text-gray-600 dark:text-gray-300">{item.discountPercentage}%</td>
+                  <td className="px-5 py-4 text-gray-600 dark:text-gray-300">{item.pointsPerHundredNaira}</td>
+                  <td className="px-5 py-4 text-gray-600 dark:text-gray-300">{item.freeShippingThreshold === 0 ? 'Free' : `Above ${naira(item.freeShippingThreshold)}`}</td>
                 </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <td className="py-3 px-4 text-gray-900 dark:text-white">Discount</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">5%</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">7%</td>
-                  <td className="text-center py-3 px-4 font-semibold text-[#C9A227]">10%</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">15%</td>
-                </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <td className="py-3 px-4 text-gray-900 dark:text-white">Points/₦100</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">1 pt</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">1.5 pts</td>
-                  <td className="text-center py-3 px-4 font-semibold text-[#C9A227]">2 pts</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">3 pts</td>
-                </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <td className="py-3 px-4 text-gray-900 dark:text-white">Monthly Bonus</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">—</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">50 pts</td>
-                  <td className="text-center py-3 px-4 font-semibold text-[#C9A227]">100 pts</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">200 pts</td>
-                </tr>
-                <tr className="border-b border-gray-100 dark:border-gray-700">
-                  <td className="py-3 px-4 text-gray-900 dark:text-white">Support</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">—</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">Standard</td>
-                  <td className="text-center py-3 px-4 font-semibold text-[#C9A227]">Priority 24/7</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">VIP Line</td>
-                </tr>
-                <tr>
-                  <td className="py-3 px-4 text-gray-900 dark:text-white">Voting Rights</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">—</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">—</td>
-                  <td className="text-center py-3 px-4 font-semibold text-[#C9A227]">✓ Yes</td>
-                  <td className="text-center py-3 px-4 text-gray-600 dark:text-gray-400">✓ Full</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </table>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

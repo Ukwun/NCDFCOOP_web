@@ -68,6 +68,39 @@ service cloud.firestore {
       return isAdmin() || isSeller() || isInstitutionalBuyer();
     }
 
+    function isPublicRole(role) {
+      return role in ['member', 'seller', 'institutional_buyer'];
+    }
+
+    function hasValidPublicRoles(data) {
+      return data.roles is list &&
+        data.roles.size() > 0 &&
+        data.roles.hasOnly(['member', 'seller', 'institutional_buyer']) &&
+        isPublicRole(data.selectedRole);
+    }
+
+    function isApprovedSeller() {
+      return isSeller() && (
+        (currentUserDoc().data.keys().hasAny(['sellerVerified']) &&
+          currentUserDoc().data.sellerVerified == true) ||
+        (currentUserDoc().data.keys().hasAny(['sellerStatus']) &&
+          currentUserDoc().data.sellerStatus == 'approved') ||
+        (currentUserDoc().data.keys().hasAny(['kycStatus']) &&
+          currentUserDoc().data.kycStatus == 'verified')
+      );
+    }
+
+    function isSellerForOrder(data) {
+      return isAuthenticated() && (
+        data.sellerId == request.auth.uid ||
+        (
+          data.keys().hasAny(['sellerIds']) &&
+          data.sellerIds is list &&
+          data.sellerIds.hasAny([request.auth.uid])
+        )
+      );
+    }
+
     // ============================================
     // USERS COLLECTION - User profiles
     // ============================================
@@ -81,8 +114,29 @@ service cloud.firestore {
           resource.data.selectedRole == 'franchise'
         ));
 
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) &&
+        hasValidPublicRoles(request.resource.data) &&
+        (!request.resource.data.keys().hasAny(['membershipStatus']) ||
+          request.resource.data.membershipStatus in ['pending', 'inactive']) &&
+        (!request.resource.data.keys().hasAny(['memberTier']) ||
+          request.resource.data.memberTier == 'bronze');
+
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        hasValidPublicRoles(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'profilePicture',
+          'phone',
+          'address',
+          'onboardingCompleted',
+          'roleSelectionComplete',
+          'roles',
+          'selectedRole',
+          'membershipType',
+          'updatedAt'
+        ])
+      );
       allow delete: if false;
 
       // Notification preferences under users/{uid}/preferences/notifications
@@ -97,7 +151,13 @@ service cloud.firestore {
     // ============================================
     match /members/{memberId} {
       allow read: if isOwner(memberId) || isAdmin();
-      allow create, update: if isOwner(memberId) || isAdmin();
+      allow create: if isOwner(memberId) &&
+        request.resource.data.tier == 'bronze' &&
+        request.resource.data.loyaltyPoints == 0 &&
+        request.resource.data.totalPurchases == 0 &&
+        request.resource.data.isVerified == false &&
+        request.resource.data.isActive == false;
+      allow update: if isAdmin();
       allow delete: if false;
     }
 
@@ -173,22 +233,18 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
         resource.data.buyerId == request.auth.uid ||
-        resource.data.sellerId == request.auth.uid ||
+        isSellerForOrder(resource.data) ||
         isAdmin()
       );
 
-      allow create: if isAuthenticated() && (
-        request.resource.data.userId == request.auth.uid ||
-        request.resource.data.buyerId == request.auth.uid ||
-        isAdmin()
-      );
+      allow create: if false;
 
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.buyerId == request.auth.uid ||
-        resource.data.sellerId == request.auth.uid ||
-        isAdmin() ||
-        isSeller()
+      allow update: if isAdmin() || (
+        isSellerForOrder(resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'trackingNumber', 'deliveryDate', 'updatedAt'
+        ]) &&
+        request.resource.data.status in ['processing', 'shipped', 'delivered']
       );
 
       allow delete: if false;
@@ -201,13 +257,97 @@ service cloud.firestore {
       // Product catalog is visible to signed-in marketplace users.
       allow read: if isAuthenticated();
 
-      // Any authenticated user can create a product if they set their UID as sellerId
-      allow create: if isAuthenticated() && request.resource.data.sellerId == request.auth.uid;
+      // Product creation is server-only so role and moderation checks cannot be bypassed.
+      allow create: if false;
 
-      // Only the seller or admin can update/delete
-      allow update, delete: if isAuthenticated() && (
-        resource.data.sellerId == request.auth.uid || isAdmin()
+      allow update: if isAdmin() || (
+        isSeller() &&
+        resource.data.sellerId == request.auth.uid &&
+        request.resource.data.sellerId == resource.data.sellerId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'description', 'category', 'type', 'price', 'retailPrice',
+          'wholesalePrice', 'originalPrice', 'discount', 'minOrderQuantity',
+          'stock', 'unit', 'maxOrder', 'status', 'isActive', 'images',
+          'thumbnail', 'updatedAt'
+        ]) &&
+        (
+          (request.resource.data.status != 'live' && request.resource.data.isActive != true) ||
+          isApprovedSeller()
+        )
       );
+      allow delete: if isAdmin() ||
+        (isSeller() && resource.data.sellerId == request.auth.uid);
+    }
+
+    // ============================================
+    // TRANSACTIONS - Server-created payment intents and receipts
+    // ============================================
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if false;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status == 'proof_uploaded' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'proofUrl', 'proofFileName', 'status', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // ============================================
+    // CONVERSATIONS AND MESSAGES
+    // ============================================
+    match /conversations/{conversationId} {
+      allow read: if isAuthenticated() &&
+        resource.data.participants is list &&
+        resource.data.participants.hasAny([request.auth.uid]);
+      allow create: if isAuthenticated() &&
+        request.resource.data.participants is list &&
+        request.resource.data.participants.size() == 2 &&
+        request.resource.data.participants.hasAny([request.auth.uid]);
+      allow update: if isAuthenticated() &&
+        resource.data.participants.hasAny([request.auth.uid]) &&
+        request.resource.data.participants == resource.data.participants &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'lastMessage', 'lastMessageTime', 'unreadCount', 'isArchived'
+        ]);
+      allow delete: if false;
+    }
+
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid
+      );
+      allow create: if isAuthenticated() &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.recipientId is string &&
+        request.resource.data.content is string &&
+        request.resource.data.content.size() > 0 &&
+        request.resource.data.content.size() <= 5000;
+      allow update: if isAuthenticated() &&
+        resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status in ['delivered', 'read'];
+      allow delete: if isAuthenticated() && resource.data.senderId == request.auth.uid;
+    }
+
+    // ============================================
+    // OFFERS AND REVIEWS
+    // ============================================
+    match /offers/{offerId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() ||
+        (isAuthenticated() && resource.data.userId == request.auth.uid);
     }
 
     // ============================================

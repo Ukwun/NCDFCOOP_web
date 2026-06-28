@@ -7,6 +7,10 @@ import { doc, setDoc, updateDoc, deleteDoc, getDoc, collection, getDocs, query, 
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { Cart, CartItem } from '@/lib/types/product';
+import {
+  applyMemberDiscount,
+  getMembershipTier,
+} from '@/lib/membership/tiers';
 
 const CART_STORAGE_PREFIX = 'coop_commerce_cart_';
 export const CART_CHANGED_EVENT = 'coop-commerce:cart-changed';
@@ -158,10 +162,49 @@ export async function getUserCart(userId: string): Promise<Cart> {
       })
     );
 
+    const profileSnapshot = await getDoc(doc(db, COLLECTIONS.USERS, userId));
+    const profile = profileSnapshot.data() || {};
+    const isWholesaleBuyer = profile.selectedRole === 'institutional_buyer';
+    const isActiveMember =
+      profile.selectedRole === 'member' && profile.membershipStatus === 'active';
+    const memberTier = getMembershipTier(profile.memberTier);
+
+    items = items.map((item) => {
+      const product = item.productData;
+      if (!product) return item;
+
+      const retailPrice = Number(
+        product.price || product.retailPrice || product.originalPrice || item.price
+      );
+      let effectivePrice = retailPrice;
+
+      if (
+        isWholesaleBuyer &&
+        ['wholesale', 'both'].includes(product.type || 'retail')
+      ) {
+        const bulkPrice = [...(product.bulkPrices || [])]
+          .filter(
+            (row) =>
+              item.quantity >= row.minQuantity &&
+              (!row.maxQuantity || item.quantity <= row.maxQuantity)
+          )
+          .sort((left, right) => right.minQuantity - left.minQuantity)[0]?.price;
+        effectivePrice = Number(bulkPrice || product.wholesalePrice || retailPrice);
+      } else if (isActiveMember) {
+        effectivePrice = applyMemberDiscount(retailPrice, memberTier.id);
+      }
+
+      return { ...item, price: effectivePrice };
+    });
+
     // Calculate totals
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const tax = subtotal * 0.1; // 10% VAT
-    const shipping = subtotal > 50000 ? 0 : 2500;
+    const freeShippingThreshold = isActiveMember
+      ? memberTier.freeShippingThreshold
+      : 50000;
+    const shipping =
+      freeShippingThreshold === 0 || subtotal > freeShippingThreshold ? 0 : 2500;
     const total = subtotal + tax + shipping;
 
     return {

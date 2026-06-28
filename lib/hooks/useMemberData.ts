@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
+import { getMembershipTier, normalizeMembershipTier } from '@/lib/membership/tiers';
 
 export interface MemberDataState {
   memberId: string;
@@ -49,29 +50,24 @@ export function useMemberData(userId: string): UseMemberDataReturn {
           if (snapshot.exists()) {
             const rawData = snapshot.data();
             
-            // Calculate discount percentage based on tier
-            const tierDiscounts: Record<string, number> = {
-              bronze: 5,
-              silver: 7,
-              gold: 10,
-              platinum: 15,
-            };
+            const tier = normalizeMembershipTier(rawData.tier);
+            const tierDefinition = getMembershipTier(tier);
 
             const processedData: MemberDataState = {
               memberId: userId,
-              tier: (rawData.tier || 'bronze').toLowerCase() as any,
-              rewardsPoints: rawData.rewardsPoints || 0,
-              lifetimePoints: rawData.lifetimePoints || 0,
+              tier,
+              rewardsPoints: rawData.rewardsPoints ?? rawData.loyaltyPoints ?? 0,
+              lifetimePoints: rawData.lifetimePoints ?? rawData.loyaltyPoints ?? 0,
               memberSince: rawData.memberSince?.toDate?.() 
                 ? new Date(rawData.memberSince.toDate()).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'short',
                   })
-                : 'Jan 2024',
-              isActive: rawData.isActive ?? true,
-              discountPercentage: tierDiscounts[rawData.tier?.toLowerCase() || 'bronze'] || 5,
+                : 'Not activated',
+              isActive: rawData.isActive === true,
+              discountPercentage: tierDefinition.discountPercentage,
               ordersCount: rawData.ordersCount || 0,
-              totalSpent: rawData.totalSpent || 0,
+              totalSpent: rawData.totalSpent ?? rawData.totalPurchases ?? 0,
               memberDividends: rawData.memberDividends || 0,
             };
 

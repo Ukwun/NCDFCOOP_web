@@ -7,6 +7,9 @@ export interface VerifiedRequestUser {
   email?: string;
   roles: string[];
   selectedRole?: string;
+  membershipStatus?: string;
+  memberTier?: string;
+  sellerVerified?: boolean;
 }
 
 function bearerToken(request: NextRequest): string | null {
@@ -45,6 +48,16 @@ export async function verifyRequestUser(
     roles,
     selectedRole:
       typeof data.selectedRole === 'string' ? data.selectedRole : undefined,
+    membershipStatus:
+      typeof data.membershipStatus === 'string'
+        ? data.membershipStatus
+        : undefined,
+    memberTier:
+      typeof data.memberTier === 'string' ? data.memberTier : undefined,
+    sellerVerified:
+      data.sellerVerified === true ||
+      data.sellerStatus === 'approved' ||
+      data.kycStatus === 'verified',
   };
 }
 

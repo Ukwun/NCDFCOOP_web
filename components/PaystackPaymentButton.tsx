@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { initiateFlutterwavePayment } from '@/lib/services/paymentService';
-import { useAuth } from '@/lib/auth/authContext';
-import { createOrder, updatePaymentStatus } from '@/lib/services/orderService';
+import { createOrder } from '@/lib/services/orderService';
 
 interface FlutterwavePaymentButtonProps {
   userId: string;
@@ -38,44 +37,31 @@ export default function PaystackPaymentButton({
   onSuccess,
   onError,
 }: FlutterwavePaymentButtonProps) {
-  const { currentRole } = useAuth(); // Get current role from auth context
   const [loading, setLoading] = useState(false);
 
   const handlePayment = async () => {
     try {
       setLoading(true);
-      const orderId = `order_${userId}_${Date.now()}`;
+      const createdOrder = await createOrder(
+        userId,
+        cartItems,
+        amount,
+        shippingAddress,
+        'flutterwave',
+        buyerType
+      );
 
       // Initialize Flutterwave payment
       await initiateFlutterwavePayment(
-        amount,
+        createdOrder.totals.totalAmount,
         email,
         userId,
         fullName,
-        orderId,
+        createdOrder.orderId,
+        createdOrder.transactionRef || '',
         // onSuccess callback
-        async (reference: string) => {
-          try {
-            // Create order in database using the same orderId so verification updates match
-            await createOrder(
-              userId,
-              cartItems,
-              amount,
-              shippingAddress,
-              'flutterwave',
-              buyerType,
-              orderId
-            );
-
-            // Mark the order as paid after successful transaction verification
-            await updatePaymentStatus(orderId, 'completed');
-
-            // Call success callback
-            onSuccess();
-          } catch (err) {
-            console.error('Error creating order:', err);
-            onError('Payment verified but failed to create order. Please contact support.');
-          }
+        async () => {
+          onSuccess();
         },
         // onError callback
         (error: string) => {

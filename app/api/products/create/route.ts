@@ -1,75 +1,132 @@
-import { NextResponse } from 'next/server';
-import admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebase/admin';
+import { verifyRequestUser } from '@/lib/server/requestAuth';
+import { USER_ROLES } from '@/lib/constants/database';
 
-// Initialize Firebase Admin with service account JSON in env var
-function initAdmin() {
-  if (admin.apps && admin.apps.length) return;
-  const svc = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (!svc) {
-    console.warn('FIREBASE_SERVICE_ACCOUNT not set; admin disabled');
-    return;
-  }
-  try {
-    let serviceAccount: any;
-    try {
-      // Try raw JSON first
-      serviceAccount = JSON.parse(svc);
-    } catch (rawErr) {
-      try {
-        // Try base64-decoded JSON
-        const decoded = Buffer.from(svc, 'base64').toString('utf8');
-        serviceAccount = JSON.parse(decoded);
-        console.info('FIREBASE_SERVICE_ACCOUNT loaded from base64-encoded value');
-      } catch (b64Err) {
-        throw rawErr; // rethrow original parse error for clarity
-      }
-    }
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  } catch (err) {
-    console.error('Failed to initialize Firebase Admin:', err);
-  }
+function numberInRange(
+  value: unknown,
+  minimum: number,
+  maximum: number
+): number | null {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= minimum && numeric <= maximum
+    ? numeric
+    : null;
 }
 
-initAdmin();
-
-export async function POST(req: Request) {
-  if (!admin.apps || admin.apps.length === 0) {
-    return NextResponse.json({ error: 'Admin SDK not configured' }, { status: 501 });
-  }
-
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-
-    const authHeader = req.headers.get('authorization') || '';
-    const idToken = authHeader.replace(/^Bearer\s+/i, '');
-    if (!idToken) {
-      return NextResponse.json({ error: 'Missing authorization token' }, { status: 401 });
+    const user = await verifyRequestUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (
+      !user.roles.includes(USER_ROLES.SELLER) &&
+      !user.roles.includes(USER_ROLES.FRANCHISE)
+    ) {
+      return NextResponse.json(
+        { error: 'A seller account is required to create products.' },
+        { status: 403 }
+      );
     }
 
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    if (!decoded || !decoded.uid) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    const body = await request.json();
+    const name = String(body.name || '').trim();
+    const description = String(body.description || '').trim();
+    const category = String(body.category || '').trim();
+    const type = String(body.type || 'retail');
+    const price = numberInRange(body.price, 1, 1_000_000_000);
+    const stock = numberInRange(body.stock, 0, 10_000_000);
+    const wholesalePrice = body.wholesalePrice
+      ? numberInRange(body.wholesalePrice, 1, 1_000_000_000)
+      : null;
+    const minOrderQuantity = numberInRange(
+      body.minOrderQuantity || 1,
+      1,
+      1_000_000
+    );
+
+    if (
+      name.length < 2 ||
+      name.length > 160 ||
+      description.length < 10 ||
+      description.length > 5_000 ||
+      !category ||
+      !['retail', 'wholesale', 'both'].includes(type) ||
+      price === null ||
+      stock === null ||
+      minOrderQuantity === null ||
+      (type !== 'retail' && wholesalePrice === null)
+    ) {
+      return NextResponse.json(
+        { error: 'The product details are incomplete or invalid.' },
+        { status: 400 }
+      );
     }
 
-    // Ensure sellerId matches token uid
-    if (!body.sellerId || body.sellerId !== decoded.uid) {
-      return NextResponse.json({ error: 'sellerId must match authenticated user' }, { status: 403 });
-    }
+    const db = getAdminDb();
+    const profileSnapshot = await db.collection('users').doc(user.uid).get();
+    const profile = profileSnapshot.data() || {};
+    const sellerVerified =
+      profile.sellerVerified === true ||
+      profile.sellerStatus === 'approved' ||
+      profile.kycStatus === 'verified';
+    const requestedLive = body.status === 'live';
+    const status = requestedLive && sellerVerified ? 'live' : 'pending';
+    const images = Array.isArray(body.images)
+      ? body.images.filter((image: unknown) => typeof image === 'string').slice(0, 10)
+      : [];
 
-    const db = admin.firestore();
+    const product = {
+      name,
+      description,
+      category,
+      type,
+      price,
+      retailPrice: price,
+      originalPrice: numberInRange(body.originalPrice, price, 1_000_000_000) || price,
+      discount: numberInRange(body.discount, 0, 100) || 0,
+      ...(type !== 'retail' ? { wholesalePrice } : {}),
+      minOrderQuantity,
+      stock: Math.floor(stock),
+      unit: String(body.unit || 'unit').slice(0, 50),
+      maxOrder: Math.max(Math.floor(stock), 1),
+      status,
+      images,
+      thumbnail: String(body.thumbnail || images[0] || '').slice(0, 2_000),
+      sellerId: user.uid,
+      sellerName: String(profile.name || user.email || 'Seller').slice(0, 160),
+      ownershipType: 'seller',
+      rating: 0,
+      reviews: 0,
+      isFeatured: false,
+      isActive: status === 'live',
+      requiresReview: requestedLive && !sellerVerified,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      ...(status === 'live' ? { publishedAt: FieldValue.serverTimestamp() } : {}),
+    };
 
-    // Sanitise product: remove undefined
-    const sanitized = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined));
-    sanitized.createdAt = admin.firestore.FieldValue.serverTimestamp();
-    sanitized.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-
-    const docRef = await db.collection('products').add(sanitized as any);
-
-    return NextResponse.json({ id: docRef.id });
-  } catch (err: any) {
-    console.error('API /api/products/create error:', err);
-    return NextResponse.json({ error: err?.message || 'unknown' }, { status: 500 });
+    const document = await db.collection('products').add(product);
+    return NextResponse.json(
+      {
+        id: document.id,
+        status,
+        message:
+          status === 'live'
+            ? 'Product published successfully.'
+            : requestedLive
+              ? 'Product submitted for seller verification and review.'
+              : 'Product saved for review.',
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    console.error('Product creation failed:', error?.code || error?.message);
+    return NextResponse.json(
+      { error: 'We could not save the product. Please try again.' },
+      { status: 500 }
+    );
   }
 }

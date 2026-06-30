@@ -134,8 +134,11 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Product creation failed:', error?.code || error?.message);
     return NextResponse.json(
-      { error: 'We could not save the product. Please try again.' },
-      { status: 500 }
+      {
+        error: 'The product service is temporarily unavailable. Your seller workspace will retry securely.',
+        code: 'PRODUCT_SERVICE_UNAVAILABLE',
+      },
+      { status: 503 }
     );
   }
 }

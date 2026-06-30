@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Timestamp, collection, getDocs, deleteDoc, doc, addDoc, getFirestore, query } from 'firebase/firestore';
-import { getApps, initializeApp } from 'firebase/app';
+import { getAdminDb } from '@/lib/firebase/admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,31 +13,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Initialize Firebase client SDK for server-side use
-    const firebaseConfig = {
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    };
-
-    const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const db = getAdminDb();
 
     // Delete existing products
-    const productsRef = collection(db, 'products');
-    const productsSnapshot = await getDocs(productsRef);
+    const productsSnapshot = await db.collection('products').get();
     for (const docSnap of productsSnapshot.docs) {
-      await deleteDoc(doc(db, 'products', docSnap.id));
+      await docSnap.ref.delete();
     }
 
     // Delete existing offers
-    const offersRef = collection(db, 'offers');
-    const offersSnapshot = await getDocs(offersRef);
+    const offersSnapshot = await db.collection('offers').get();
     for (const docSnap of offersSnapshot.docs) {
-      await deleteDoc(doc(db, 'offers', docSnap.id));
+      await docSnap.ref.delete();
     }
 
     const products = [
@@ -182,7 +168,7 @@ export async function POST(request: NextRequest) {
 
     let productsAdded = 0;
     for (const product of products) {
-      await addDoc(collection(db, 'products'), product);
+      await db.collection('products').add(product);
       productsAdded++;
     }
 
@@ -249,7 +235,7 @@ export async function POST(request: NextRequest) {
 
     let offersAdded = 0;
     for (const offer of offers) {
-      await addDoc(collection(db, 'offers'), offer);
+      await db.collection('offers').add(offer);
       offersAdded++;
     }
 

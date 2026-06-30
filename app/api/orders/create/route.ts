@@ -9,6 +9,7 @@ import {
   getMembershipTier,
 } from '@/lib/membership/tiers';
 import { sendOrderReceipt } from '@/lib/server/orderEmail';
+import { resolveProductImage } from '@/lib/utils/productImage';
 
 type PaymentMethod = 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
 
@@ -201,9 +202,7 @@ export async function POST(request: NextRequest) {
         sellerId: String(product.sellerId || ''),
         sellerName: String(product.sellerName || ''),
         sellerVerified: product.sellerVerified === true,
-        productImage: String(
-          product.thumbnail || product.images?.[0] || product.image || ''
-        ),
+        productImage: resolveProductImage(product.thumbnail || product.images?.[0] || product.image),
         minOrderQuantity: minimum,
         unitOfMeasure: String(product.unitOfMeasure || product.unit || 'unit'),
         type: String(product.type || 'retail'),

@@ -15,6 +15,7 @@ import {
   resolveProductOwnership,
 } from '@/lib/utils/productOwnership';
 import { addToCart } from '@/lib/services/cartService';
+import { resolveProductImage } from '@/lib/utils/productImage';
 import { applyMemberDiscount, getMembershipTier } from '@/lib/membership/tiers';
 
 interface ProductCardProps {
@@ -52,6 +53,7 @@ export default function ProductCard({
   const discountValue = originalPrice > discountedPrice ? originalPrice - discountedPrice : 0;
   const cartPrice = discountedPrice > 0 ? discountedPrice : originalPrice > 0 ? originalPrice : 0;
   const ownershipType = resolveProductOwnership(product);
+  const productImage = resolveProductImage(product.thumbnail || product.images?.[0]);
 
   // Intelligence: Determine if viewing as a wholesale buyer
   const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER;
@@ -88,7 +90,7 @@ export default function ProductCard({
           product.id,
           product.name,
           displayPrice,
-          product.thumbnail || product.images?.[0] || '',
+          productImage,
           quantity
         );
       }
@@ -113,9 +115,9 @@ export default function ProductCard({
             className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 group-hover:shadow-md transition-shadow cursor-pointer motion-safe:transform-gpu"
         onClick={() => onViewDetails?.(product.id)}
       >
-        {product.thumbnail ? (
+        {productImage ? (
           <Image
-            src={product.thumbnail}
+            src={productImage}
             alt={product.name}
             fill
             className="object-cover group-hover:scale-110 transition-transform duration-500 will-change-transform"
@@ -378,7 +380,7 @@ export default function ProductCard({
                 await toggleFavorite(product.id, {
                   productName: product.name,
                   productPrice: discountedPrice,
-                  productImage: product.thumbnail || product.images?.[0] || '',
+                  productImage,
                   productCategory: product.category || 'general',
                   sellerId: product.sellerId || 'unknown-seller',
                   sellerName: product.sellerName || 'Unknown Seller',

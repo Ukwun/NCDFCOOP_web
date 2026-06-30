@@ -19,6 +19,7 @@ import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { USER_ROLES } from '@/lib/constants/database';
 import { ownershipBadgeClasses, ownershipLabel, resolveProductOwnership } from '@/lib/utils/productOwnership';
 import { applyMemberDiscount } from '@/lib/membership/tiers';
+import { resolveProductImage } from '@/lib/utils/productImage';
 
 const REVIEW_SNIPPETS = [
   {
@@ -74,9 +75,9 @@ function getBaseEffectivePrice(product: Product, currentRole?: string): number {
 function getSafeImages(product: Product | null): string[] {
   if (!product) return [];
 
-  const images = (product.images || []).filter(Boolean);
+  const images = (product.images || []).filter(Boolean).map(resolveProductImage);
   if (images.length > 0) return images;
-  if (product.thumbnail) return [product.thumbnail];
+  if (product.thumbnail) return [resolveProductImage(product.thumbnail)];
   return ['/images/logo/NCDFCOOPLOGO.png'];
 }
 

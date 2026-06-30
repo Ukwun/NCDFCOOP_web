@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import { resolveProductImage } from '@/lib/utils/productImage';
 
 interface OptimizedImageProps {
   src: string;
@@ -39,6 +40,7 @@ export default function OptimizedImage({
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const safeSrc = resolveProductImage(src);
 
   // Check if src is an emoji (unicode emoji character)
   const isEmoji =
@@ -81,7 +83,7 @@ export default function OptimizedImage({
     return (
       <div className="relative" style={{ width: `${width}px`, height: `${height}px` }}>
         <Image
-          src={src}
+          src={safeSrc}
           alt={alt}
           fill
           className={`object-cover rounded ${isLoading ? 'blur-sm' : 'blur-0'} transition-all duration-300 ${className}`}

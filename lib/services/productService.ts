@@ -168,45 +168,35 @@ export async function getProducts(limitNumber: number = 20, type?: 'retail' | 'w
       return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
     }
 
-    let q;
-    if (type) {
-      // Query products that match the requested type or are available for 'both'
-      q = query(
-        collection(db, COLLECTIONS.PRODUCTS),
-        where('type', 'in', [type, 'both']),
-        orderBy('createdAt', 'desc'),
-        limit(limitNumber)
-      );
-    } else {
-      q = query(
-        collection(db, COLLECTIONS.PRODUCTS),
-        orderBy('createdAt', 'desc'),
-        limit(limitNumber)
-      );
-    }
+    // The status constraint is both the visibility boundary enforced by
+    // Firestore rules and the scalable public catalog query.
+    const liveProductsQuery = query(
+      collection(db, COLLECTIONS.PRODUCTS),
+      where('status', '==', 'live'),
+      limit(Math.max(limitNumber, 100))
+    );
+    const snapshot = await getDocs(liveProductsQuery);
+    const products = snapshot.docs
+      .map((document) => ({
+        id: document.id,
+        ...(document.data() as any),
+      } as Product))
+      .filter((product) => !type || product.type === type || product.type === 'both')
+      .sort((a, b) => {
+        const toMillis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+        return toMillis(b.createdAt) - toMillis(a.createdAt);
+      })
+      .slice(0, limitNumber);
 
-    try {
-      const snapshot = await getDocs(q);
-      const products = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as any),
-      } as Product));
-
-      return products.length > 0 ? products : getFallbackProducts(limitNumber);
-    } catch (error: any) {
-      // Fallback if index isn't created yet for type + createdAt
-      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-        const simpleQuery = query(collection(db, COLLECTIONS.PRODUCTS), orderBy('createdAt', 'desc'), limit(100));
-        const snapshot = await getDocs(simpleQuery);
-        const products = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Product));
-        const filtered = type ? products.filter(p => p.type === type || p.type === 'both') : products;
-        return filtered.slice(0, limitNumber);
-      }
-      throw error;
-    }
+    return products.length > 0 ? products : getFallbackProducts(limitNumber).filter(
+      (product) => !type || product.type === type || product.type === 'both'
+    );
   } catch (error) {
     console.error('Error fetching products:', error);
-    return getFallbackProducts(limitNumber);
+    const fallback = getFallbackProducts(limitNumber);
+    return type
+      ? fallback.filter((product) => product.type === type || product.type === 'both')
+      : fallback;
   }
 }
 
@@ -242,38 +232,8 @@ export async function getProductsByCategory(category: string, type?: 'retail' | 
       return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
     }
 
-    let q;
-    if (type) {
-      q = query(
-        collection(db, COLLECTIONS.PRODUCTS),
-        where('category', '==', category),
-        where('type', 'in', [type, 'both']),
-        orderBy('createdAt', 'desc')
-      );
-    } else {
-      q = query(
-        collection(db, COLLECTIONS.PRODUCTS),
-        where('category', '==', category),
-        orderBy('createdAt', 'desc')
-      );
-    }
-
-    try {
-      const snapshot = await getDocs(q);
-      const products = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as any),
-      } as Product));
-
-      return products.length > 0 ? products : getFallbackProducts(100).filter((product) => product.category === category);
-    } catch (error: any) {
-      // Fallback for missing composite index
-      const simpleQ = query(collection(db, COLLECTIONS.PRODUCTS), where('category', '==', category), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(simpleQ);
-      const products = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as Product));
-      const filtered = type ? products.filter(p => p.type === type || p.type === 'both') : products;
-      return filtered;
-    }
+    const products = await getProducts(100, type);
+    return products.filter((product) => product.category === category);
   } catch (error) {
     console.error('Error fetching category products:', error);
     const fallback = getFallbackProducts(100).filter((product) => product.category === category);

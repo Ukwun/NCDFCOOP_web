@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
@@ -30,6 +30,7 @@ interface SellerProduct {
   unit?: string;
   status?: 'draft' | 'pending' | 'live';
   requiresReview?: boolean;
+  isActive?: boolean;
 }
 
 export default function SellerProductsPage() {
@@ -140,6 +141,23 @@ export default function SellerProductsPage() {
     } catch (err) {
       console.error('Error deleting product:', err);
       setError('Failed to delete product');
+    }
+  };
+
+  const handlePublishProduct = async (productId: string) => {
+    if (!db) return;
+    try {
+      setError(null);
+      await updateDoc(doc(db, COLLECTIONS.PRODUCTS, productId), {
+        status: 'live',
+        isActive: true,
+        requiresReview: false,
+        publishedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+    } catch (publishError) {
+      console.error('Error publishing product:', publishError);
+      setError('We could not publish this product. Refresh your session and try again.');
     }
   };
 
@@ -302,7 +320,12 @@ export default function SellerProductsPage() {
           </div>
         )}
 
-        {/* Informational Message (non-blocking) */}
+        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <p className="font-bold">Your seller publishing access is active.</p>
+          <p className="mt-1">
+            Published retail listings appear for members, wholesale listings appear in the bulk catalog, and products marked both appear in both marketplaces. Identity verification adds a trust badge and is required for payout clearance, but it does not block product publishing.
+          </p>
+        </div>
 
         {/* Empty State */}
         {products.length === 0 && (
@@ -412,7 +435,7 @@ export default function SellerProductsPage() {
                                   ? 'bg-slate-100 text-slate-700'
                                   : 'bg-amber-100 text-amber-800'
                             }`}>
-                              {product.status === 'live' ? 'Live' : product.status === 'draft' ? 'Draft' : 'Awaiting review'}
+                              {product.status === 'live' ? 'Live' : product.status === 'draft' ? 'Draft' : 'Ready to publish'}
                             </span>
                           </div>
                         </div>
@@ -512,6 +535,14 @@ export default function SellerProductsPage() {
                       {/* Actions */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
+                          {product.status !== 'live' && (
+                            <button
+                              onClick={() => void handlePublishProduct(product.id)}
+                              className="rounded bg-emerald-700 px-3 py-1 text-sm font-semibold text-white transition hover:bg-emerald-800 active:scale-95"
+                            >
+                              Publish
+                            </button>
+                          )}
                           <button
                             onClick={() =>
                               router.push(

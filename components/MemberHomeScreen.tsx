@@ -102,7 +102,7 @@ export default function MemberHomeScreen() {
     const loadCatalog = async () => {
       try {
         setCatalogLoading(true);
-        const products = await getProducts(80);
+        const products = await getProducts(80, 'retail');
         if (mounted) {
           setCatalogProducts(products);
         }

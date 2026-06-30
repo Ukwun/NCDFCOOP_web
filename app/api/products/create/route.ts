@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
       1_000_000
     );
 
-    const requestedLive = body.status === 'live';
     const requestedDraft = body.status === 'draft';
+    const requestedLive = !requestedDraft;
 
     if (
       name.length < 2 ||
@@ -75,11 +75,10 @@ export async function POST(request: NextRequest) {
       profile.sellerVerified === true ||
       profile.sellerStatus === 'approved' ||
       profile.kycStatus === 'verified';
-    const status = requestedDraft
-      ? 'draft'
-      : requestedLive && sellerVerified
-        ? 'live'
-        : 'pending';
+    // Seller-role ownership is the publishing permission. Identity/KYC
+    // verification remains visible as a trust badge and payout safeguard,
+    // but does not create an unscalable manual product-approval queue.
+    const status = requestedDraft ? 'draft' : 'live';
     const images = Array.isArray(body.images)
       ? body.images.filter((image: unknown) => typeof image === 'string').slice(0, 10)
       : [];
@@ -109,7 +108,7 @@ export async function POST(request: NextRequest) {
       reviews: 0,
       isFeatured: false,
       isActive: status === 'live',
-      requiresReview: requestedLive && !sellerVerified,
+      requiresReview: false,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       ...(status === 'live' ? { publishedAt: FieldValue.serverTimestamp() } : {}),
@@ -123,11 +122,7 @@ export async function POST(request: NextRequest) {
         message:
           status === 'live'
             ? 'Product published successfully.'
-            : status === 'draft'
-              ? 'Product saved as a draft.'
-              : requestedLive
-              ? 'Product submitted for seller verification and review.'
-              : 'Product saved for review.',
+            : 'Product saved as a draft.',
       },
       { status: 201 }
     );

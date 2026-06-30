@@ -205,39 +205,35 @@ class OrderService {
    */
   async getSellerOrders(sellerId: string) {
     try {
-      const ordersQuery = query(
+      // Keep both shapes while legacy orders are still in circulation. These
+      // are single-field seller-scoped queries, so they need no composite
+      // index and remain compatible with Firestore security rules.
+      const multiSellerOrdersQuery = query(
         collection(db, COLLECTIONS.ORDERS),
-        where('sellerIds', 'array-contains', sellerId),
-        orderBy('createdAt', 'desc')
+        where('sellerIds', 'array-contains', sellerId)
+      );
+      const singleSellerOrdersQuery = query(
+        collection(db, COLLECTIONS.ORDERS),
+        where('sellerId', '==', sellerId)
       );
 
-      const querySnapshot = await getDocs(ordersQuery);
-      return querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-    } catch (error) {
-      // Fall back to client-side filtering if array-contains fails
-      try {
-        const allOrdersQuery = query(
-          collection(db, COLLECTIONS.ORDERS),
-          orderBy('createdAt', 'desc')
-        );
+      const [multiSellerSnapshot, singleSellerSnapshot] = await Promise.all([
+        getDocs(multiSellerOrdersQuery),
+        getDocs(singleSellerOrdersQuery),
+      ]);
+      const orderMap = new Map<string, any>();
+      [...multiSellerSnapshot.docs, ...singleSellerSnapshot.docs].forEach((document) => {
+        orderMap.set(document.id, { id: document.id, ...document.data() });
+      });
 
-        const querySnapshot = await getDocs(allOrdersQuery);
-        return querySnapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }))
-          .filter((order: any) =>
-            order.items?.some((item: any) => item.sellerId === sellerId)
-          );
-      } catch (fallbackError) {
-        const err = fallbackError instanceof Error ? fallbackError : new Error(String(fallbackError));
-        ErrorHandler.logError('GET_SELLER_ORDERS_ERROR', err.message, 'error');
-        throw err;
-      }
+      return Array.from(orderMap.values()).sort((a, b) => {
+        const toMillis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+        return toMillis(b.createdAt) - toMillis(a.createdAt);
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      ErrorHandler.logError('GET_SELLER_ORDERS_ERROR', err.message, 'error');
+      throw err;
     }
   }
 

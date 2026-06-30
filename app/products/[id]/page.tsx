@@ -199,7 +199,10 @@ export default function ProductDetailPage() {
     const loadCatalog = async () => {
       try {
         setCatalogLoading(true);
-        const products = await getProducts(60);
+        const products = await getProducts(
+          60,
+          currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? 'wholesale' : 'retail'
+        );
         setCatalogProducts(products);
       } catch (err) {
         console.error('Error fetching catalog products:', err);
@@ -210,7 +213,7 @@ export default function ProductDetailPage() {
     };
 
     loadCatalog();
-  }, []);
+  }, [currentRole]);
 
   useEffect(() => {
     const loadMostSearchedRecommendations = async () => {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { BadgeCheck, Clock3, Filter, MessageSquareQuote, Search, ShieldCheck, ShoppingCart } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/auth/authContext';
@@ -27,9 +27,13 @@ export default function WholesaleProductsPage() {
 
   useEffect(() => {
     if (!db) { setLoading(false); return; }
-    return onSnapshot(collection(db, COLLECTIONS.PRODUCTS), (snapshot) => {
+    const liveCatalog = query(
+      collection(db, COLLECTIONS.PRODUCTS),
+      where('status', '==', 'live')
+    );
+    return onSnapshot(liveCatalog, (snapshot) => {
       setProducts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as Product))
-        .filter((product) => ['wholesale', 'both'].includes(product.type || 'retail') && product.isActive !== false && (!product.status || product.status === 'live')));
+        .filter((product) => ['wholesale', 'both'].includes(product.type || 'retail') && product.isActive !== false));
       setLoading(false);
     }, () => { setNotice('The live catalog could not be synchronized.'); setLoading(false); });
   }, []);

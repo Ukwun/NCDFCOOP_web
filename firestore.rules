@@ -69,17 +69,6 @@ service cloud.firestore {
         isPublicRole(data.selectedRole);
     }
 
-    function isApprovedSeller() {
-      return isSeller() && (
-        (currentUserDoc().data.keys().hasAny(['sellerVerified']) &&
-          currentUserDoc().data.sellerVerified == true) ||
-        (currentUserDoc().data.keys().hasAny(['sellerStatus']) &&
-          currentUserDoc().data.sellerStatus == 'approved') ||
-        (currentUserDoc().data.keys().hasAny(['kycStatus']) &&
-          currentUserDoc().data.kycStatus == 'verified')
-      );
-    }
-
     function isSellerForOrder(data) {
       return isAuthenticated() && (
         data.sellerId == request.auth.uid ||
@@ -239,32 +228,59 @@ service cloud.firestore {
     // PRODUCTS - Marketplace inventory
     // ============================================
     match /products/{productId} {
-      // Product catalog is visible to signed-in marketplace users.
-      allow read: if isAuthenticated();
+      // Marketplace users see live inventory; sellers retain access to their
+      // own drafts and admins retain moderation access.
+      allow read: if isAuthenticated() && (
+        resource.data.status == 'live' ||
+        resource.data.sellerId == request.auth.uid ||
+        isAdmin()
+      );
 
       // Server creation is preferred. This tightly constrained path keeps
       // seller drafts/review submissions available if platform credentials
       // are temporarily unavailable; clients can never self-publish live.
       allow create: if isSeller() &&
         request.resource.data.sellerId == request.auth.uid &&
-        request.resource.data.status in ['draft', 'pending'] &&
-        request.resource.data.isActive == false &&
+        request.resource.data.status in ['draft', 'live'] &&
+        request.resource.data.isActive == (request.resource.data.status == 'live') &&
         request.resource.data.isFeatured == false &&
+        request.resource.data.sellerVerified == false &&
+        request.resource.data.requiresReview == false &&
         request.resource.data.name is string &&
         request.resource.data.name.size() >= 2 &&
         request.resource.data.name.size() <= 160 &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() <= 5000 &&
+        (request.resource.data.status == 'draft' || request.resource.data.description.size() >= 10) &&
+        request.resource.data.category is string &&
+        request.resource.data.category.size() > 0 &&
+        request.resource.data.category.size() <= 100 &&
         request.resource.data.price is number &&
         request.resource.data.price > 0 &&
+        request.resource.data.price <= 1000000000 &&
         request.resource.data.stock is number &&
         request.resource.data.stock >= 0 &&
+        request.resource.data.stock <= 10000000 &&
         request.resource.data.type in ['retail', 'wholesale', 'both'] &&
+        request.resource.data.minOrderQuantity is number &&
+        request.resource.data.minOrderQuantity >= 1 &&
+        request.resource.data.minOrderQuantity <= 1000000 &&
+        (request.resource.data.type == 'retail' || (
+          request.resource.data.wholesalePrice is number &&
+          request.resource.data.wholesalePrice > 0 &&
+          request.resource.data.wholesalePrice <= 1000000000
+        )) &&
+        request.resource.data.images is list &&
+        request.resource.data.images.size() <= 10 &&
+        request.resource.data.thumbnail is string &&
+        request.resource.data.thumbnail.size() <= 2000 &&
         request.resource.data.keys().hasOnly([
           'name', 'description', 'category', 'type', 'price', 'retailPrice',
           'wholesalePrice', 'originalPrice', 'discount', 'minOrderQuantity',
           'stock', 'unit', 'maxOrder', 'status', 'images', 'thumbnail',
           'sellerId', 'sellerName', 'sellerVerified', 'ownershipType',
           'rating', 'reviews', 'isFeatured', 'isActive', 'requiresReview',
-          'createdAt', 'updatedAt'
+          'createdAt', 'updatedAt', 'publishedAt'
         ]);
 
       allow update: if isAdmin() || (
@@ -275,12 +291,27 @@ service cloud.firestore {
           'name', 'description', 'category', 'type', 'price', 'retailPrice',
           'wholesalePrice', 'originalPrice', 'discount', 'minOrderQuantity',
           'stock', 'unit', 'maxOrder', 'status', 'isActive', 'images',
-          'thumbnail', 'updatedAt'
+          'thumbnail', 'requiresReview', 'publishedAt', 'updatedAt'
         ]) &&
-        (
-          (request.resource.data.status != 'live' && request.resource.data.isActive != true) ||
-          isApprovedSeller()
-        )
+        request.resource.data.status in ['draft', 'pending', 'live'] &&
+        request.resource.data.isActive == (request.resource.data.status == 'live') &&
+        request.resource.data.isFeatured == false &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 &&
+        request.resource.data.name.size() <= 160 &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() <= 5000 &&
+        (request.resource.data.status != 'live' || request.resource.data.description.size() >= 10) &&
+        request.resource.data.price is number &&
+        request.resource.data.price > 0 &&
+        request.resource.data.price <= 1000000000 &&
+        request.resource.data.stock is number &&
+        request.resource.data.stock >= 0 &&
+        request.resource.data.stock <= 10000000 &&
+        request.resource.data.type in ['retail', 'wholesale', 'both'] &&
+        request.resource.data.minOrderQuantity is number &&
+        request.resource.data.minOrderQuantity >= 1 &&
+        request.resource.data.minOrderQuantity <= 1000000
       );
       allow delete: if isAdmin() ||
         (isSeller() && resource.data.sellerId == request.auth.uid);

@@ -178,27 +178,27 @@ export default function AddProductPage() {
         Object.entries(newProduct).filter(([, v]) => v !== undefined)
       );
 
-      const savePendingProductDirectly = async () => {
+      const saveProductDirectly = async () => {
         const fallbackProduct = {
           ...sanitizedProduct,
-          status: publish ? 'pending' : 'draft',
-          isActive: false,
+          status: publish ? 'live' : 'draft',
+          isActive: publish,
           isFeatured: false,
           sellerVerified: false,
-          requiresReview: publish,
+          requiresReview: false,
           rating: 0,
           reviews: 0,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         } as Record<string, unknown>;
-        delete fallbackProduct.publishedAt;
+        if (!publish) delete fallbackProduct.publishedAt;
 
         const fallbackRef = await addDoc(
           collection(db, COLLECTIONS.PRODUCTS),
           fallbackProduct
         );
         alert(
-          `${publish ? 'Product submitted for verification and review.' : 'Product saved as a draft.'}\nProduct ID: ${fallbackRef.id}`
+          `${publish ? 'Product published and now visible in the marketplace.' : 'Product saved as a draft.'}\nProduct ID: ${fallbackRef.id}`
         );
         router.push('/seller/products');
       };
@@ -225,14 +225,14 @@ export default function AddProductPage() {
           });
         } catch (networkError) {
           console.warn('Product API unavailable; using the secure seller fallback.', networkError);
-          await savePendingProductDirectly();
+          await saveProductDirectly();
           return;
         }
 
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
           if (resp.status >= 500) {
-            await savePendingProductDirectly();
+            await saveProductDirectly();
             return;
           }
           throw new Error(body?.error || `Server error: ${resp.status}`);
@@ -268,6 +268,16 @@ export default function AddProductPage() {
       return;
     }
 
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Choose a JPG, PNG, WEBP, or another image file.');
+      return;
+    }
+
+    if (file.size >= 10 * 1024 * 1024) {
+      setUploadError('The image must be smaller than 10 MB.');
+      return;
+    }
+
     const isRealAuth = auth?.currentUser && auth.currentUser.uid === user.uid;
     
     if (!isRealAuth) {
@@ -289,13 +299,9 @@ export default function AddProductPage() {
       }
 
       // Force token refresh to ensure it's valid for Cloud Storage
-      try {
-        const idToken = await currentUser.getIdToken(true);
-        if (!idToken) {
-          throw new Error('Failed to obtain valid authentication token');
-        }
-      } catch (tokenErr) {
-        console.warn('Token refresh failed, continuing anyway:', tokenErr);
+      const idToken = await currentUser.getIdToken(true);
+      if (!idToken) {
+        throw new Error('Your upload session could not be refreshed. Sign in again and retry.');
       }
 
       const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -310,6 +316,12 @@ export default function AddProductPage() {
       const uploadTask = uploadBytesResumable(ref, file);
 
       await new Promise<void>((resolve, reject) => {
+        let timedOut = false;
+        const timeoutId = window.setTimeout(() => {
+          timedOut = true;
+          uploadTask.cancel();
+        }, 60_000);
+
         uploadTask.on(
           'state_changed',
           (snapshot) => {
@@ -317,12 +329,18 @@ export default function AddProductPage() {
             setUploadProgress(percent);
           },
           (err) => {
+            window.clearTimeout(timeoutId);
+            if (timedOut) {
+              reject(new Error('The image upload timed out. Check your connection and try again.'));
+              return;
+            }
             console.error('[Image Upload] Error during upload:', err);
             setUploadError(err instanceof Error ? err.message : String(err));
             setIsUploading(false);
             reject(err);
           },
           async () => {
+            window.clearTimeout(timeoutId);
             try {
               const url = await getDownloadURL(uploadTask.snapshot.ref);
               console.log('[Image Upload] Success! URL:', url);
@@ -347,12 +365,7 @@ export default function AddProductPage() {
       
       if (err?.code === 'storage/unauthorized') {
         setUploadError(
-          'Permission denied: You do not have permission to upload images.\n\n' +
-          'Please ensure:\n' +
-          '1. You\'re signed in with a real Firebase account\n' +
-          '2. Cloud Storage security rules are properly deployed\n' +
-          '3. Try refreshing the page and signing in again\n\n' +
-          'If the problem persists, contact support.'
+          'Your upload session could not be verified. Refresh the page and sign in again. Seller approval is not required to upload product images.'
         );
       } else if (err?.code === 'storage/object-not-found') {
         setUploadError(
@@ -392,6 +405,10 @@ export default function AddProductPage() {
           <p style={{ ...AppTextStyles.bodyLarge, color: AppColors.textSecondary }}>
             List a new product for sale. Fill in all details below.
           </p>
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+            <p className="font-bold">You are cleared to publish as a seller.</p>
+            <p className="mt-1">Publish Now makes the listing live immediately. Choose retail for members, wholesale for institutional buyers, or both for both marketplaces.</p>
+          </div>
         </div>
 
         {/* Error Message */}

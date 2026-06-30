@@ -18,6 +18,7 @@ export default function SellerEarningsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [stats, setStats] = useState<{
     totalOrders: number;
     totalRevenue: number;
@@ -37,6 +38,7 @@ export default function SellerEarningsPage() {
 
     async function loadStats() {
       setLoading(true);
+      setError(null);
       try {
         const sellerStats = await orderService.getSellerOrderStats(user.uid);
         setStats({
@@ -55,7 +57,7 @@ export default function SellerEarningsPage() {
     }
 
     loadStats();
-  }, [user]);
+  }, [user?.uid, refreshKey]);
 
   const pendingPayouts = stats ? Math.max(stats.totalRevenue - stats.paidRevenue, 0) : 0;
 
@@ -97,6 +99,13 @@ export default function SellerEarningsPage() {
           ) : error ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-700 dark:bg-red-900 p-6">
               <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
+              <button
+                type="button"
+                onClick={() => setRefreshKey((value) => value + 1)}
+                className="mt-4 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-red-800"
+              >
+                Retry earnings sync
+              </button>
             </div>
           ) : (
             <section className="grid grid-cols-1 md:grid-cols-4 gap-4">

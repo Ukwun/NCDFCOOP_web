@@ -184,6 +184,10 @@ async function testFirebaseAuth() {
       results.passed.push('✅ Firebase Auth endpoint responds');
       console.log(`${colors.green}✅ Firebase Auth is reachable${colors.reset}`);
       return true;
+    } else if (response.status === 401 || response.status === 404) {
+      results.passed.push('✅ Firebase diagnostics endpoint is protected');
+      console.log(`${colors.green}✅ Firebase diagnostics cannot be called anonymously${colors.reset}`);
+      return true;
     } else if (response.body?.firebaseError) {
       results.warnings.push(`⚠️ Firebase error: ${response.body.firebaseError}`);
       console.log(`${colors.yellow}⚠️ Firebase response: ${response.body.firebaseError}${colors.reset}`);

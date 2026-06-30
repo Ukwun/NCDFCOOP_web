@@ -96,7 +96,6 @@ async function checkProjectStructure() {
     'components',
     'lib',
     'public',
-    'styles',
   ];
 
   const requiredFiles = [
@@ -181,7 +180,6 @@ async function checkDependencies() {
     'next',
     'react',
     'firebase',
-    'react-firebase-hooks',
   ];
 
   let allInstalled = true;

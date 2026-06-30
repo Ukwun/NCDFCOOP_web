@@ -14,6 +14,7 @@ import { RecommendationEngine, ProductRecommendation } from '@/lib/services/reco
 import { getExperimentVariant } from '@/lib/services/featureFlagsService';
 import RecommendationRail from '@/components/RecommendationRail';
 import { emitGlobalActivity } from '@/components/GlobalActivityTracker';
+import { USER_ROLES } from '@/lib/constants/database';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'flutterwave' | 'bank_transfer' | 'cash_on_delivery'>('flutterwave');
+  const [useWholesalePrepayment, setUseWholesalePrepayment] = useState(false);
 
   const [shippingAddress, setShippingAddress] = useState<Address>({
     firstName: '',
@@ -118,6 +120,10 @@ export default function CheckoutPage() {
     fetchRecommendations();
   }, [user, cart, recommendationVariant]);
 
+  useEffect(() => {
+    if (paymentMethod === 'cash_on_delivery') setUseWholesalePrepayment(false);
+  }, [paymentMethod]);
+
   const handleAddressChange = (field: keyof Address, value: string) => {
     setShippingAddress((prev) => ({
       ...prev,
@@ -190,7 +196,9 @@ export default function CheckoutPage() {
         cart.total,
         JSON.stringify(shippingAddress),
         paymentMethod,
-        buyerType
+        buyerType,
+        undefined,
+        useWholesalePrepayment
       );
       const { orderId, transactionRef, totals } = createdOrder;
       const trustedTotal = totals.totalAmount;
@@ -623,6 +631,12 @@ export default function CheckoutPage() {
                   </div>
                 </label>
               </div>
+              {currentRole === USER_ROLES.INSTITUTIONAL_BUYER && (
+                <label className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition ${useWholesalePrepayment ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200'}`}>
+                  <input type="checkbox" checked={useWholesalePrepayment} disabled={paymentMethod === 'cash_on_delivery'} onChange={(event) => setUseWholesalePrepayment(event.target.checked)} className="mt-1 h-5 w-5 accent-emerald-700" />
+                  <span><strong className="block text-emerald-900">Institutional prepayment · 10% discount</strong><small className="text-gray-600">Available for Flutterwave or bank transfer. The server verifies the discount before creating the order.</small></span>
+                </label>
+              )}
             </div>
           </div>
 
@@ -670,10 +684,11 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {useWholesalePrepayment && <div className="mb-3 flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"><span>Prepayment saving</span><span>-₦{(cart.subtotal * 0.1).toLocaleString()}</span></div>}
               <div className="flex justify-between mb-8">
                 <span style={{ ...AppTextStyles.h3, color: AppColors.textPrimary }}>Total</span>
                 <span style={{ ...AppTextStyles.h2, color: AppColors.primary }}>
-                  ₦{cart.total.toLocaleString()}
+                  ₦{(useWholesalePrepayment ? Math.max(0, cart.total - cart.subtotal * 0.11) : cart.total).toLocaleString()}
                 </span>
               </div>
 

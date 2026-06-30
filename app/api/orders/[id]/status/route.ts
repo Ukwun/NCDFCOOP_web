@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { isTrustedOperator, verifyRequestUser } from '@/lib/server/requestAuth';
 
 const TRANSITIONS: Record<string, string[]> = {
+  compliance_review: ['confirmed', 'cancelled'],
   pending: ['confirmed', 'cancelled'],
   confirmed: ['processing', 'cancelled'],
   paid: ['processing'],
@@ -24,7 +25,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { status, trackingNumber } = await request.json();
+    const { status, trackingNumber, notes } = await request.json();
     const nextStatus = String(status || '').toLowerCase();
     const db = getAdminDb();
     const orderRef = db.collection('orders').doc(params.id);
@@ -42,6 +43,12 @@ export async function POST(
     }
 
     const currentStatus = String(order.status || 'pending').toLowerCase();
+    if (currentStatus === 'compliance_review' && order.complianceStatus !== 'cleared' && !isTrustedOperator(user)) {
+      return NextResponse.json(
+        { error: 'Compliance clearance is required before fulfillment can begin.' },
+        { status: 409 }
+      );
+    }
     if (!(TRANSITIONS[currentStatus] || []).includes(nextStatus)) {
       return NextResponse.json(
         { error: `Order cannot move from ${currentStatus} to ${nextStatus}.` },
@@ -57,6 +64,7 @@ export async function POST(
         ...(trackingNumber
           ? { trackingNumber: String(trackingNumber).slice(0, 120) }
           : {}),
+        ...(notes ? { notes: String(notes).slice(0, 1000) } : {}),
         ...(nextStatus === 'delivered' ? { deliveryDate: now } : {}),
       });
       transaction.set(db.collection('notifications').doc(), {

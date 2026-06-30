@@ -507,7 +507,7 @@ export default function WholesaleBuyerProfilePage() {
         </section>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white md:hidden">
+      <nav className="hidden">
         <div className="mx-auto grid w-full max-w-6xl grid-cols-5 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-1">
           {BOTTOM_NAV_ITEMS.map((item) => {
             const Icon = item.icon;

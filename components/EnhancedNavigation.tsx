@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Heart, ShoppingCart } from 'lucide-react';
+import { BadgeDollarSign, BarChart3, Boxes, BriefcaseBusiness, Building2, ClipboardList, Heart, Home, LayoutDashboard, PackageSearch, ShieldCheck, ShoppingCart, Timer, Users, type LucideIcon } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth/authContext';
 import { db } from '@/lib/firebase/config';
@@ -32,6 +32,27 @@ interface RoleNavMode {
   items: NavItem[];
 }
 
+const NAV_ICONS: Record<string, LucideIcon> = {
+  home: Home,
+  investments: BarChart3,
+  overview: LayoutDashboard,
+  catalog: PackageSearch,
+  orders: ClipboardList,
+  suppliers: Building2,
+  sla: Timer,
+  compliance: ShieldCheck,
+  dashboard: LayoutDashboard,
+  clients: Users,
+  'wholesale-orders': BriefcaseBusiness,
+  products: Boxes,
+  earnings: BadgeDollarSign,
+};
+
+function RoleNavIcon({ id, size = 17 }: { id: string; size?: number }) {
+  const Icon = NAV_ICONS[id] || LayoutDashboard;
+  return <Icon size={size} aria-hidden="true" />;
+}
+
 const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
   [USER_ROLES.MEMBER]: {
     modeLabel: 'Member Mode',
@@ -42,11 +63,11 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
       modeBar: 'bg-gradient-to-r from-[#0D3D63] via-[#0E527F] to-[#1576A9]',
     },
     items: [
-      { id: 'home', label: 'Home', icon: '🏠', href: '/home', exactMatch: true },
+      { id: 'home', label: 'Home', icon: 'Ã°Å¸ÂÂ ', href: '/home', exactMatch: true },
       {
         id: 'investments',
         label: 'Investments',
-        icon: '📈',
+        icon: 'Ã°Å¸â€œË†',
         href: '/member/investments',
         matchPrefixes: ['/member/investments', '/member-benefits', '/member-products', '/my-rewards', '/member-voting', '/member-transparency'],
       },
@@ -61,34 +82,41 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
       modeBar: 'bg-gradient-to-r from-[#164A2E] via-[#1E7F4E] to-[#2A9B61]',
     },
     items: [
-      { id: 'overview', label: 'Overview', icon: '🧭', href: '/home', exactMatch: true },
+      { id: 'overview', label: 'Overview', icon: 'Ã°Å¸Â§Â­', href: '/home', exactMatch: true },
       {
-        id: 'portfolio',
-        label: 'Portfolio',
-        icon: '📂',
-        href: '/wholesale/portfolio',
-        matchPrefixes: ['/wholesale/portfolio'],
+        id: 'catalog',
+        label: 'Bulk Catalog',
+        icon: 'Catalog',
+        href: '/wholesale/products',
+        matchPrefixes: ['/wholesale/products', '/products/'],
       },
       {
-        id: 'bulk-investments',
-        label: 'Bulk Investments',
-        icon: '🏗️',
-        href: '/wholesale/bulk-investments',
-        matchPrefixes: ['/wholesale/bulk-investments', '/wholesale/orders'],
+        id: 'orders',
+        label: 'Orders',
+        icon: 'Orders',
+        href: '/wholesale/orders',
+        matchPrefixes: ['/wholesale/orders', '/orders/'],
       },
       {
-        id: 'analytics',
-        label: 'Analytics',
-        icon: '📊',
-        href: '/wholesale/analytics',
-        matchPrefixes: ['/wholesale/analytics'],
+        id: 'suppliers',
+        label: 'Suppliers',
+        icon: 'Supply',
+        href: '/wholesale/suppliers',
+        matchPrefixes: ['/wholesale/suppliers'],
+      },
+      {
+        id: 'sla',
+        label: 'SLA Monitor',
+        icon: 'SLA',
+        href: '/wholesale/sla-monitoring',
+        matchPrefixes: ['/wholesale/sla-monitoring', '/wholesale/analytics'],
       },
       {
         id: 'compliance',
         label: 'Compliance',
-        icon: '🛡️',
+        icon: 'Ã°Å¸â€ºÂ¡Ã¯Â¸Â',
         href: '/wholesale/compliance',
-        matchPrefixes: ['/wholesale/compliance', '/settings'],
+        matchPrefixes: ['/wholesale/compliance', '/wholesale/settings'],
       },
     ],
   },
@@ -104,28 +132,35 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
       {
         id: 'dashboard',
         label: 'Dashboard',
-        icon: '🏪',
+        icon: 'Ã°Å¸ÂÂª',
         href: '/seller',
         exactMatch: true,
       },
       {
         id: 'clients',
         label: 'Clients',
-        icon: '🤝',
+        icon: 'Ã°Å¸Â¤Â',
         href: '/seller/clients',
         matchPrefixes: ['/seller/clients'],
       },
       {
+        id: 'wholesale-orders',
+        label: 'Bulk Orders',
+        icon: 'B2B',
+        href: '/seller/wholesale-orders',
+        matchPrefixes: ['/seller/wholesale-orders'],
+      },
+      {
         id: 'products',
         label: 'Products',
-        icon: '📦',
+        icon: 'Ã°Å¸â€œÂ¦',
         href: '/seller/products',
         matchPrefixes: ['/seller/products', '/seller/products/add'],
       },
       {
         id: 'earnings',
         label: 'Earnings',
-        icon: '💰',
+        icon: 'Ã°Å¸â€™Â°',
         href: '/seller/earnings',
         matchPrefixes: ['/seller/earnings'],
       },
@@ -133,19 +168,12 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
   },
 };
 
-function normalizeRole(role: string | null | undefined): string {
-  if (!role) return USER_ROLES.MEMBER;
-  if (role === 'wholesale_buyer') return USER_ROLES.INSTITUTIONAL_BUYER;
-  return role;
-}
-
 function formatRoleLabel(role: string): string {
-  const normalizedRole = normalizeRole(role);
-  if (normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER) {
+  if (role === USER_ROLES.INSTITUTIONAL_BUYER) {
     return 'Wholesale Buyer';
   }
 
-  return normalizedRole
+  return role
     .split('_')
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(' ');
@@ -298,7 +326,6 @@ export default function EnhancedNavigation() {
         pathname === '/signup' ||
         pathname.startsWith('/onboarding') ||
         pathname === '/role-selection' ||
-        pathname.startsWith('/wholesale/profile') ||
         pathname.startsWith('/seller/onboarding')
       )
     : false;
@@ -317,7 +344,7 @@ export default function EnhancedNavigation() {
     }
   };
 
-  const normalizedRole = normalizeRole(currentRole);
+  const normalizedRole = currentRole || USER_ROLES.MEMBER;
   const navMode = ROLE_NAVIGATION_MODES[normalizedRole] || ROLE_NAVIGATION_MODES[USER_ROLES.MEMBER];
   const navigationItems = navMode.items;
   const hasMultipleRoles = !!user?.roles && user.roles.length > 1;
@@ -329,7 +356,7 @@ export default function EnhancedNavigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo/Brand */}
-            <Link href="/home" className="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
+            <Link href={normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/profile' : normalizedRole === USER_ROLES.SELLER ? '/seller' : '/home'} className="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
               <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-12 w-auto" style={{ maxHeight: '3rem' }} />
             </Link>
 
@@ -347,7 +374,7 @@ export default function EnhancedNavigation() {
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                     }`}
                   >
-                    <span>{item.icon}</span>
+                    <RoleNavIcon id={item.id} />
                     <span className="text-sm font-medium">{item.label}</span>
                   </Link>
                 );
@@ -373,7 +400,7 @@ export default function EnhancedNavigation() {
                   </Link>
 
                   <Link
-                    href="/cart"
+                    href={normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER && cartCount > 0 ? '/checkout' : '/cart'}
                     className="relative p-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     title="Cart"
                     aria-label="Open cart"
@@ -440,7 +467,7 @@ export default function EnhancedNavigation() {
                   aria-haspopup="true"
                   aria-expanded={showLogoutDialog}
                 >
-                  <span>👤</span>
+                  <span>Ã°Å¸â€˜Â¤</span>
                   <span className="hidden sm:inline text-sm font-medium truncate max-w-xs">
                     {user?.displayName || 'Account'}
                   </span>
@@ -540,7 +567,7 @@ export default function EnhancedNavigation() {
           </Link>
 
           <Link
-            href="/cart"
+            href={normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER && cartCount > 0 ? '/checkout' : '/cart'}
             className="flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors text-gray-600 dark:text-gray-400"
             style={{ minWidth: `${100 / (navigationItems.length + 2)}%` }}
             aria-label="Open cart"
@@ -569,7 +596,7 @@ export default function EnhancedNavigation() {
                 }`}
                 style={{ minWidth: `${100 / (navigationItems.length + 2)}%` }}
               >
-                <span className="text-xl">{item.icon}</span>
+                <RoleNavIcon id={item.id} size={19} />
                 <span className="text-xs font-medium mt-1 text-center">{item.label}</span>
               </Link>
             );

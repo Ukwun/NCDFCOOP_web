@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
@@ -28,6 +28,8 @@ interface SellerProduct {
   reviews: number;
   discount?: number;
   unit?: string;
+  status?: 'draft' | 'pending' | 'live';
+  requiresReview?: boolean;
 }
 
 export default function SellerProductsPage() {
@@ -39,16 +41,39 @@ export default function SellerProductsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStock, setEditStock] = useState<number>(0);
 
-  // Fetch seller's products from Firestore
+  // Keep inventory live so saves and moderation changes appear immediately.
   useEffect(() => {
     if (!loading && user && currentRole === USER_ROLES.SELLER) {
-      fetchSellerProducts();
+      if (!db) {
+        setError('Database not initialized. Please refresh the page.');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      const sellerProducts = query(
+        collection(db, COLLECTIONS.PRODUCTS),
+        where('sellerId', '==', user.uid)
+      );
+      return onSnapshot(
+        sellerProducts,
+        (snapshot) => {
+          setProducts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as SellerProduct)));
+          setError(null);
+          setIsLoading(false);
+        },
+        (snapshotError) => {
+          console.error('Error watching products:', snapshotError);
+          setError('Failed to load products');
+          setIsLoading(false);
+        }
+      );
     } else if (!loading && !user) {
       router.push('/signin');
     } else if (!loading && user && currentRole !== USER_ROLES.SELLER) {
       router.push('/home');
     }
-  }, [user, loading, currentRole, router]);
+  }, [user?.uid, loading, currentRole, router]);
 
   const fetchSellerProducts = async () => {
     if (!user) return;
@@ -380,6 +405,15 @@ export default function SellerProductsPage() {
                             >
                               {product.unit || 'unit'}
                             </p>
+                            <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              product.status === 'live'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : product.status === 'draft'
+                                  ? 'bg-slate-100 text-slate-700'
+                                  : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {product.status === 'live' ? 'Live' : product.status === 'draft' ? 'Draft' : 'Awaiting review'}
+                            </span>
                           </div>
                         </div>
                       </td>

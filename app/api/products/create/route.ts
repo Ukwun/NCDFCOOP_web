@@ -47,10 +47,13 @@ export async function POST(request: NextRequest) {
       1_000_000
     );
 
+    const requestedLive = body.status === 'live';
+    const requestedDraft = body.status === 'draft';
+
     if (
       name.length < 2 ||
       name.length > 160 ||
-      description.length < 10 ||
+      (requestedLive && description.length < 10) ||
       description.length > 5_000 ||
       !category ||
       !['retail', 'wholesale', 'both'].includes(type) ||
@@ -72,15 +75,18 @@ export async function POST(request: NextRequest) {
       profile.sellerVerified === true ||
       profile.sellerStatus === 'approved' ||
       profile.kycStatus === 'verified';
-    const requestedLive = body.status === 'live';
-    const status = requestedLive && sellerVerified ? 'live' : 'pending';
+    const status = requestedDraft
+      ? 'draft'
+      : requestedLive && sellerVerified
+        ? 'live'
+        : 'pending';
     const images = Array.isArray(body.images)
       ? body.images.filter((image: unknown) => typeof image === 'string').slice(0, 10)
       : [];
 
     const product = {
       name,
-      description,
+      description: description || 'Description will be added before publishing.',
       category,
       type,
       price,
@@ -97,6 +103,7 @@ export async function POST(request: NextRequest) {
       thumbnail: String(body.thumbnail || images[0] || '').slice(0, 2_000),
       sellerId: user.uid,
       sellerName: String(profile.name || user.email || 'Seller').slice(0, 160),
+      sellerVerified,
       ownershipType: 'seller',
       rating: 0,
       reviews: 0,
@@ -116,7 +123,9 @@ export async function POST(request: NextRequest) {
         message:
           status === 'live'
             ? 'Product published successfully.'
-            : requestedLive
+            : status === 'draft'
+              ? 'Product saved as a draft.'
+              : requestedLive
               ? 'Product submitted for seller verification and review.'
               : 'Product saved for review.',
       },

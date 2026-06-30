@@ -11,10 +11,12 @@ import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import Image from 'next/image';
 import { toDate } from '@/lib/utils/dateHelper';
+import { USER_ROLES } from '@/lib/constants/database';
+import { bulkReorder } from '@/lib/services/wholesaleService';
 
 export default function OrdersPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, currentRole, loading: authLoading } = useAuth();
   
   // Use real-time orders hook for live updates
   const { orders: realTimeOrders, isLoading: rtIsLoading, error: rtError } = useRealTimeOrders(user?.uid);
@@ -22,6 +24,7 @@ export default function OrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasFetchedFallback, setHasFetchedFallback] = useState(false);
+  const [actionNotice, setActionNotice] = useState('');
 
   // Keep local state synchronized with real-time order updates.
   useEffect(() => {
@@ -81,6 +84,15 @@ export default function OrdersPage() {
     }
   };
 
+  const isWholesale = currentRole === USER_ROLES.INSTITUTIONAL_BUYER;
+  const visibleOrders = orders.filter((order) => isWholesale ? order.buyerType === 'wholesale' : order.buyerType !== 'wholesale');
+
+  const reorder = async (order: Order) => {
+    if (!user) return;
+    try { await bulkReorder(user.uid, order); router.push('/cart'); }
+    catch (reorderError) { setActionNotice(reorderError instanceof Error ? reorderError.message : 'Unable to rebuild this order.'); }
+  };
+
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center"
@@ -127,7 +139,7 @@ export default function OrdersPage() {
                 color: AppColors.textPrimary,
               }}
             >
-              My Orders
+              {isWholesale ? 'Wholesale Procurement Orders' : 'My Orders'}
             </h1>
             {/* Real-time indicator */}
             <div className="flex items-center gap-2 px-3 py-1 rounded-full" style={{ backgroundColor: '#D1FAE5' }}>
@@ -136,19 +148,20 @@ export default function OrdersPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push('/products')}
+            onClick={() => router.push(isWholesale ? '/wholesale/products' : '/products')}
             className="px-6 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
             style={{
               backgroundColor: AppColors.primary,
             }}
           >
-            Continue Shopping
+            {isWholesale ? 'Open Bulk Catalog' : 'Continue Shopping'}
           </button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {actionNotice && <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{actionNotice}</div>}
         {error && (
           <div
             className="p-4 rounded-lg text-white mb-6"
@@ -160,7 +173,7 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {orders.length === 0 ? (
+        {visibleOrders.length === 0 ? (
           <div
             className="rounded-lg p-12 text-center border"
             style={{
@@ -187,7 +200,7 @@ export default function OrdersPage() {
               Start shopping to create your first order
             </p>
             <button
-              onClick={() => router.push('/products')}
+              onClick={() => router.push(isWholesale ? '/wholesale/products' : '/products')}
               className="px-8 py-3 rounded-lg text-white font-bold"
               style={{
                 backgroundColor: AppColors.primary,
@@ -198,7 +211,7 @@ export default function OrdersPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => (
+            {visibleOrders.map((order) => (
               <div
                 key={order.id}
                 className="rounded-lg border overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
@@ -387,6 +400,10 @@ export default function OrdersPage() {
                   >
                     View Details
                   </button>
+                  {isWholesale && <button
+                    className="ml-2 px-5 py-3 rounded-lg font-bold bg-emerald-700 text-white transition hover:bg-emerald-800"
+                    onClick={(event) => { event.stopPropagation(); void reorder(order); }}
+                  >Bulk Reorder</button>}
                 </div>
               </div>
             ))}

@@ -46,10 +46,7 @@ function formatMoney(value: number | undefined): string {
 }
 
 function getBaseEffectivePrice(product: Product, currentRole?: string): number {
-  if (
-    currentRole === USER_ROLES.INSTITUTIONAL_BUYER ||
-    currentRole === 'wholesale_buyer'
-  ) {
+  if (currentRole === USER_ROLES.INSTITUTIONAL_BUYER) {
     if (product.wholesalePrice && (product.type === 'wholesale' || product.type === 'both')) {
       return product.wholesalePrice;
     }
@@ -156,6 +153,13 @@ export default function ProductDetailPage() {
   const [isSendingInquiry, setIsSendingInquiry] = useState(false);
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<Set<string>>(new Set());
+  const isWholesaleUnavailable = currentRole === USER_ROLES.INSTITUTIONAL_BUYER && product?.type === 'retail';
+
+  useEffect(() => {
+    if (isWholesaleUnavailable && product) {
+      setInquiryQuantity(Math.max(1, product.minOrderQuantity || product.minOrder || 1));
+    }
+  }, [isWholesaleUnavailable, product]);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   const [mostSearchedRecommendations, setMostSearchedRecommendations] = useState<ProductRecommendation[]>([]);
   const [selectedBundleIds, setSelectedBundleIds] = useState<Set<string>>(new Set());
@@ -243,7 +247,7 @@ export default function ProductDetailPage() {
     loadMostSearchedRecommendations();
   }, [user?.uid]);
 
-  const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER || currentRole === 'wholesale_buyer';
+  const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER;
   const wholesaleMode = product ? isWholesaleBuyer && (product.type === 'wholesale' || product.type === 'both') : false;
   const minOrderQuantity = product && wholesaleMode ? Math.max(1, product.minOrderQuantity || 1) : 1;
   const displayPrice = product ? getEffectivePrice(product, currentRole) : 0;
@@ -361,9 +365,7 @@ export default function ProductDetailPage() {
   };
 
   const getMinimumCartQuantity = (targetProduct: Product) => {
-    const isWholesaleBuyer =
-      currentRole === USER_ROLES.INSTITUTIONAL_BUYER ||
-      currentRole === 'wholesale_buyer';
+    const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER;
 
     const isWholesaleProduct =
       targetProduct.type === 'wholesale' || targetProduct.type === 'both';
@@ -377,6 +379,10 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = async () => {
     if (!product) return;
+    if (isWholesaleUnavailable) {
+      toast.warning('This retail-only product is not available for institutional checkout. Request it from the seller instead.');
+      return;
+    }
 
     try {
       setIsAdding(true);
@@ -395,6 +401,10 @@ export default function ProductDetailPage() {
 
   const handleBuyNow = async () => {
     if (!product) return;
+    if (isWholesaleUnavailable) {
+      toast.warning('This retail-only product cannot enter a wholesale checkout. Send a sourcing request instead.');
+      return;
+    }
 
     try {
       setIsBuying(true);
@@ -859,10 +869,11 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
+              {isWholesaleUnavailable && <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><p className="font-bold">Not available in the wholesale catalog</p><p className="mt-1 text-sm text-amber-800">This listing is retail-only. You can ask the seller to quote an institutional quantity without adding it to checkout.</p><button onClick={() => void handleSendInquiry()} className="mt-3 rounded-xl bg-amber-900 px-4 py-2 text-sm font-bold text-white">Request from seller</button></div>}
               <div className="space-y-3">
                 <button
                   onClick={handleAddToCart}
-                  disabled={isAdding || product.stock === 0}
+                  disabled={isAdding || product.stock === 0 || isWholesaleUnavailable}
                   className="w-full py-4 rounded-2xl text-white font-bold text-lg transition-all hover:shadow-lg disabled:opacity-60"
                   style={{ backgroundColor: AppColors.primary }}
                 >
@@ -870,7 +881,7 @@ export default function ProductDetailPage() {
                 </button>
                 <button
                   onClick={handleBuyNow}
-                  disabled={isBuying || product.stock === 0}
+                  disabled={isBuying || product.stock === 0 || isWholesaleUnavailable}
                   className="w-full py-4 rounded-2xl font-bold text-lg border transition-all hover:shadow-lg disabled:opacity-60"
                   style={{ backgroundColor: '#0B6B3A', borderColor: '#0B6B3A', color: 'white' }}
                 >
@@ -1359,7 +1370,7 @@ export default function ProductDetailPage() {
         <div className="max-w-7xl mx-auto flex gap-2">
           <button
             onClick={handleAddToCart}
-            disabled={isAdding || product.stock === 0}
+            disabled={isAdding || product.stock === 0 || isWholesaleUnavailable}
             className="flex-1 py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
             style={{ backgroundColor: AppColors.primary }}
           >
@@ -1367,7 +1378,7 @@ export default function ProductDetailPage() {
           </button>
           <button
             onClick={handleBuyNow}
-            disabled={isBuying || product.stock === 0}
+            disabled={isBuying || product.stock === 0 || isWholesaleUnavailable}
             className="flex-1 py-3 rounded-2xl text-white font-semibold disabled:opacity-60"
             style={{ backgroundColor: '#0B6B3A' }}
           >

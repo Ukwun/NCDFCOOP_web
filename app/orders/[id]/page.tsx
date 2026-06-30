@@ -147,6 +147,23 @@ export default function OrderTrackingPage() {
       },
     ];
 
+    if (order.buyerType === 'wholesale') {
+      statuses.splice(1, 0, {
+        step: 2,
+        title: 'Supplier Compliance Gate',
+        status: order.complianceStatus === 'cleared'
+          ? 'completed'
+          : order.complianceStatus === 'exception'
+            ? 'failed'
+            : 'active',
+        icon: order.complianceStatus === 'cleared' ? 'KYC' : '!',
+        description: order.complianceStatus === 'cleared'
+          ? 'Supplier KYC, MOQ, and inventory controls passed'
+          : 'Fulfillment is paused while supplier verification is resolved',
+      });
+      statuses.forEach((item, index) => { item.step = index + 1; });
+    }
+
     return statuses;
   };
 

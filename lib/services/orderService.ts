@@ -23,6 +23,7 @@ export interface CreatedOrderResult {
     subtotal: number;
     tax: number;
     shipping: number;
+    prepaymentDiscount: number;
     totalAmount: number;
     currency: "NGN";
   };
@@ -39,6 +40,7 @@ export async function createOrder(
   paymentMethod: "flutterwave" | "bank_transfer" | "cash_on_delivery",
   buyerType: "member" | "wholesale", // Added buyerType
   orderId?: string,
+  prepaymentDiscountRequested: boolean = false,
 ): Promise<CreatedOrderResult> {
   if (!auth?.currentUser || auth.currentUser.uid !== userId) {
     throw new Error("You must be signed in to create an order.");
@@ -61,6 +63,7 @@ export async function createOrder(
       buyerType,
       clientTotal: totalAmount,
       requestedOrderId: orderId,
+      prepaymentDiscountRequested,
     }),
   });
   const payload = await response.json().catch(() => ({}));

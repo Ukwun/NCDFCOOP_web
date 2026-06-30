@@ -15,7 +15,7 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { auth, db } from '../../firebase/config';
 import { COLLECTIONS } from '../../constants/database';
 import { ErrorHandler } from '../../error/errorHandler';
 
@@ -39,7 +39,7 @@ export interface CreateOrderPayload {
 
 export interface UpdateOrderStatusPayload {
   orderId: string;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   trackingNumber?: string;
   notes?: string;
 }
@@ -132,22 +132,14 @@ class OrderService {
    */
   async updateOrderStatus(payload: UpdateOrderStatusPayload) {
     try {
-      const orderRef = doc(db, COLLECTIONS.ORDERS, payload.orderId);
-
-      const updateData: any = {
-        status: payload.status,
-        updatedAt: Timestamp.now(),
-      };
-
-      if (payload.trackingNumber) {
-        updateData.trackingNumber = payload.trackingNumber;
-      }
-
-      if (payload.notes) {
-        updateData.notes = payload.notes;
-      }
-
-      await updateDoc(orderRef, updateData);
+      const token = await auth?.currentUser?.getIdToken();
+      if (!token) throw new Error('Your session expired. Please sign in again.');
+      const response = await fetch(`/api/orders/${encodeURIComponent(payload.orderId)}/status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: payload.status, trackingNumber: payload.trackingNumber, notes: payload.notes }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Order status update failed.');
 
       ErrorHandler.logInfo('ORDER_STATUS_UPDATED', `Order ${payload.orderId} status updated to ${payload.status}`);
       return { success: true };

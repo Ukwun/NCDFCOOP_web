@@ -37,12 +37,6 @@ service cloud.firestore {
         (currentRole() == 'seller' || currentRole() == 'franchise');
     }
 
-    function isInstitutionalBuyer() {
-      return isAuthenticated() &&
-        currentUserDocExists() &&
-        currentRole() == 'institutional_buyer';
-    }
-
     function isStaff() {
       return isAuthenticated() &&
         currentUserDocExists() &&
@@ -62,10 +56,6 @@ service cloud.firestore {
     function canReadUserScopedAggregate() {
       return isAuthenticated() &&
         resource.data.userId == request.auth.uid;
-    }
-
-    function isOperationalRole() {
-      return isAdmin() || isSeller() || isInstitutionalBuyer();
     }
 
     function isPublicRole(role) {
@@ -105,14 +95,8 @@ service cloud.firestore {
     // USERS COLLECTION - User profiles
     // ============================================
     match /users/{userId} {
-      // Own profile or admin full access.
-      // Read-only seller identity access supports trust strip verification checks.
-      allow read: if isOwner(userId) ||
-        isAdmin() ||
-        (isAuthenticated() && (
-          resource.data.selectedRole == 'seller' ||
-          resource.data.selectedRole == 'franchise'
-        ));
+      // User profiles contain private identity and payout-adjacent data.
+      allow read: if isOwner(userId) || isAdmin();
 
       allow create: if isOwner(userId) &&
         hasValidPublicRoles(request.resource.data) &&
@@ -230,6 +214,7 @@ service cloud.firestore {
     // ORDERS - Buyer/user scoped orders
     // ============================================
     match /orders/{orderId} {
+      // Quote drafts are stored separately below; orders remain server-created.
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
         resource.data.buyerId == request.auth.uid ||
@@ -277,6 +262,11 @@ service cloud.firestore {
       );
       allow delete: if isAdmin() ||
         (isSeller() && resource.data.sellerId == request.auth.uid);
+    }
+
+    match /quoteDrafts/{draftId} {
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
     // ============================================

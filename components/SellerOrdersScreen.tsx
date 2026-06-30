@@ -4,12 +4,16 @@ import React, { useState } from 'react';
 import { useSellerOrders } from '@/lib/hooks';
 import { orderService } from '@/lib/services/api';
 import { ErrorHandler } from '@/lib/error/errorHandler';
+import { auth } from '@/lib/firebase/config';
+import { useRouter } from 'next/navigation';
 
 interface SellerOrdersScreenProps {
   userId: string;
+  wholesaleOnly?: boolean;
 }
 
-export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }) => {
+export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId, wholesaleOnly = false }) => {
+  const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -17,6 +21,8 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
   const [newStatus, setNewStatus] = useState<string>('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [statusNote, setStatusNote] = useState('');
+  const [slaDays, setSlaDays] = useState<Record<string, number>>({});
+  const [actionNotice, setActionNotice] = useState('');
 
   const {
     orders,
@@ -25,12 +31,22 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
     getOrdersByStatus,
   } = useSellerOrders(userId);
 
-  const filteredOrders =
-    filterStatus === 'all'
-      ? orders
-      : getOrdersByStatus(filterStatus);
+  const scopedOrders = wholesaleOnly ? orders.filter((order) => order.buyerType === 'wholesale') : orders;
+  const filteredOrders = scopedOrders.filter((order) => filterStatus === 'all' ||
+    (filterStatus === 'active' && ['confirmed', 'processing', 'shipped'].includes(order.status)) ||
+    (filterStatus === 'completed' && order.status === 'delivered') || order.status === filterStatus);
 
-  const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const totalRevenue = scopedOrders.reduce((sum, order) => sum + (order.items || []).filter((item) => item.sellerId === userId).reduce((itemSum, item) => itemSum + item.price * item.quantity, 0), 0);
+
+  const saveSla = async (orderId: string) => {
+    try {
+      const token = await auth?.currentUser?.getIdToken();
+      if (!token) throw new Error('Your session expired.');
+      const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/sla`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ days: slaDays[orderId] || 5 }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Unable to save SLA.');
+      setActionNotice('Delivery SLA committed and the buyer was notified.');
+    } catch (slaError) { setActionNotice(slaError instanceof Error ? slaError.message : 'Unable to save SLA.'); }
+  };
 
   const handleUpdateStatus = async () => {
     if (!selectedOrder || !newStatus) {
@@ -94,19 +110,19 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
-        <h1 className="text-3xl font-bold">Orders Management</h1>
+        <h1 className="text-3xl font-bold">{wholesaleOnly ? 'Wholesale Fulfillment' : 'Orders Management'}</h1>
         <div className="grid grid-cols-4 gap-4 mt-4">
           <div>
             <p className="text-green-100 text-sm">Total Orders</p>
-            <p className="text-2xl font-bold">{orders.length}</p>
+            <p className="text-2xl font-bold">{scopedOrders.length}</p>
           </div>
           <div>
             <p className="text-green-100 text-sm">Pending</p>
-            <p className="text-2xl font-bold">{getOrdersByStatus('pending').length}</p>
+            <p className="text-2xl font-bold">{scopedOrders.filter((order) => ['pending', 'compliance_review'].includes(order.status)).length}</p>
           </div>
           <div>
             <p className="text-green-100 text-sm">Active</p>
-            <p className="text-2xl font-bold">{getOrdersByStatus('shipped').length}</p>
+            <p className="text-2xl font-bold">{scopedOrders.filter((order) => ['confirmed', 'processing', 'shipped'].includes(order.status)).length}</p>
           </div>
           <div>
             <p className="text-green-100 text-sm">Total Revenue</p>
@@ -116,6 +132,7 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
           </div>
         </div>
       </div>
+      {actionNotice && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">{actionNotice}</div>}
 
       {/* Filter Tabs */}
       <div className="flex gap-2 border-b overflow-x-auto">
@@ -177,6 +194,8 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
                     <span className={`px-2 py-1 rounded text-xs font-medium ${getPaymentBadgeColor(order.paymentStatus)}`}>
                       {order.paymentStatus}
                     </span>
+                    {order.buyerType === 'wholesale' && <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-800">Wholesale</span>}
+                    {order.complianceStatus && <span className={`rounded px-2 py-1 text-xs font-bold ${order.complianceStatus === 'cleared' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>Compliance: {order.complianceStatus.replace(/_/g, ' ')}</span>}
                   </div>
                   <div className="flex gap-4 text-sm text-gray-600">
                     <span>Buyer: {order.buyerName}</span>
@@ -212,7 +231,7 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
                   <div>
                     <h4 className="font-semibold mb-2">Items Ordered</h4>
                     <div className="space-y-2">
-                      {order.items?.map((item: any, idx: number) => (
+                      {order.items?.filter((item: any) => item.sellerId === userId).map((item: any, idx: number) => (
                         <div
                           key={idx}
                           className="flex justify-between items-start p-2 bg-gray-50 rounded border border-gray-100"
@@ -224,6 +243,7 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
                                 📦 Wholesale Order (MOQ: {item.minOrderQuantity} {item.unitOfMeasure || 'units'})
                               </p>
                             )}
+                            {order.buyerType === 'wholesale' && <p className="mt-1 text-xs font-semibold text-emerald-700">Bulk price applied: ₦{Number(item.price || 0).toLocaleString()} / {item.unitOfMeasure || 'unit'} · committed quantity {item.quantity}</p>}
                             <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                           </div>
                           <p className="font-semibold">
@@ -233,6 +253,8 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
                       ))}
                     </div>
                   </div>
+
+                  {order.buyerType === 'wholesale' && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><h4 className="font-semibold text-emerald-950">Wholesale delivery commitment</h4><p className="mt-1 text-xs text-emerald-800">Set the promised timeline used by the buyer's live SLA monitor.</p><div className="mt-3 flex flex-wrap items-center gap-2"><input type="number" min="1" max="30" value={slaDays[order.id] || 5} onChange={(event) => setSlaDays((current) => ({ ...current, [order.id]: Number(event.target.value) }))} className="w-20 rounded-lg border border-emerald-300 px-3 py-2"/><span className="text-sm">days</span><button onClick={() => void saveSla(order.id)} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white">Commit SLA</button></div></div>}
 
                   {/* Tracking */}
                   {order.trackingNumber && (
@@ -252,7 +274,7 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-4 border-t">
-                    {['pending', 'confirmed'].includes(order.status) && (
+                    {['pending', 'confirmed', 'processing', 'shipped'].includes(order.status) && (
                       <button
                         onClick={() => openStatusModal(order.id)}
                         className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
@@ -260,10 +282,10 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
                         Update Status
                       </button>
                     )}
-                    <button className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <button onClick={() => router.push(`/inquiries?buyer=${encodeURIComponent(order.buyerId)}`)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                       Contact Buyer
                     </button>
-                    <button className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <button onClick={() => window.print()} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                       Print Receipt
                     </button>
                   </div>
@@ -292,6 +314,7 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ userId }
               >
                 <option value="">Select a status...</option>
                 <option value="confirmed">Confirmed</option>
+                <option value="processing">Processing</option>
                 <option value="shipped">Shipped</option>
                 <option value="delivered">Delivered</option>
               </select>

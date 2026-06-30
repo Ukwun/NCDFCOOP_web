@@ -138,7 +138,7 @@ const ROLE_INTENTS: SearchIntent[] = [
 ];
 
 function normalizeRole(role: string): IntentRole {
-  if (role === USER_ROLES.INSTITUTIONAL_BUYER || role === 'wholesale_buyer') {
+  if (role === USER_ROLES.INSTITUTIONAL_BUYER) {
     return 'institutional_buyer';
   }
 

@@ -7,12 +7,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useRealTimeOrders } from '@/lib/hooks/useRealTime';
+import { bulkReorder } from '@/lib/services/wholesaleService';
 
 export default function WholesaleOrdersPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { orders: realTimeOrders, isLoading, error } = useRealTimeOrders(user?.uid);
   const [filter, setFilter] = useState<'All' | 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered'>('All');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [notice, setNotice] = useState('');
 
   const wholesaleOrders = useMemo(
     () => realTimeOrders.filter((order) => order.buyerType === 'wholesale'),
@@ -20,9 +23,11 @@ export default function WholesaleOrdersPage() {
   );
 
   const filteredOrders = useMemo(() => {
-    if (filter === 'All') return wholesaleOrders;
-    return wholesaleOrders.filter((order) => order.status === filter.toLowerCase());
-  }, [filter, wholesaleOrders]);
+    return wholesaleOrders.filter((order) => (filter === 'All' || order.status === filter.toLowerCase())
+      && (supplierFilter === 'all' || order.items?.some((item) => item.sellerId === supplierFilter)));
+  }, [filter, supplierFilter, wholesaleOrders]);
+
+  const suppliers = useMemo(() => Array.from(new Map(wholesaleOrders.flatMap((order) => order.items || []).filter((item) => item.sellerId).map((item) => [item.sellerId!, item.sellerName || 'Supplier'])).entries()), [wholesaleOrders]);
 
   const stats = useMemo(() => {
     const totalUnits = wholesaleOrders.reduce(
@@ -43,6 +48,12 @@ export default function WholesaleOrdersPage() {
       nextDelivery: nextDeliveryDate ? nextDeliveryDate.toLocaleDateString('en-GB') : '—',
     };
   }, [wholesaleOrders]);
+
+  const reorder = async (order: any) => {
+    if (!user) return;
+    try { await bulkReorder(user.uid, order); router.push('/cart'); }
+    catch (reorderError) { setNotice(reorderError instanceof Error ? reorderError.message : 'Unable to rebuild order.'); }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -105,6 +116,11 @@ export default function WholesaleOrdersPage() {
               </button>
             ))}
           </div>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <select value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:bg-gray-800"><option value="all">All suppliers</option>{suppliers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
+            <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-800">MOQ checked server-side</span><span className="rounded-full bg-blue-100 px-3 py-1 font-semibold text-blue-800">₦{wholesaleOrders.reduce((sum, order) => sum + (order.prepaymentDiscount || 0), 0).toLocaleString()} prepayment savings</span></div>
+          </div>
+          {notice && <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{notice}</div>}
 
           {/* Orders Table */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -150,12 +166,12 @@ export default function WholesaleOrdersPage() {
                           {order.deliveryDate ? new Date(order.deliveryDate as any).toLocaleDateString('en-GB') : '—'}
                         </td>
                         <td className="px-6 py-4 text-sm">
-                          <button
+                          <div className="flex gap-3"><button
                             onClick={() => router.push(`/orders/${order.id}`)}
                             className="text-purple-600 hover:text-purple-800 font-semibold"
                           >
                             Track
-                          </button>
+                          </button><button onClick={() => void reorder(order)} className="font-semibold text-emerald-700 hover:text-emerald-900">Reorder</button></div>
                         </td>
                       </tr>
                     ))}

@@ -14,16 +14,19 @@ import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { RecommendationEngine, ProductRecommendation } from '@/lib/services/recommendationEngine';
 import { getExperimentVariant } from '@/lib/services/featureFlagsService';
 import RecommendationRail from '@/components/RecommendationRail';
+import { USER_ROLES } from '@/lib/constants/database';
+import { saveWholesaleQuoteDraft } from '@/lib/services/wholesaleService';
 
 export default function CartPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, currentRole, loading: authLoading } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
+  const [quoteNotice, setQuoteNotice] = useState('');
 
   const recommendationVariant = user?.uid
     ? getExperimentVariant(user.uid, 'cart_recommendation_rail', 70)
@@ -232,7 +235,22 @@ export default function CartPage() {
       return;
     }
 
+    if (currentRole === USER_ROLES.INSTITUTIONAL_BUYER && cart.items.some((item) => item.quantity < Math.max(1, item.productData?.minOrderQuantity || item.productData?.minOrder || 1))) {
+      setError('Resolve the highlighted minimum-order quantities before checkout. You can still save this cart as an RFQ draft.');
+      return;
+    }
     router.push('/checkout');
+  };
+
+  const handleSaveQuoteDraft = async () => {
+    if (!user || !cart) return;
+    try {
+      setIsUpdating(true);
+      const id = await saveWholesaleQuoteDraft(user.uid, cart);
+      setQuoteNotice(`Quote draft ${id.slice(0, 8).toUpperCase()} saved. Your cart remains available for editing.`);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save quote draft.');
+    } finally { setIsUpdating(false); }
   };
 
   if (authLoading || isLoading) {
@@ -322,7 +340,7 @@ export default function CartPage() {
               Explore our products and add items to get started
             </p>
             <button
-              onClick={() => router.push('/products')}
+              onClick={() => router.push(currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/products' : '/products')}
               className="px-8 py-3 rounded-lg text-white font-semibold"
               style={{
                 backgroundColor: AppColors.primary,
@@ -333,6 +351,7 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            {quoteNotice && <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm font-medium text-emerald-900">{quoteNotice}</div>}
             {recommendationVariant === 'treatment' && (
               <RecommendationRail
                 title="Recommended For You"
@@ -413,6 +432,10 @@ export default function CartPage() {
                         >
                           ₦{item.price.toLocaleString()}
                         </p>
+
+                        {currentRole === USER_ROLES.INSTITUTIONAL_BUYER && item.quantity < Math.max(1, item.productData?.minOrderQuantity || item.productData?.minOrder || 1) && (
+                          <p className="mb-2 rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">MOQ: {Math.max(1, item.productData?.minOrderQuantity || item.productData?.minOrder || 1)} {item.productData?.unit || 'units'} required</p>
+                        )}
 
                         {/* Quantity Selector */}
                         <div className="flex items-center gap-2 border-2 rounded-lg w-fit">
@@ -576,8 +599,14 @@ export default function CartPage() {
                   Proceed to Checkout
                 </button>
 
+                {currentRole === USER_ROLES.INSTITUTIONAL_BUYER && <button
+                  onClick={() => void handleSaveQuoteDraft()}
+                  disabled={isUpdating}
+                  className="w-full mt-3 py-3 rounded-lg font-semibold border-2 border-emerald-700 text-emerald-800 transition-all hover:bg-emerald-50 disabled:opacity-50"
+                >Save as Quote Draft</button>}
+
                 <button
-                  onClick={() => router.push('/products')}
+                  onClick={() => router.push(currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/products' : '/products')}
                   className="w-full mt-3 py-3 rounded-lg font-semibold border-2 transition-all"
                   style={{
                     borderColor: AppColors.primary,

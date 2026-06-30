@@ -108,6 +108,9 @@ export default function AddProductPage() {
     const wholesaleMinOrderValue = parseInt(formData.wholesaleMinOrder || '1', 10);
 
     if (!formData.name.trim()) currentErrors.name = 'Product name is required';
+    if (publish && formData.description.trim().length < 10) {
+      currentErrors.description = 'Add at least 10 characters before publishing';
+    }
     if (!formData.category) currentErrors.category = 'Select a category';
     if (!formData.price.trim() || priceValue <= 0) currentErrors.price = 'Please enter a valid base price';
     if (!formData.stock.trim() || stockValue <= 0) currentErrors.stock = 'Stock quantity must be greater than zero';
@@ -156,10 +159,10 @@ export default function AddProductPage() {
         stock: finalStockValue,
         unit: formData.unit,
         maxOrder: 100,
-        status: publish ? 'live' : 'pending',
+        status: publish ? 'live' : 'draft',
         publishedAt: publish ? timestampValue : undefined,
-        images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/400x400'],
-        thumbnail: formData.thumbnail || 'https://via.placeholder.com/400x400',
+        images: formData.images.length > 0 ? formData.images : ['/images/Groceries1.png'],
+        thumbnail: formData.thumbnail || '/images/Groceries1.png',
         sellerId: user.uid,
         sellerName: user.displayName || 'Seller',
         ownershipType: 'seller',
@@ -406,6 +409,7 @@ export default function AddProductPage() {
                 borderColor: AppColors.border,
               }}
             />
+            {fieldErrors.description && <p className={styles.fieldErrorText}>{fieldErrors.description}</p>}
           </div>
 
           {/* Category */}

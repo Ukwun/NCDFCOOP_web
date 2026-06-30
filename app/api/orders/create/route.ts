@@ -22,6 +22,7 @@ interface CreateOrderPayload {
   shippingAddress?: string;
   paymentMethod?: PaymentMethod;
   clientTotal?: number;
+  prepaymentDiscountRequested?: boolean;
 }
 
 const PAYMENT_METHODS: PaymentMethod[] = [
@@ -199,6 +200,7 @@ export async function POST(request: NextRequest) {
         subtotal: lineTotal,
         sellerId: String(product.sellerId || ''),
         sellerName: String(product.sellerName || ''),
+        sellerVerified: product.sellerVerified === true,
         productImage: String(
           product.thumbnail || product.images?.[0] || product.image || ''
         ),
@@ -209,6 +211,13 @@ export async function POST(request: NextRequest) {
     }
 
     subtotal = money(subtotal);
+    const grossSubtotal = subtotal;
+    const prepaymentDiscountRequested =
+      body.prepaymentDiscountRequested === true &&
+      isWholesaleBuyer &&
+      paymentMethod !== 'cash_on_delivery';
+    const prepaymentDiscount = prepaymentDiscountRequested ? money(grossSubtotal * 0.1) : 0;
+    subtotal = money(grossSubtotal - prepaymentDiscount);
     const tax = money(subtotal * 0.1);
     const freeShippingThreshold = isActiveMember
       ? memberTier.freeShippingThreshold
@@ -231,6 +240,12 @@ export async function POST(request: NextRequest) {
       )
     );
     const now = Timestamp.now();
+    const complianceStatus = isWholesaleBuyer && normalizedItems.some((item) => item.sellerVerified !== true)
+      ? 'awaiting_seller_kyc'
+      : 'cleared';
+    const initialStatus = complianceStatus === 'awaiting_seller_kyc'
+      ? 'compliance_review'
+      : paymentMethod === 'cash_on_delivery' ? 'confirmed' : 'pending';
     const cartSnapshot = await db
       .collection('cartItems')
       .where('userId', '==', user.uid)
@@ -267,11 +282,21 @@ export async function POST(request: NextRequest) {
         buyerEmail: user.email || '',
         items: normalizedItems,
         subtotal,
+        grossSubtotal,
+        prepaymentDiscount,
+        prepaymentDiscountApplied: prepaymentDiscountRequested,
         tax,
         shipping,
         totalAmount,
         currency: 'NGN',
-        status: paymentMethod === 'cash_on_delivery' ? 'confirmed' : 'pending',
+        status: initialStatus,
+        complianceStatus,
+        complianceCheckpoints: {
+          identity: isWholesaleBuyer ? 'verified_buyer' : 'not_required',
+          supplierKyc: complianceStatus === 'cleared' ? 'passed' : 'pending',
+          moq: 'passed',
+          inventory: 'reserved',
+        },
         paymentStatus: 'pending',
         paymentMethod,
         shippingAddress,
@@ -323,6 +348,18 @@ export async function POST(request: NextRequest) {
         createdAt: now,
       });
 
+      if (complianceStatus === 'awaiting_seller_kyc') {
+        transaction.set(db.collection('notifications').doc(), {
+          userId: user.uid,
+          title: 'Supplier compliance action required',
+          message: `Order #${orderId} is paused before fulfillment while seller KYC evidence is reviewed.`,
+          type: 'alert',
+          read: false,
+          data: { orderId, status: 'compliance_review', category: 'compliance', link: `/orders/${orderId}` },
+          createdAt: now,
+        });
+      }
+
       for (const cartItem of cartSnapshot.docs) {
         transaction.delete(cartItem.ref);
       }
@@ -336,7 +373,7 @@ export async function POST(request: NextRequest) {
       {
         orderId,
         transactionRef,
-        totals: { subtotal, tax, shipping, totalAmount, currency: 'NGN' },
+        totals: { subtotal, tax, shipping, prepaymentDiscount, totalAmount, currency: 'NGN' },
         pricingAdjusted:
           money(body.clientTotal) > 0 && money(body.clientTotal) !== totalAmount,
       },

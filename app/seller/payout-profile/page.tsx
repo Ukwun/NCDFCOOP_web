@@ -6,38 +6,30 @@ import { useEffect, useState } from 'react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { USER_ROLES } from '@/lib/constants/database';
 import { useAuth } from '@/lib/auth/authContext';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-
-function maskAccountNumber(accountNumber: string) {
-  return accountNumber.replace(/\d(?=\d{4})/g, '*');
-}
+import { auth } from '@/lib/firebase/config';
 
 export default function SellerPayoutProfile() {
   const { user } = useAuth();
   const [bankName, setBankName] = useState('');
+  const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [status, setStatus] = useState('');
-  const [savedPayout, setSavedPayout] = useState<{ bankName: string; accountNumber: string } | null>(null);
+  const [savedPayout, setSavedPayout] = useState<{ bankName: string; accountName: string; accountLast4: string; reviewStatus: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
     async function loadSavedBankDetails() {
       try {
-        const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) return;
-
-        const userData = userSnap.data() as Record<string, any>;
-        const payout = userData.payout || userData.bankAccount || {};
-
-        if (payout.bankName || payout.accountNumber) {
-          setBankName(payout.bankName || '');
-          setAccountNumber(payout.accountNumber || '');
-          if (payout.bankName && payout.accountNumber) {
-            setSavedPayout({ bankName: payout.bankName, accountNumber: payout.accountNumber });
-          }
+        const token = await auth?.currentUser?.getIdToken();
+        if (!token) return;
+        const response = await fetch('/api/seller/payout-profile', { headers: { Authorization: `Bearer ${token}` } });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Unable to load payout profile');
+        if (result.profile) {
+          setSavedPayout(result.profile);
+          setBankName(result.profile.bankName || '');
+          setAccountName(result.profile.accountName || '');
         }
       } catch (err) {
         console.error('Failed to load payout profile:', err);
@@ -49,21 +41,24 @@ export default function SellerPayoutProfile() {
 
   const handleSave = async () => {
     if (!user) return;
-    if (!bankName.trim() || !accountNumber.trim()) {
-      setStatus('Please enter both bank name and account number.');
+    if (!bankName.trim() || !accountName.trim() || !/^\d{10}$/.test(accountNumber.replace(/\s/g, ''))) {
+      setStatus('Enter the bank, account name, and a valid 10-digit account number.');
       return;
     }
 
     setStatus('Saving...');
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        payout: {
-          bankName: bankName.trim(),
-          accountNumber: accountNumber.trim(),
-        },
+      const token = await auth?.currentUser?.getIdToken();
+      if (!token) throw new Error('Your session expired. Please sign in again.');
+      const response = await fetch('/api/seller/payout-profile', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ bankName, accountName, accountNumber }),
       });
-      setSavedPayout({ bankName: bankName.trim(), accountNumber: accountNumber.trim() });
-      setStatus('Payout profile saved successfully.');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to save payout profile');
+      setSavedPayout(result.profile);
+      setAccountNumber('');
+      setStatus(result.message);
     } catch (err) {
       console.error(err);
       setStatus('Failed to save payout profile. Please try again.');
@@ -80,9 +75,9 @@ export default function SellerPayoutProfile() {
           {savedPayout && (
             <div className="mb-6 rounded-lg border border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-950 p-4">
               <p className="text-sm font-semibold text-green-800 dark:text-green-200">Saved payout account</p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">{savedPayout.bankName}</p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">{savedPayout.accountName} · {savedPayout.bankName}</p>
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                {maskAccountNumber(savedPayout.accountNumber)}
+                ••••••{savedPayout.accountLast4} · {savedPayout.reviewStatus.replace(/_/g, ' ')}
               </p>
             </div>
           )}
@@ -102,6 +97,14 @@ export default function SellerPayoutProfile() {
               onChange={(e) => setAccountNumber(e.target.value)}
               className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700"
               placeholder="3136996240"
+            />
+
+            <label className="text-sm">Account Name</label>
+            <input
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700"
+              placeholder="Name exactly as shown by your bank"
             />
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">

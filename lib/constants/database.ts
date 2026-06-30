@@ -22,6 +22,7 @@ export const COLLECTIONS = {
   FAVORITES: 'favorites',
   REWARDS: 'rewards',
   INQUIRIES: 'inquiries',
+  QUOTE_DRAFTS: 'quoteDrafts',
   ANALYTICS_DAILY: 'analyticsDaily',
   ANOMALY_ALERTS: 'anomalyAlerts',
   INTELLIGENCE_RUNS: 'intelligenceRuns',

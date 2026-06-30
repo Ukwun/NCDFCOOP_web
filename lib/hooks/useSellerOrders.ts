@@ -19,15 +19,23 @@ export interface SellerOrder {
     productId: string;
     quantity: number;
     price: number;
+    sellerId?: string;
+    productName?: string;
+    minOrderQuantity?: number;
+    unitOfMeasure?: string;
+    type?: 'retail' | 'wholesale' | 'both';
   }>;
   totalAmount: number;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'compliance_review' | 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   paymentStatus: 'unpaid' | 'paid';
   createdAt: any;
   updatedAt: any;
   buyerName?: string;
   buyerEmail?: string;
   shippingAddress?: string;
+  buyerType?: 'member' | 'wholesale';
+  complianceStatus?: string;
+  promisedDeliveryDate?: any;
 }
 
 interface UseSellerOrdersReturn {

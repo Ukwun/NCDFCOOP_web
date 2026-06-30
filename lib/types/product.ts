@@ -19,6 +19,10 @@ export interface Product {
   stock: number;
   sellerId: string;
   sellerName?: string;
+  sellerVerified?: boolean;
+  supplierRegion?: string;
+  slaDays?: number;
+  complianceStatus?: 'verified' | 'pending' | 'exception';
   ownershipType?: ProductOwnershipType;
   rating?: number;
   reviews?: number;
@@ -37,6 +41,7 @@ export interface Product {
   createdAt?: Date | Timestamp;
   updatedAt?: Date | Timestamp;
   isActive?: boolean;
+  status?: 'draft' | 'pending' | 'live';
   isFeatured?: boolean;
   discount?: number; // percentage
   wholesalePrice?: number;
@@ -169,6 +174,10 @@ export interface Order {
   estimatedDelivery?: Date | Timestamp;
   deliveryDate?: string | Date | Timestamp;
   buyerType?: 'member' | 'wholesale'; // Added to distinguish retail vs wholesale orders
+  complianceStatus?: 'cleared' | 'awaiting_seller_kyc' | 'exception';
+  complianceCheckpoints?: Record<string, string>;
+  promisedDeliveryDate?: Date | Timestamp;
+  prepaymentDiscount?: number;
 }
 
 export interface OrderItem {
@@ -178,6 +187,7 @@ export interface OrderItem {
   price: number;
   sellerId?: string;
   sellerName?: string;
+  sellerVerified?: boolean;
   subtotal?: number;
   productImage?: string; // Optional product image URL
   minOrderQuantity?: number;
@@ -186,6 +196,7 @@ export interface OrderItem {
 }
 
 export type OrderStatus = 
+  | 'compliance_review'
   | 'pending'
   | 'confirmed'
   | 'processing'

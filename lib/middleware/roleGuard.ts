@@ -11,6 +11,7 @@ export const ROUTE_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/seller/products/add': ['seller'],
   '/seller/inquiries': ['seller'],
   '/seller/orders': ['seller'],
+  '/seller/wholesale-orders': ['seller'],
   '/seller/earnings': ['seller'],
   '/seller/clients': ['seller'],
   '/seller/payout-profile': ['seller'],
@@ -68,6 +69,12 @@ export function getNextRoute(
     return '/signin';
   }
 
+  // Operational accounts are provisioned by trusted administrators rather
+  // than through public onboarding.
+  if (user?.roles?.some((role) => ['admin', 'staff', 'operator'].includes(role))) {
+    return null;
+  }
+
   // Step 3: Authenticated but role not selected - go to role selection
   if (user && !roleSelectionComplete) {
     return '/role-selection';
@@ -114,7 +121,7 @@ export enum Permission {
  */
 export function getPermissionsForRole(role: string): Permission[] {
   const permissionMap: Record<string, Permission[]> = {
-    wholesale_buyer: [
+    institutional_buyer: [
       Permission.VIEW_PRODUCTS,
       Permission.ADD_TO_CART,
       Permission.CHECKOUT,

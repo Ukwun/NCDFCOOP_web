@@ -56,7 +56,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading && currentRole === USER_ROLES.SELLER) {
-      router.push('/seller');
+      router.replace('/seller');
+    } else if (!loading && currentRole === USER_ROLES.ADMIN) {
+      router.replace('/admin');
     }
   }, [loading, currentRole, router]);
 
@@ -70,10 +72,6 @@ export default function HomePage() {
     );
   }
 
-  const isWholesaleBuyer =
-    currentRole === USER_ROLES.INSTITUTIONAL_BUYER ||
-    currentRole === 'wholesale_buyer';
-
   // Render appropriate home screen based on role
   const renderHomeScreen = () => {
     if (currentRole === USER_ROLES.MEMBER) {
@@ -84,7 +82,7 @@ export default function HomePage() {
       );
     }
 
-    if (isWholesaleBuyer) {
+    if (currentRole === USER_ROLES.INSTITUTIONAL_BUYER) {
       return <WholesaleBuyerHomeScreen />;
     }
 

@@ -24,7 +24,7 @@ export default function ProductsPage() {
   // Intelligence: Determine if we should show wholesale or retail listings
   const productViewType = useMemo(() => {
     if (!currentRole) return 'retail';
-    return (currentRole === USER_ROLES.INSTITUTIONAL_BUYER || currentRole === 'wholesale_buyer') 
+    return currentRole === USER_ROLES.INSTITUTIONAL_BUYER
       ? 'wholesale' 
       : 'retail';
   }, [currentRole]);

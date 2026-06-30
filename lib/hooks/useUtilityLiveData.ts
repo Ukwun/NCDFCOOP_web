@@ -234,9 +234,13 @@ export function useUtilityLiveData(userId: string, role: UtilityRole): UtilityLi
       }
 
       const sellerIdSet = new Set<string>();
+      const verifiedSellerIdSet = new Set<string>();
       for (const order of orders) {
         (order.items || []).forEach((item) => {
-          if (item?.sellerId) sellerIdSet.add(item.sellerId);
+          if (item?.sellerId) {
+            sellerIdSet.add(item.sellerId);
+            if ((item as any).sellerVerified === true) verifiedSellerIdSet.add(item.sellerId);
+          }
         });
       }
 
@@ -247,24 +251,7 @@ export function useUtilityLiveData(userId: string, role: UtilityRole): UtilityLi
         return;
       }
 
-      const docs = await Promise.all(
-        sellerIds.map(async (sellerId) => {
-          try {
-            const snap = await getDoc(doc(db, COLLECTIONS.USERS, sellerId));
-            if (!snap.exists()) return false;
-            const data = snap.data() as Record<string, any>;
-            return (
-              data?.isVerified === true ||
-              data?.verificationStatus === 'verified' ||
-              data?.kycStatus === 'verified'
-            );
-          } catch {
-            return false;
-          }
-        })
-      );
-
-      setVerifiedSuppliersCount(docs.filter(Boolean).length);
+      setVerifiedSuppliersCount(verifiedSellerIdSet.size);
     };
 
     syncSuppliers();

@@ -292,7 +292,7 @@ export default function SellerDashboardPage() {
         </div>
 
         {/* Main Actions Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {/* Products Management */}
           <div
             className="rounded-lg border overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
@@ -383,6 +383,14 @@ export default function SellerDashboardPage() {
                 View Orders →
               </button>
             </div>
+          </div>
+
+          <div
+            className="overflow-hidden rounded-lg border border-emerald-300 bg-gradient-to-br from-emerald-950 to-emerald-700 text-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl cursor-pointer"
+            onClick={() => router.push('/seller/wholesale-orders')}
+          >
+            <div className="border-b border-white/15 p-6"><span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-950">B2B priority</span><h2 className="mt-3 text-xl font-bold">Wholesale Fulfillment</h2><p className="mt-2 text-sm text-emerald-100">See bulk pricing, MOQ commitments, compliance gates, and set delivery SLAs.</p></div>
+            <div className="p-6"><button className="w-full rounded-lg bg-white py-3 font-bold text-emerald-900">Open Bulk Orders →</button></div>
           </div>
         </div>
 

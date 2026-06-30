@@ -85,6 +85,19 @@ function sanitizeRoleInput(role?: string): string | null {
   return null;
 }
 
+// Roles read from Firestore may include privileged operational roles. Keep
+// public role selection deliberately narrower so a user can never promote
+// themselves by passing an admin-like value through the role picker.
+function normalizeStoredRole(role?: string): string | null {
+  if (!role) return null;
+  const publicRole = sanitizeRoleInput(role);
+  if (publicRole) return publicRole;
+
+  const normalized = role.toLowerCase().trim();
+  const systemRoles = Object.values(USER_ROLES) as string[];
+  return systemRoles.includes(normalized) ? normalized : null;
+}
+
 function normalizeRoleInput(role?: string): string {
   return sanitizeRoleInput(role) || USER_ROLES.MEMBER;
 }
@@ -106,7 +119,7 @@ function clearLocalOnboardingCompleted(): void {
 
 function getRoleOverrideFromStorage(activeRoles: string[]): string | null {
   if (typeof window === 'undefined') return null;
-  const overrideRole = sanitizeRoleInput(window.localStorage.getItem(LOCAL_ROLE_OVERRIDE_KEY) || undefined);
+  const overrideRole = normalizeStoredRole(window.localStorage.getItem(LOCAL_ROLE_OVERRIDE_KEY) || undefined);
   return overrideRole && activeRoles.includes(overrideRole) ? overrideRole : null;
 }
 
@@ -186,9 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (userData) {
           const roles = Array.from(new Set(Array.isArray(userData.roles)
-            ? userData.roles.map(sanitizeRoleInput).filter(Boolean)
+            ? userData.roles.map(normalizeStoredRole).filter(Boolean)
             : [USER_ROLES.MEMBER])) as string[];
-          const storedRole = normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
+          const storedRole = normalizeStoredRole(userData.selectedRole) || USER_ROLES.MEMBER;
           const selectedRole = getRoleOverrideFromStorage(roles)
             || (roles.includes(storedRole) ? storedRole : roles[0] || USER_ROLES.MEMBER);
           const localOnboarding = getLocalOnboardingCompleted();
@@ -674,11 +687,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const roles = Array.from(
         new Set(
           (Array.isArray(userData.roles) ? userData.roles : [USER_ROLES.MEMBER])
-            .map(sanitizeRoleInput)
+            .map(normalizeStoredRole)
             .filter(Boolean)
         )
       ) as string[];
-      const storedRole = normalizeRoleInput(userData.selectedRole || USER_ROLES.MEMBER);
+      const storedRole = normalizeStoredRole(userData.selectedRole) || USER_ROLES.MEMBER;
       const selectedRole = getRoleOverrideFromStorage(roles)
         || (roles.includes(storedRole) ? storedRole : roles[0] || USER_ROLES.MEMBER);
       const refreshedUser: AuthUser = {

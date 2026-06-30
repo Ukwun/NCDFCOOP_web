@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { Building2, CheckCircle2, Loader2, Store, UserRound, type LucideIcon } from 'lucide-react';
+import { getRoleLandingPath } from '@/lib/auth/roleRouting';
 
 interface RoleOption {
   id: string;
@@ -99,7 +100,7 @@ export default function RoleSelectionScreen() {
 
     try {
       await selectRole(roleId);
-      router.push('/home');
+      router.push(getRoleLandingPath(roleId));
     } catch (err: any) {
       setError(err.message || 'Failed to select role. Please try again.');
       setIsLoading(false);

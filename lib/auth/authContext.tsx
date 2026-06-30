@@ -13,11 +13,15 @@ import {
   GoogleAuthProvider,
   FacebookAuthProvider,
   OAuthProvider,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  setPersistence,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { COLLECTIONS, USER_ROLES, MEMBER_TIERS } from '@/lib/constants/database';
 import { logActivity } from '@/lib/services/activityService';
+import { getAuthenticatedLandingPath } from '@/lib/auth/roleRouting';
 
 export interface AuthUser extends User {
   roles?: string[];
@@ -38,13 +42,13 @@ interface AuthContextType {
   roleSelectionComplete: boolean;
   currentRole: string | null;
   logout: () => Promise<void>;
-  signup: (email: string, password: string, nameOrMembershipType?: string, membershipTypeMaybe?: string) => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, nameOrMembershipType?: string, membershipTypeMaybe?: string) => Promise<string>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<string>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signInWithFacebook: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
+  signInWithGoogle: () => Promise<string | null>;
+  signInWithFacebook: () => Promise<string | null>;
+  signInWithApple: () => Promise<string | null>;
   completeOnboarding: () => Promise<void>;
   selectRole: (role: string) => Promise<void>;
   switchRole: (role: string) => Promise<void>;
@@ -152,6 +156,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleSelectionComplete, setRoleSelectionComplete] = useState(false);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
 
+  const hydrateSignedInIdentity = async (currentUser: User): Promise<string> => {
+    if (!db) throw new Error('Firebase not initialized');
+
+    const userRef = doc(db, COLLECTIONS.USERS, currentUser.uid);
+    const snapshot = await getDoc(userRef);
+    let profile = snapshot.data();
+
+    if (!profile) {
+      const requestedRole = typeof window !== 'undefined'
+        ? new URL(window.location.href).searchParams.get('type') || undefined
+        : undefined;
+      const selectedRole = normalizeRoleInput(requestedRole);
+      const localOnboarding = getLocalOnboardingCompleted();
+      profile = {
+        id: currentUser.uid,
+        email: currentUser.email,
+        name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+        roles: [selectedRole],
+        selectedRole,
+        membershipType: selectedRole,
+        roleSelectionComplete: false,
+        onboardingCompleted: localOnboarding,
+        membershipStatus: selectedRole === USER_ROLES.MEMBER ? 'pending' : 'inactive',
+        memberTier: MEMBER_TIERS.BRONZE,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        profilePicture: currentUser.photoURL || '',
+        phone: currentUser.phoneNumber || '',
+        address: '',
+        isActive: true,
+      };
+      await setDoc(userRef, profile);
+    }
+
+    const normalizedRoles = Array.isArray(profile.roles)
+      ? profile.roles.map(normalizeStoredRole).filter(Boolean) as string[]
+      : [];
+    const storedRole = normalizeStoredRole(profile.selectedRole) || normalizedRoles[0] || USER_ROLES.MEMBER;
+    const roles = Array.from(new Set(normalizedRoles.length > 0 ? normalizedRoles : [storedRole]));
+    const selectedRole = getRoleOverrideFromStorage(roles)
+      || (roles.includes(storedRole) ? storedRole : roles[0]);
+    const selectionComplete = !!profile.roleSelectionComplete;
+    const completedOnboarding = !!(profile.onboardingCompleted || getLocalOnboardingCompleted());
+    const authUser: AuthUser = {
+      ...currentUser,
+      displayName: currentUser.displayName || String(profile.name || currentUser.email?.split('@')[0] || 'User'),
+      photoURL: currentUser.photoURL || String(profile.profilePicture || '') || null,
+      roles,
+      selectedRole,
+      currentRole: selectedRole,
+      membershipStatus: profile.membershipStatus || (selectedRole === USER_ROLES.MEMBER ? 'active' : 'inactive'),
+      memberTier: profile.memberTier || MEMBER_TIERS.BRONZE,
+      roleSelectionComplete: selectionComplete,
+      onboardingCompleted: completedOnboarding,
+    };
+
+    setUser(authUser);
+    setCurrentRole(selectedRole);
+    setRoleSelectionComplete(selectionComplete);
+    setOnboardingCompleted(completedOnboarding);
+    setError(null);
+
+    return getAuthenticatedLandingPath(selectedRole, selectionComplete);
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined' && getLocalOnboardingCompleted()) {
       setOnboardingCompleted(true);
@@ -198,16 +267,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = userDoc.data();
 
         if (userData) {
-          const roles = Array.from(new Set(Array.isArray(userData.roles)
+          const normalizedRoles = Array.from(new Set(Array.isArray(userData.roles)
             ? userData.roles.map(normalizeStoredRole).filter(Boolean)
             : [USER_ROLES.MEMBER])) as string[];
           const storedRole = normalizeStoredRole(userData.selectedRole) || USER_ROLES.MEMBER;
+          const roles = normalizedRoles.length > 0 ? normalizedRoles : [storedRole];
           const selectedRole = getRoleOverrideFromStorage(roles)
             || (roles.includes(storedRole) ? storedRole : roles[0] || USER_ROLES.MEMBER);
           const localOnboarding = getLocalOnboardingCompleted();
           const onboardingFromStorage = userData.onboardingCompleted || localOnboarding;
           const authUser: AuthUser = {
             ...currentUser,
+            displayName: currentUser.displayName || String(userData.name || currentUser.email?.split('@')[0] || 'User'),
+            photoURL: currentUser.photoURL || String(userData.profilePicture || '') || null,
             roles,
             selectedRole,
             currentRole: selectedRole,
@@ -283,27 +355,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signup = async (email: string, password: string, nameOrMembershipType?: string, membershipTypeMaybe?: string) => {
+  const signup = async (email: string, password: string, nameOrMembershipType?: string, membershipTypeMaybe?: string): Promise<string> => {
     try {
       setError(null);
       if (!auth || !db) throw new Error('Firebase not initialized');
 
       const { name, membershipType } = resolveSignupInputs(nameOrMembershipType, membershipTypeMaybe);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedName = name.trim() || normalizedEmail.split('@')[0];
+      const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
       const uid = userCredential.user.uid;
 
       await updateProfile(userCredential.user, {
-        displayName: name || email.split('@')[0],
+        displayName: normalizedName,
       });
 
       await setDoc(doc(db, COLLECTIONS.USERS, uid), {
         id: uid,
-        email,
-        name: name || email.split('@')[0],
+        email: normalizedEmail,
+        name: normalizedName,
         roles: [membershipType],
         selectedRole: membershipType,
         membershipType,
-        roleSelectionComplete: false,
+        roleSelectionComplete: true,
         onboardingCompleted: false,
         membershipStatus: membershipType === USER_ROLES.MEMBER ? 'pending' : 'inactive',
         memberTier: MEMBER_TIERS.BRONZE,
@@ -330,33 +404,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const localOnboarding = getLocalOnboardingCompleted();
       setUser({
         ...userCredential.user,
+        displayName: normalizedName,
         roles: [membershipType],
         selectedRole: membershipType,
+        currentRole: membershipType,
         membershipStatus: membershipType === USER_ROLES.MEMBER ? 'pending' : 'inactive',
-        roleSelectionComplete: false,
+        roleSelectionComplete: true,
         onboardingCompleted: localOnboarding,
         memberTier: MEMBER_TIERS.BRONZE,
         isNewUser: true,
       });
       setCurrentRole(membershipType);
-      setRoleSelectionComplete(false);
+      setRoleSelectionComplete(true);
       setOnboardingCompleted(false);
       void logActivity(uid, 'signup', { signupMethod: 'password' });
+      return membershipType === USER_ROLES.SELLER
+        ? '/seller/onboarding'
+        : getAuthenticatedLandingPath(membershipType, true);
     } catch (err: any) {
       setError(err?.message || 'Failed to create account');
       throw err;
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe = false): Promise<string> => {
     try {
       setError(null);
       if (!auth) throw new Error('Firebase not initialized');
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      setUser(userCredential.user as AuthUser);
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      const destination = await hydrateSignedInIdentity(userCredential.user);
       void logActivity(userCredential.user.uid, 'login', {
         loginMethod: 'password',
       });
+      return destination;
     } catch (err: any) {
       // Sanitize error messages to not expose system details
       let errorMessage = 'Unable to sign in. Please check your credentials and try again.';
@@ -365,6 +446,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         errorMessage = 'We could not find an account with this email. Please create an account.';
       } else if (err.code === 'auth/wrong-password') {
         errorMessage = 'Incorrect password. Please try again.';
+      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
+        errorMessage = 'The email or password is incorrect. Please check both and try again.';
       } else if (err.code === 'auth/invalid-email') {
         errorMessage = 'Please enter a valid email address.';
       } else if (err.code === 'auth/user-disabled') {
@@ -454,7 +537,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         { merge: true }
       );
 
-      setUser({ ...auth.currentUser, ...user } as AuthUser);
+      setUser({
+        ...user,
+        ...auth.currentUser,
+        displayName,
+        photoURL: photoURL ?? auth.currentUser.photoURL,
+      } as AuthUser);
     } catch (err: any) {
       setError(err?.message || 'Failed to update profile');
       throw err;
@@ -478,20 +566,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return message;
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (): Promise<string | null> => {
     if (!auth) throw new Error('Firebase not initialized');
     const provider = new GoogleAuthProvider();
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      setUser(result.user as AuthUser);
+      const destination = await hydrateSignedInIdentity(result.user);
       void logActivity(result.user.uid, 'login', { loginMethod: 'google' });
+      return destination;
     } catch (err: any) {
       // If popup flow is blocked or not allowed, fallback to redirect flow
       if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/unauthorized-domain' || err?.code === 'auth/popup-closed-by-user') {
         try {
           await signInWithRedirect(auth, provider);
-          return;
+          return null;
         } catch (redirectErr: any) {
           const errorMessage = normalizeSocialError(redirectErr, 'Google');
           setError(errorMessage);
@@ -505,20 +594,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithFacebook = async () => {
+  const signInWithFacebook = async (): Promise<string | null> => {
     if (!auth) throw new Error('Firebase not initialized');
     const provider = new FacebookAuthProvider();
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      setUser(result.user as AuthUser);
+      const destination = await hydrateSignedInIdentity(result.user);
       void logActivity(result.user.uid, 'login', { loginMethod: 'facebook' });
+      return destination;
     } catch (err: any) {
       // Fallback to redirect if popup is blocked or not permitted
       if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/unauthorized-domain' || err?.code === 'auth/popup-closed-by-user') {
         try {
           await signInWithRedirect(auth, provider);
-          return;
+          return null;
         } catch (redirectErr: any) {
           const errorMessage = normalizeSocialError(redirectErr, 'Facebook');
           setError(errorMessage);
@@ -532,14 +622,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithApple = async () => {
+  const signInWithApple = async (): Promise<string | null> => {
     if (!auth) throw new Error('Firebase not initialized');
     const provider = new OAuthProvider('apple.com');
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      setUser(result.user as AuthUser);
+      const destination = await hydrateSignedInIdentity(result.user);
       void logActivity(result.user.uid, 'login', { loginMethod: 'apple' });
+      return destination;
     } catch (err: any) {
       const errorMessage = normalizeSocialError(err, 'Apple');
       setError(errorMessage);
@@ -621,6 +712,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           ...user,
           selectedRole: normalizedRole,
+          currentRole: normalizedRole,
           roleSelectionComplete: true,
           roles: Array.from(new Set([...existingRoles, normalizedRole])),
         });
@@ -662,7 +754,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setCurrentRole(normalizedRole);
-      setUser({ ...user, selectedRole: normalizedRole, roles: Array.from(new Set([...existingRoles, normalizedRole])) });
+      setUser({
+        ...user,
+        selectedRole: normalizedRole,
+        currentRole: normalizedRole,
+        roles: Array.from(new Set([...existingRoles, normalizedRole])),
+      });
       void logActivity(auth.currentUser.uid, 'role_changed', {
         previousRole: currentRole,
         selectedRole: normalizedRole,
@@ -698,6 +795,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...auth.currentUser,
         roles,
         selectedRole,
+        currentRole: selectedRole,
         membershipStatus:
           userData.membershipStatus ||
           (selectedRole === USER_ROLES.MEMBER

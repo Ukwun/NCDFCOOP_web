@@ -1,14 +1,16 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
 import SocialSignInButtons from '@/components/SocialSignInButtons';
 import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { getAuthenticatedLandingPath } from '@/lib/auth/roleRouting';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { login, signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
+  const { user, loading, currentRole, roleSelectionComplete, login, signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,12 +20,18 @@ export default function SignInScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
 
+  useEffect(() => {
+    if (!loading && user && !isLoading && !socialLoading) {
+      router.replace(getAuthenticatedLandingPath(currentRole, roleSelectionComplete));
+    }
+  }, [currentRole, isLoading, loading, roleSelectionComplete, router, socialLoading, user]);
+
   const handleGoogleSignIn = async () => {
     setError('');
     setSocialLoading(true);
     try {
-      await signInWithGoogle();
-      router.push('/home');
+      const destination = await signInWithGoogle();
+      if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err?.message || 'Google sign-in failed.');
     } finally {
@@ -35,8 +43,8 @@ export default function SignInScreen() {
     setError('');
     setSocialLoading(true);
     try {
-      await signInWithFacebook();
-      router.push('/home');
+      const destination = await signInWithFacebook();
+      if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err?.message || 'Facebook sign-in failed.');
     } finally {
@@ -48,8 +56,8 @@ export default function SignInScreen() {
     setError('');
     setSocialLoading(true);
     try {
-      await signInWithApple();
-      router.push('/home');
+      const destination = await signInWithApple();
+      if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err?.message || 'Apple sign-in failed.');
     } finally {
@@ -83,10 +91,8 @@ export default function SignInScreen() {
       }
 
       // Call login function
-      await login(email, password);
-
-      // Successful login - redirect to home or onboarding
-      router.push('/home');
+      const destination = await login(email, password, rememberMe);
+      router.replace(destination);
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
       setIsLoading(false);
@@ -270,6 +276,7 @@ export default function SignInScreen() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
                 style={{
                   position: 'absolute',
                   right: AppSpacing.lg,
@@ -280,7 +287,7 @@ export default function SignInScreen() {
                   padding: 0,
                 }}
               >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
+                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </div>
           </div>
@@ -370,9 +377,14 @@ export default function SignInScreen() {
               cursor: isLoading ? 'not-allowed' : 'pointer',
               opacity: isLoading ? 0.7 : 1,
               marginBottom: AppSpacing.lg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: AppSpacing.sm,
             }}
           >
-            {isLoading ? '⏳ Signing in...' : '🔐 Sign In'}
+            {isLoading ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+            {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 

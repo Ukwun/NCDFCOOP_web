@@ -1,16 +1,18 @@
 'use client';
 
-import { FormEvent, Suspense, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Eye, EyeOff, Loader2, UserPlus } from 'lucide-react';
 import SocialSignInButtons from './SocialSignInButtons';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { getAuthenticatedLandingPath } from '@/lib/auth/roleRouting';
 
 function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signup, signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
+  const { user, loading, currentRole, roleSelectionComplete, signup, signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
 
   // Social sign-in loading state
   const [socialLoading, setSocialLoading] = useState(false);
@@ -19,8 +21,8 @@ function SignUpContent() {
   const handleGoogleSignIn = async () => {
     setSocialLoading(true);
     try {
-      await signInWithGoogle();
-      router.push('/role-selection');
+      const destination = await signInWithGoogle();
+      if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || 'Google sign-in failed');
     } finally {
@@ -31,8 +33,8 @@ function SignUpContent() {
   const handleFacebookSignIn = async () => {
     setSocialLoading(true);
     try {
-      await signInWithFacebook();
-      router.push('/role-selection');
+      const destination = await signInWithFacebook();
+      if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || 'Facebook sign-in failed');
     } finally {
@@ -43,8 +45,8 @@ function SignUpContent() {
   const handleAppleSignIn = async () => {
     setSocialLoading(true);
     try {
-      await signInWithApple();
-      router.push('/role-selection');
+      const destination = await signInWithApple();
+      if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || 'Apple sign-in failed');
     } finally {
@@ -52,8 +54,12 @@ function SignUpContent() {
     }
   };
 
-  const membershipType = searchParams.get('type') || 'member';
+  const requestedMembershipType = (searchParams.get('type') || 'member').toLowerCase();
+  const membershipType = ['member', 'seller', 'wholesale', 'wholesale_buyer', 'institutional_buyer'].includes(requestedMembershipType)
+    ? requestedMembershipType
+    : 'member';
 
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -63,6 +69,12 @@ function SignUpContent() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (!loading && user && !isLoading && !socialLoading) {
+      router.replace(getAuthenticatedLandingPath(currentRole, roleSelectionComplete));
+    }
+  }, [currentRole, isLoading, loading, roleSelectionComplete, router, socialLoading, user]);
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
@@ -70,8 +82,14 @@ function SignUpContent() {
 
     try {
       // Validation
-      if (!email || !password || !confirmPassword) {
+      if (!fullName.trim() || !email || !password || !confirmPassword) {
         setError('Please fill in all fields');
+        setIsLoading(false);
+        return;
+      }
+
+      if (fullName.trim().length < 2) {
+        setError('Please enter your full name');
         setIsLoading(false);
         return;
       }
@@ -101,10 +119,8 @@ function SignUpContent() {
       }
 
       // Call signup function with membership type
-      await signup(email, password, membershipType);
-
-      // Successful signup - redirect to role selection
-      router.push('/role-selection');
+      const destination = await signup(email, password, fullName.trim(), membershipType);
+      router.replace(destination);
     } catch (err: any) {
       console.error('Signup error:', err);
       
@@ -178,6 +194,46 @@ function SignUpContent() {
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
+          {/* Full Name Field */}
+          <div style={{ marginBottom: AppSpacing.lg }}>
+            <label
+              htmlFor="signup-full-name"
+              style={{
+                display: 'block',
+                marginBottom: AppSpacing.sm,
+                ...AppTextStyles.labelLarge,
+                color: AppColors.textPrimary,
+              }}
+            >
+              Full Name
+            </label>
+            <input
+              id="signup-full-name"
+              name="name"
+              type="text"
+              autoComplete="name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Your full name"
+              disabled={isLoading}
+              maxLength={100}
+              required
+              style={{
+                width: '100%',
+                padding: `${AppSpacing.md} ${AppSpacing.lg}`,
+                border: `1px solid ${error ? AppColors.error : AppColors.border}`,
+                borderRadius: '8px',
+                fontSize: '16px',
+                backgroundColor: AppColors.surface,
+                color: AppColors.textPrimary,
+                opacity: isLoading ? 0.6 : 1,
+                cursor: isLoading ? 'not-allowed' : 'auto',
+                transition: 'all 300ms ease-out',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
           {/* Email Field */}
           <div
             style={{
@@ -196,6 +252,8 @@ function SignUpContent() {
             </label>
             <input
               type="email"
+              name="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -241,6 +299,8 @@ function SignUpContent() {
             >
               <input
                 type={showPassword ? 'text' : 'password'}
+                name="password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -264,6 +324,7 @@ function SignUpContent() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
                 style={{
                   position: 'absolute',
                   right: AppSpacing.lg,
@@ -274,7 +335,7 @@ function SignUpContent() {
                   padding: 0,
                 }}
               >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
+                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </div>
           </div>
@@ -304,6 +365,8 @@ function SignUpContent() {
             >
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
+                name="confirmPassword"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
@@ -327,6 +390,7 @@ function SignUpContent() {
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 disabled={isLoading}
+                aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
                 style={{
                   position: 'absolute',
                   right: AppSpacing.lg,
@@ -337,7 +401,7 @@ function SignUpContent() {
                   padding: 0,
                 }}
               >
-                {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                {showConfirmPassword ? <EyeOff size={19} /> : <Eye size={19} />}
               </button>
             </div>
           </div>
@@ -427,6 +491,10 @@ function SignUpContent() {
               opacity: isLoading ? 0.7 : 1,
               transition: 'all 300ms ease-out',
               marginBottom: AppSpacing.lg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: AppSpacing.sm,
             }}
             onMouseEnter={(e) => {
               if (!isLoading) {
@@ -439,6 +507,7 @@ function SignUpContent() {
               }
             }}
           >
+            {isLoading ? <Loader2 size={18} className="animate-spin" /> : <UserPlus size={18} />}
             {isLoading ? 'Creating account...' : 'Create Account'}
           </button>
         </form>

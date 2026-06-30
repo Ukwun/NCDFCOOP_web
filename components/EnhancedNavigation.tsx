@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BadgeDollarSign, BarChart3, Boxes, BriefcaseBusiness, Building2, ClipboardList, Heart, Home, LayoutDashboard, PackageSearch, ShieldCheck, ShoppingCart, Timer, Users, type LucideIcon } from 'lucide-react';
+import { BadgeDollarSign, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, LayoutDashboard, LogOut, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth/authContext';
 import { db } from '@/lib/firebase/config';
@@ -11,6 +11,7 @@ import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
 import RoleIntentSearch from '@/components/RoleIntentSearch';
 import { useFavorites } from '@/lib/hooks';
 import { getCartItemCount, CART_CHANGED_EVENT } from '@/lib/services/cartService';
+import { getRoleLandingPath } from '@/lib/auth/roleRouting';
 
 interface NavItem {
   id: string;
@@ -348,6 +349,7 @@ export default function EnhancedNavigation() {
   const navMode = ROLE_NAVIGATION_MODES[normalizedRole] || ROLE_NAVIGATION_MODES[USER_ROLES.MEMBER];
   const navigationItems = navMode.items;
   const hasMultipleRoles = !!user?.roles && user.roles.length > 1;
+  const accountName = user.displayName?.trim() || user.email?.split('@')[0] || formatRoleLabel(normalizedRole);
 
   return (
     <>
@@ -440,7 +442,7 @@ export default function EnhancedNavigation() {
                           onClick={async () => {
                             await switchRole(role);
                             setShowRoleSwitcher(false);
-                            router.push('/home');
+                            router.push(getRoleLandingPath(role));
                           }}
                           className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                             currentRole === role
@@ -457,36 +459,53 @@ export default function EnhancedNavigation() {
               )}
 
               {/* Account Dropdown */}
-              <div className="relative" ref={accountMenuRef}>
+              <div className="relative flex min-w-0 items-center" ref={accountMenuRef}>
+                <Link
+                  href="/account"
+                  data-testid="nav-account-button"
+                  className="group flex min-w-0 items-center gap-2 rounded-l-xl border border-transparent px-2 py-1.5 text-gray-700 transition duration-200 ease-out hover:-translate-y-[1px] hover:border-gray-200 hover:bg-gray-100 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:bg-gray-700"
+                  title={`View ${accountName}'s profile`}
+                  aria-label={`View profile for ${accountName}`}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-emerald-800 text-white shadow-sm ring-2 ring-emerald-100 dark:ring-emerald-900/50">
+                    <UserRound size={17} strokeWidth={2.25} aria-hidden="true" />
+                  </span>
+                  <span className="max-w-[72px] truncate text-left text-xs font-semibold sm:max-w-[150px] sm:text-sm">{accountName}</span>
+                </Link>
                 <button
                   ref={accountButtonRef}
-                  data-testid="nav-account-button"
+                  data-testid="nav-account-menu-button"
                   onClick={() => setShowLogoutDialog(!showLogoutDialog)}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition duration-200 ease-out transform hover:-translate-y-[1px]"
-                  title={user?.displayName || 'Account'}
+                  className="flex h-11 w-7 shrink-0 items-center justify-center rounded-r-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                  title="Open account menu"
                   aria-haspopup="true"
                   aria-expanded={showLogoutDialog}
+                  aria-label={`Open account menu for ${accountName}`}
                 >
-                  <span>Ã°Å¸â€˜Â¤</span>
-                  <span className="hidden sm:inline text-sm font-medium truncate max-w-xs">
-                    {user?.displayName || 'Account'}
-                  </span>
+                  <ChevronDown size={14} className={`shrink-0 transition-transform ${showLogoutDialog ? 'rotate-180' : ''}`} aria-hidden="true" />
                 </button>
 
                 {showLogoutDialog && (
-                  <div className="absolute right-0 top-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-max z-50 transition duration-200 ease-out transform origin-top-right">
+                  <div className="absolute right-0 top-12 z-50 w-64 origin-top-right rounded-xl border border-gray-200 bg-white py-2 shadow-xl transition duration-200 ease-out dark:border-gray-700 dark:bg-gray-800">
+                    <div className="border-b border-gray-100 px-4 pb-3 pt-1 dark:border-gray-700">
+                      <p className="truncate text-sm font-bold text-gray-900 dark:text-white">{accountName}</p>
+                      <p className="truncate text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                      <p className="mt-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">{formatRoleLabel(normalizedRole)}</p>
+                    </div>
                     <Link
                       href="/account"
                       data-testid="nav-account-view-profile"
-                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
+                      <UserRound size={16} aria-hidden="true" />
                       View Profile
                     </Link>
                     <button
                       data-testid="nav-account-logout"
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                     >
+                      <LogOut size={16} aria-hidden="true" />
                       Logout
                     </button>
                   </div>
@@ -532,7 +551,7 @@ export default function EnhancedNavigation() {
                     onClick={async () => {
                       await switchRole(role);
                       setShowRoleSwitcher(false);
-                      router.push('/home');
+                      router.push(getRoleLandingPath(role));
                     }}
                     className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                       currentRole === role

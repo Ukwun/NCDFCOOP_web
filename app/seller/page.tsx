@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { getSellerStats, getSellerRecentOrders, getSellerTopProducts } from '@/lib/services/sellerService';
+import { getSellerStats, SellerStats } from '@/lib/services/sellerService';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { BarChart3, Package, TrendingUp, Settings, LogOut } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -17,9 +17,7 @@ export default function SellerDashboardPage() {
   const { user, loading, currentRole, logout } = useAuth();
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
-  const [topProducts, setTopProducts] = useState<any[]>([]);
+  const [stats, setStats] = useState<SellerStats | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -37,15 +35,9 @@ export default function SellerDashboardPage() {
     try {
       if (!user?.uid) return;
 
-      const [statsData, ordersData, productsData] = await Promise.all([
-        getSellerStats(user.uid),
-        getSellerRecentOrders(user.uid, 5),
-        getSellerTopProducts(user.uid, 5),
-      ]);
-
+      setError(null);
+      const statsData = await getSellerStats(user.uid);
       setStats(statsData);
-      setRecentOrders(ordersData);
-      setTopProducts(productsData);
       setPageLoading(false);
     } catch (err) {
       console.error('Error loading dashboard:', err);
@@ -159,7 +151,7 @@ export default function SellerDashboardPage() {
                     marginTop: AppSpacing.sm,
                   }}
                 >
-                  0
+                  {stats?.totalProducts ?? 0}
                 </p>
               </div>
               <div
@@ -198,7 +190,7 @@ export default function SellerDashboardPage() {
                     marginTop: AppSpacing.sm,
                   }}
                 >
-                  0
+                  {stats?.totalOrders ?? 0}
                 </p>
               </div>
               <div
@@ -237,7 +229,7 @@ export default function SellerDashboardPage() {
                     marginTop: AppSpacing.sm,
                   }}
                 >
-                  ₦0
+                  ₦{(stats?.totalRevenue ?? 0).toLocaleString()}
                 </p>
               </div>
               <div
@@ -276,7 +268,7 @@ export default function SellerDashboardPage() {
                     marginTop: AppSpacing.sm,
                   }}
                 >
-                  0
+                  {stats?.totalOrders ?? 0}
                 </p>
               </div>
               <div

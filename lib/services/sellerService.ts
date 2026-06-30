@@ -45,12 +45,23 @@ export interface SellerPerformance {
 }
 
 async function fetchSellerOrders(sellerId: string): Promise<Order[]> {
-  const [multiSellerSnapshot, singleSellerSnapshot] = await Promise.all([
+  const results = await Promise.allSettled([
     getDocs(query(collection(db, COLLECTIONS.ORDERS), where('sellerIds', 'array-contains', sellerId))),
     getDocs(query(collection(db, COLLECTIONS.ORDERS), where('sellerId', '==', sellerId))),
   ]);
+
+  const snapshots = results.flatMap((result) => {
+    if (result.status === 'fulfilled') return [result.value];
+    console.warn('A compatible seller order query was unavailable:', result.reason);
+    return [];
+  });
+
+  // Orders have existed under both schemas. A seller should still get a
+  // usable dashboard when one legacy query is unavailable or denied.
+  if (snapshots.length === 0) return [];
+
   const orderMap = new Map<string, Order>();
-  [...multiSellerSnapshot.docs, ...singleSellerSnapshot.docs].forEach((document) => {
+  snapshots.flatMap((snapshot) => snapshot.docs).forEach((document) => {
     orderMap.set(document.id, { id: document.id, ...document.data() } as Order);
   });
   return Array.from(orderMap.values());

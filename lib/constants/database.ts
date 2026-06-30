@@ -26,6 +26,8 @@ export const COLLECTIONS = {
   ANALYTICS_DAILY: 'analyticsDaily',
   ANOMALY_ALERTS: 'anomalyAlerts',
   INTELLIGENCE_RUNS: 'intelligenceRuns',
+  GOVERNANCE_MOTIONS: 'governanceMotions',
+  MEMBER_VOTES: 'memberVotes',
 } as const;
 
 export const USER_ROLES = {

@@ -1,63 +1,63 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminAuth, getAdminDb } from '@/lib/firebase/admin';
 
-export async function GET() {
-  try {
-    // Check if Firebase environment variables are set
-    const firebaseVars = {
-      apiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: !!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: !!process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: !!process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    };
+async function withTimeout<T>(operation: Promise<T>, milliseconds: number): Promise<T> {
+  return Promise.race([
+    operation,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Health dependency timeout')), milliseconds)),
+  ]);
+}
 
-    const allFirebaseVarsSet = Object.values(firebaseVars).every(v => v === true);
+export async function GET(request: NextRequest) {
+  const firebaseClient = {
+    apiKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: !!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: !!process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: !!process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
+  const clientReady = Object.values(firebaseClient).every(Boolean);
+  const deep = request.nextUrl.searchParams.get('deep') === '1';
 
-    if (!allFirebaseVarsSet) {
-      return NextResponse.json(
-        {
-          status: 'error',
-          message: 'Firebase environment variables not properly configured',
-          firebaseConfig: firebaseVars,
-        },
-        { status: 500 }
-      );
-    }
-
-    // Try to reach Firebase
-    const firebaseUrl = 'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + 
-      process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    
-    await Promise.race([
-      fetch(firebaseUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: 'test' }),
-      }),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Firebase timeout')), 5000)
-      ),
-    ]);
-
-    // If we got here, Firebase is reachable
-    return NextResponse.json(
-      {
-        status: 'ok',
-        message: 'Service and Firebase are healthy',
-        firebaseConfig: firebaseVars,
-        timestamp: new Date().toISOString(),
-      },
-      { status: 200 }
-    );
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        status: 'error',
-        message: error.message || 'Health check failed',
-        error: error.toString(),
-      },
-      { status: 500 }
-    );
+  if (!deep) {
+    return NextResponse.json({
+      status: clientReady ? 'ok' : 'error',
+      service: 'NCDFCOOP Commerce',
+      firebaseClient,
+      timestamp: new Date().toISOString(),
+    }, { status: clientReady ? 200 : 500, headers: { 'Cache-Control': 'no-store' } });
   }
+
+  let adminReady = false;
+  let adminError = '';
+  try {
+    await withTimeout(Promise.all([
+      getAdminDb().collection('users').limit(1).get(),
+      getAdminAuth().listUsers(1),
+    ]), 6_000);
+    adminReady = true;
+  } catch (error) {
+    adminError = error instanceof Error ? error.message : 'Firebase Admin unavailable';
+  }
+
+  const dependencies = {
+    firebaseClient: clientReady,
+    firebaseAdmin: adminReady,
+    flutterwavePublic: !!process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
+    flutterwaveServer: !!process.env.FLUTTERWAVE_SECRET_KEY,
+    transactionalEmail: !!process.env.SENDGRID_API_KEY && !!process.env.SENDGRID_FROM_EMAIL,
+  };
+  const commerceReady = clientReady && adminReady;
+
+  return NextResponse.json({
+    status: commerceReady ? 'ready' : 'degraded',
+    service: 'NCDFCOOP Commerce',
+    dependencies,
+    ...(adminError ? { blocker: 'Firebase Admin is unavailable to server-side commerce routes.' } : {}),
+    timestamp: new Date().toISOString(),
+  }, {
+    status: commerceReady ? 200 : 503,
+    headers: { 'Cache-Control': 'no-store' },
+  });
 }

@@ -42,7 +42,6 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<ProductRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(false);
-  const [e2eInfo, setE2eInfo] = useState<{ orderId?: string; txnRef?: string } | null>(null);
   const checkoutTrackedRef = useRef(false);
 
   const recommendationVariant = user?.uid
@@ -203,16 +202,6 @@ export default function CheckoutPage() {
       const { orderId, transactionRef, totals } = createdOrder;
       const trustedTotal = totals.totalAmount;
 
-      // Write order id to localStorage for E2E capture and show temporary banner
-      try {
-        if (orderId) {
-          localStorage.setItem('coop_e2e_lastOrderId', orderId);
-          setE2eInfo({ orderId });
-        }
-      } catch (writeErr) {
-        console.warn('Failed to write E2E order id to localStorage', writeErr);
-      }
-
       if (paymentMethod === 'flutterwave') {
         // Initiate Flutterwave payment
         await initiateFlutterwavePayment(
@@ -224,14 +213,6 @@ export default function CheckoutPage() {
           transactionRef || '',
           async (_reference) => {
             // Payment successful
-            try {
-              if (_reference) {
-                localStorage.setItem('coop_e2e_lastTransactionRef', String(_reference));
-                setE2eInfo((prev) => ({ ...(prev || {}), txnRef: String(_reference) }));
-              }
-            } catch (writeErr) {
-              console.warn('Failed to write E2E txn ref to localStorage', writeErr);
-            }
             emitGlobalActivity('purchase_complete', {
               orderId,
               orderTotal: trustedTotal,
@@ -253,13 +234,6 @@ export default function CheckoutPage() {
           }
         );
       } else if (paymentMethod === 'bank_transfer') {
-        try {
-          localStorage.setItem('coop_e2e_lastOrderId', orderId);
-          localStorage.setItem('coop_e2e_lastTransactionRef', transactionRef || 'BANK_TRANSFER');
-          setE2eInfo({ orderId, txnRef: transactionRef || 'BANK_TRANSFER' });
-        } catch (writeErr) {
-          console.warn('Failed to write E2E bank transfer info', writeErr);
-        }
         emitGlobalActivity('checkout_progress', {
           orderId,
           orderTotal: trustedTotal,
@@ -270,13 +244,6 @@ export default function CheckoutPage() {
         router.push(`/payment/bank-transfer/${orderId}`);
       } else if (paymentMethod === 'cash_on_delivery') {
         // Order confirmed, cash on delivery
-        try {
-          localStorage.setItem('coop_e2e_lastOrderId', orderId);
-          localStorage.setItem('coop_e2e_lastTransactionRef', 'COD');
-          setE2eInfo({ orderId, txnRef: 'COD' });
-        } catch (writeErr) {
-          console.warn('Failed to write E2E COD info', writeErr);
-        }
         emitGlobalActivity('purchase_complete', {
           orderId,
           orderTotal: trustedTotal,
@@ -323,14 +290,6 @@ export default function CheckoutPage() {
         backgroundColor: AppColors.background,
       }}
     >
-      {/* E2E capture banner (temporary) */}
-      {e2eInfo && (
-        <div className="fixed top-4 right-4 z-50 p-3 rounded-md shadow-lg bg-white border" style={{ borderColor: AppColors.border }}>
-          <div className="text-sm font-semibold" style={{ color: AppColors.textPrimary }}>E2E Capture</div>
-          <div className="text-xs text-gray-700">Order: {e2eInfo.orderId}</div>
-          <div className="text-xs text-gray-700">Txn: {e2eInfo.txnRef}</div>
-        </div>
-      )}
       {/* Header */}
       <div
         className="py-8 border-b"

@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { ErrorHandler } from '@/lib/error/errorHandler';
@@ -58,18 +58,19 @@ export function useBuyerOrders(buyerId: string): UseBuyerOrdersReturn {
     try {
       const ordersQuery = query(
         collection(db, COLLECTIONS.ORDERS),
-        where('buyerId', '==', buyerId),
-        orderBy('createdAt', 'desc')
+        where('buyerId', '==', buyerId)
       );
 
       const unsubscribe = onSnapshot(
         ordersQuery,
         (snapshot) => {
           try {
-            const ordersList: BuyerOrder[] = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            } as BuyerOrder));
+            const ordersList: BuyerOrder[] = snapshot.docs
+              .map((doc) => ({ id: doc.id, ...doc.data() } as BuyerOrder))
+              .sort((a, b) => {
+                const toMillis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+                return toMillis(b.createdAt) - toMillis(a.createdAt);
+              });
 
             setOrders(ordersList);
             setError(null);

@@ -9,6 +9,14 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { useRealTimeOrders } from '@/lib/hooks/useRealTime';
 import { bulkReorder } from '@/lib/services/wholesaleService';
 
+function toDate(value: any): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === 'function') return value.toDate();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export default function WholesaleOrdersPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -38,7 +46,8 @@ export default function WholesaleOrdersPage() {
     const nextDeliveryDate = wholesaleOrders
       .map((order) => order.deliveryDate)
       .filter(Boolean)
-      .map((date) => (date instanceof Date ? date : new Date(date as any)))
+      .map(toDate)
+      .filter((date): date is Date => !!date)
       .sort((a, b) => a.getTime() - b.getTime())[0];
 
     return {
@@ -149,7 +158,7 @@ export default function WholesaleOrdersPage() {
                       <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">{order.id}</td>
                         <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                          {order.createdAt ? new Date(order.createdAt as any).toLocaleDateString('en-GB') : '—'}
+                          {toDate(order.createdAt)?.toLocaleDateString('en-GB') || '—'}
                         </td>
                         <td className="px-6 py-4 text-sm font-semibold text-gray-900 dark:text-white">
                           {order.items?.reduce((sum, item) => sum + (item.quantity || 0), 0).toLocaleString()}
@@ -163,7 +172,7 @@ export default function WholesaleOrdersPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                          {order.deliveryDate ? new Date(order.deliveryDate as any).toLocaleDateString('en-GB') : '—'}
+                          {toDate(order.deliveryDate)?.toLocaleDateString('en-GB') || '—'}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex gap-3"><button
@@ -185,11 +194,11 @@ export default function WholesaleOrdersPage() {
           <div className="mt-8 bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded-lg p-6">
             <h3 className="text-lg font-bold text-purple-900 dark:text-purple-100 mb-3">Quick Reorder</h3>
             <p className="text-purple-800 dark:text-purple-200 mb-4">
-              You're eligible for a 5% bulk discount on your next order of 500+ units!
+              Choose institutional prepayment during checkout to receive the server-validated 10% subtotal discount.
             </p>
             <button
               className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded transition-colors"
-              onClick={() => router.push('/products')}
+              onClick={() => router.push('/wholesale/products')}
             >
               Place New Order
             </button>

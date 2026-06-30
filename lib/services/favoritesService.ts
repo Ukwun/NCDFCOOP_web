@@ -12,7 +12,6 @@ import {
   where,
   getDocs,
   Timestamp,
-  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
@@ -198,8 +197,7 @@ export async function getUserFavorites(userId: string, limit: number = 100): Pro
 
     const q = query(
       collection(db, COLLECTIONS.FAVORITES),
-      where('userId', '==', userId),
-      orderBy('addedAt', 'desc')
+      where('userId', '==', userId)
     );
 
     const snapshot = await getDocs(q);
@@ -208,6 +206,10 @@ export async function getUserFavorites(userId: string, limit: number = 100): Pro
         id: doc.id,
         ...doc.data(),
       } as FavoriteItem))
+      .sort((a, b) => {
+        const millis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+        return millis(b.addedAt) - millis(a.addedAt);
+      })
       .slice(0, limit);
   } catch (error) {
     console.error('Error fetching favorites:', error);

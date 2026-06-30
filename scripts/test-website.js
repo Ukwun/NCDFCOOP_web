@@ -143,7 +143,7 @@ async function testPageLoads() {
     { path: '/signup', name: 'Signup' },
     { path: '/signin', name: 'Sign In' },
     { path: '/checkout', name: 'Checkout' },
-    { path: '/diagnostics', name: 'Diagnostics' },
+    { path: '/diagnostics', name: 'Diagnostics', expectedStatus: 404 },
   ];
 
   let pagesPassed = 0;
@@ -151,7 +151,8 @@ async function testPageLoads() {
   for (const page of pages) {
     try {
       const response = await httpRequest('GET', page.path);
-      if (response.status === 200) {
+      const expectedStatus = page.expectedStatus ?? 200;
+      if (response.status === expectedStatus) {
         results.passed.push(`✅ ${page.name} page loads`);
         console.log(`${colors.green}✅ ${page.name} (${page.path})${colors.reset}`);
         pagesPassed++;

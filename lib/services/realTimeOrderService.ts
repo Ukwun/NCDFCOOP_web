@@ -7,6 +7,14 @@ import { db } from '@/lib/firebase/config';
 import { collection, query, where, onSnapshot, Unsubscribe, getDocs, doc } from 'firebase/firestore';
 import { Order } from '@/lib/types/product';
 
+function timestampMillis(value: any): number {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 class RealTimeOrderService {
   private unsubscribers: Map<string, Unsubscribe> = new Map();
 
@@ -33,8 +41,8 @@ class RealTimeOrderService {
 
           // Sort by createdAt descending (newest first)
           orders.sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt as any).getTime() : 0;
-            const bTime = b.createdAt ? new Date(b.createdAt as any).getTime() : 0;
+            const aTime = timestampMillis(a.createdAt);
+            const bTime = timestampMillis(b.createdAt);
             return bTime - aTime;
           });
 
@@ -77,8 +85,8 @@ class RealTimeOrderService {
           }) as Order);
 
           orders.sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt as any).getTime() : 0;
-            const bTime = b.createdAt ? new Date(b.createdAt as any).getTime() : 0;
+            const aTime = timestampMillis(a.createdAt);
+            const bTime = timestampMillis(b.createdAt);
             return bTime - aTime;
           });
 

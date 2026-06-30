@@ -2,179 +2,60 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/authContext';
-import ProductCard from '@/components/ProductCard';
-import { addToCart } from '@/lib/services/cartService';
+import { ArrowLeft, BadgePercent } from 'lucide-react';
+import ProductList from '@/components/ProductList';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { getProducts } from '@/lib/services/productService';
+import { Product } from '@/lib/types/product';
+import { USER_ROLES } from '@/lib/constants/database';
 
 export default function MemberProductsPage() {
   const router = useRouter();
-  const { user: _user } = useAuth();
-  const [sortBy, setSortBy] = useState('newest');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState('all');
+  const [sort, setSort] = useState('newest');
 
-  const categories = ['All', 'Grains & Cereals', 'Proteins', 'Dairy', 'Fresh Produce', 'Value Deals'];
+  useEffect(() => {
+    let active = true;
+    getProducts(100, 'retail')
+      .then((items) => { if (active) setProducts(items); })
+      .catch(() => { if (active) setProducts([]); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
-  // Use real images for member-exclusive products
-  const MEMBER_PRODUCT_IMAGES = [
-    '/images/Crayfish 1.png',
-    '/images/Beef1.png',
-    '/images/egusiseeds1.png',
-    '/images/6in1spices1.png',
-    '/images/Bag of garri1.png',
-    '/images/Buck wheat1.png',
-    '/images/Family pack1.png',
-    '/images/essential basket1.png',
-    '/images/Frame 174.png',
-    '/images/Frame 175.png',
-    '/images/Frame 176.png',
-    '/images/All inclusive pack.png',
-  ];
-  const products = [
-    { id: '1', name: 'Premium Milled Rice', category: 'Grains & Cereals', price: 15000, memberPrice: 12750, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[0], images: [MEMBER_PRODUCT_IMAGES[0]], stock: 45, sellerId: 'coop', sellerName: 'CoopMart', description: 'Premium rice for members.', rating: 4.8, reviews: 20 }, // Display logic is in ProductCard
-    { id: '2', name: 'Free-Range Eggs (30pc)', category: 'Proteins', price: 8500, memberPrice: 6800, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[1], images: [MEMBER_PRODUCT_IMAGES[1]], stock: 12, sellerId: 'coop', sellerName: 'CoopMart', description: 'Farm fresh eggs.', rating: 4.7, reviews: 14 },
-    { id: '3', name: 'Fresh Organic Milk (1L)', category: 'Dairy', price: 1200, memberPrice: 960, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[2], images: [MEMBER_PRODUCT_IMAGES[2]], stock: 78, sellerId: 'coop', sellerName: 'CoopMart', description: 'Organic milk for your family.', rating: 4.9, reviews: 18 },
-    { id: '4', name: 'Gourmet Butter (500g)', category: 'Dairy', price: 4500, memberPrice: 3825, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[3], images: [MEMBER_PRODUCT_IMAGES[3]], stock: 23, sellerId: 'coop', sellerName: 'CoopMart', description: 'Rich gourmet butter.', rating: 4.6, reviews: 11 },
-    { id: '5', name: 'Beef Cuts Pack (2kg)', category: 'Proteins', price: 22000, memberPrice: 18700, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[4], images: [MEMBER_PRODUCT_IMAGES[4]], stock: 8, sellerId: 'coop', sellerName: 'CoopMart', description: 'Fresh beef cuts.', rating: 4.7, reviews: 13 },
-    { id: '6', name: 'Chickpeas (5kg)', category: 'Grains & Cereals', price: 6000, memberPrice: 5100, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[5], images: [MEMBER_PRODUCT_IMAGES[5]], stock: 34, sellerId: 'coop', sellerName: 'CoopMart', description: 'Nutritious chickpeas.', rating: 4.5, reviews: 8 },
-    { id: '7', name: 'Fresh Tomatoes Crate', category: 'Fresh Produce', price: 5500, memberPrice: 4400, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[6], images: [MEMBER_PRODUCT_IMAGES[6]], stock: 16, sellerId: 'coop', sellerName: 'CoopMart', description: 'Fresh tomatoes.', rating: 4.8, reviews: 15 },
-    { id: '8', name: 'Assorted Vegetables Bundle', category: 'Fresh Produce', price: 3000, memberPrice: 2400, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[7], images: [MEMBER_PRODUCT_IMAGES[7]], stock: 52, sellerId: 'coop', sellerName: 'CoopMart', description: 'Assorted vegetables.', rating: 4.7, reviews: 12 },
-    { id: '9', name: 'Nigerian Garri (50kg)', category: 'Grains & Cereals', price: 12000, memberPrice: 10200, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[8], images: [MEMBER_PRODUCT_IMAGES[8]], stock: 19, sellerId: 'coop', sellerName: 'CoopMart', description: 'Classic garri.', rating: 4.6, reviews: 10 },
-    { id: '10', name: 'Honey Premium (1kg)', category: 'Value Deals', price: 8000, memberPrice: 6400, discount: 20, thumbnail: MEMBER_PRODUCT_IMAGES[9], images: [MEMBER_PRODUCT_IMAGES[9]], stock: 7, sellerId: 'coop', sellerName: 'CoopMart', description: 'Pure honey.', rating: 4.9, reviews: 9 },
-    { id: '11', name: 'Groundnut Oil (5L)', category: 'Value Deals', price: 7000, memberPrice: 5950, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[10], images: [MEMBER_PRODUCT_IMAGES[10]], stock: 29, sellerId: 'coop', sellerName: 'CoopMart', description: 'Healthy groundnut oil.', rating: 4.7, reviews: 11 },
-    { id: '12', name: 'Pasteurized Cheese (500g)', category: 'Dairy', price: 3500, memberPrice: 2975, discount: 15, thumbnail: MEMBER_PRODUCT_IMAGES[11], images: [MEMBER_PRODUCT_IMAGES[11]], stock: 14, sellerId: 'coop', sellerName: 'CoopMart', description: 'Delicious cheese.', rating: 4.8, reviews: 10 },
-  ];
-
-  const filteredProducts = filterCategory === 'all'
-    ? products
-    : products.filter((p) => p.category === filterCategory);
-
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case 'price-low':
-        return a.memberPrice - b.memberPrice;
-      case 'price-high':
-        return b.memberPrice - a.memberPrice;
-      case 'discount':
-        return b.discount - a.discount;
-      default:
-        return 0;
-    }
-  });
+  const categories = useMemo(() => ['all', ...Array.from(new Set(products.map((product) => product.category).filter(Boolean)))], [products]);
+  const visible = useMemo(() => products
+    .filter((product) => category === 'all' || product.category === category)
+    .sort((a, b) => {
+      if (sort === 'price-low') return a.price - b.price;
+      if (sort === 'price-high') return b.price - a.price;
+      if (sort === 'discount') return (b.discount || 0) - (a.discount || 0);
+      const millis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+      return millis(b.createdAt) - millis(a.createdAt);
+    }), [category, products, sort]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => router.back()}
-              className="text-2xl hover:scale-110 transition-transform"
-            >
-              ←
-            </button>
-            <div className="flex-1">
-              <div className="inline-block px-3 py-1 bg-[#C9A227] text-white text-xs font-semibold rounded-full">
-                ⭐ MEMBER EXCLUSIVE
-              </div>
-            </div>
+    <ProtectedRoute currentPath="/member-products" requiredRoles={[USER_ROLES.MEMBER]}>
+      <main className="min-h-screen bg-slate-50 pb-16 dark:bg-slate-950">
+        <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3"><button onClick={() => router.back()} aria-label="Go back" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 transition hover:-translate-x-0.5 dark:border-slate-700"><ArrowLeft size={19}/></button><span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900"><BadgePercent size={14}/> MEMBER PRICING</span></div>
+            <h1 className="mt-4 text-3xl font-black text-slate-950 dark:text-white">Live member marketplace</h1>
+            <p className="mt-2 text-sm text-slate-500">Only active products from the real marketplace appear here. Eligible member discounts are calculated from your account tier.</p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-            Member-Only Products
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Special prices for cooperative members - Better value on quality products
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Filters & Sort */}
-        <div className="mb-6 space-y-4">
-          {/* Category Filter */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-              Category
-            </label>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setFilterCategory(cat === 'All' ? 'all' : cat)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-full font-medium transition-colors ${
-                    (cat === 'All' && filterCategory === 'all') || filterCategory === cat
-                      ? 'bg-[#0B6B3A] text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+        </header>
+        <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
+          <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2 overflow-x-auto pb-1">{categories.map((item) => <button key={item} onClick={() => setCategory(item)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold capitalize transition ${category === item ? 'bg-emerald-800 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200'}`}>{item}</button>)}</div>
+            <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sort products" className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"><option value="newest">Newest</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="discount">Highest discount</option></select>
           </div>
-
-          {/* Sort */}
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-semibold text-gray-900 dark:text-white">Sort by:</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="newest">Newest</option>
-              <option value="price-low">Price: Low to High</option>
-              <option value="price-high">Price: High to Low</option>
-              <option value="discount">Highest Discount</option>
-            </select>
-          </div>
+          <ProductList products={visible} isLoading={loading} onViewDetails={(id) => router.push(`/products/${id}`)} showPagination />
         </div>
-
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-          {sortedProducts.map((product) => (
-            <div key={product.id} style={{ minWidth: 240, maxWidth: 280, margin: '0 auto' }}>
-              <ProductCard
-                product={{
-                  ...product,
-                  price: product.memberPrice, // Always show member price
-                  originalPrice: product.price,
-                }}
-                onAddToCart={async (prod, quantity) => {
-                  try {
-                    const cartUserId = _user?.uid || 'guest';
-                    await addToCart(
-                      cartUserId,
-                      prod.id,
-                      prod.name,
-                      prod.price,
-                      prod.thumbnail || prod.images?.[0] || '',
-                      quantity
-                    );
-                  } catch (err) {
-                    console.error('Failed to add to cart:', err);
-                  }
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Member Benefits Info */}
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-          <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-3">
-            💎 Why Shop Member Products?
-          </h3>
-          <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-            <li>✓ Extra discounts on all products (10-20% off)</li>
-            <li>✓ Direct from our cooperative farms & partners</li>
-            <li>✓ Quality guaranteed - no intermediaries</li>
-            <li>✓ Every purchase supports farmers in your community</li>
-            <li>✓ Earn double rewards points on member products</li>
-          </ul>
-        </div>
-      </div>
-    </div>
+      </main>
+    </ProtectedRoute>
   );
 }

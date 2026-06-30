@@ -12,7 +12,6 @@ import {
   getDoc,
   setDoc,
   updateDoc,
-  orderBy,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -45,15 +44,38 @@ export interface SellerPerformance {
   orders: number;
 }
 
+async function fetchSellerOrders(sellerId: string): Promise<Order[]> {
+  const [multiSellerSnapshot, singleSellerSnapshot] = await Promise.all([
+    getDocs(query(collection(db, COLLECTIONS.ORDERS), where('sellerIds', 'array-contains', sellerId))),
+    getDocs(query(collection(db, COLLECTIONS.ORDERS), where('sellerId', '==', sellerId))),
+  ]);
+  const orderMap = new Map<string, Order>();
+  [...multiSellerSnapshot.docs, ...singleSellerSnapshot.docs].forEach((document) => {
+    orderMap.set(document.id, { id: document.id, ...document.data() } as Order);
+  });
+  return Array.from(orderMap.values());
+}
+
+function sellerOrderAmount(order: Order, sellerId: string): number {
+  const sellerItems = (order.items || []).filter((item) => item.sellerId === sellerId);
+  return sellerItems.reduce(
+    (total, item) => total + Number(item.price || 0) * Number(item.quantity || 0),
+    0
+  );
+}
+
+function orderDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (value instanceof Timestamp) return value.toDate();
+  if (value && typeof (value as any).toDate === 'function') return (value as any).toDate();
+  return new Date(value ? String(value) : 0);
+}
+
 // Fetch seller dashboard statistics
 export async function getSellerStats(sellerId: string): Promise<SellerStats> {
   try {
     // Get seller's orders
-    const ordersQuery = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('sellerId', '==', sellerId)
-    );
-    const ordersSnap = await getDocs(ordersQuery);
+    const orders = await fetchSellerOrders(sellerId);
 
     // Get seller's products
     const productsQuery = query(
@@ -68,13 +90,12 @@ export async function getSellerStats(sellerId: string): Promise<SellerStats> {
     let retailRevenue = 0;
     let wholesaleRevenue = 0;
 
-    ordersSnap.forEach((doc) => {
-      const order = doc.data();
-      const amount = order.totalAmount || order.total || 0;
+    orders.forEach((order) => {
+      const amount = sellerOrderAmount(order, sellerId);
       totalRevenue += amount;
       totalOrders += 1;
 
-      if (order.buyerType === 'wholesale' || order.buyerRole === 'institutional_buyer') {
+      if (order.buyerType === 'wholesale' || (order as any).buyerRole === 'institutional_buyer') {
         wholesaleRevenue += amount;
       } else {
         retailRevenue += amount;
@@ -105,17 +126,7 @@ export async function getSellerStats(sellerId: string): Promise<SellerStats> {
 // Fetch seller's recent orders
 export async function getSellerRecentOrders(sellerId: string, limit: number = 5): Promise<Order[]> {
   try {
-    const ordersQuery = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('sellerId', '==', sellerId)
-    );
-    const ordersSnap = await getDocs(ordersQuery);
-
-    const orders = ordersSnap.docs
-      .map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      } as Order))
+    const orders = (await fetchSellerOrders(sellerId))
       .sort((a, b) => {
         const getTime = (date: any) => {
           if (date instanceof Timestamp) {
@@ -232,17 +243,12 @@ export async function getSellerPerformance(
   days: number = 30
 ): Promise<SellerPerformance[]> {
   try {
-    const ordersQuery = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('sellerId', '==', sellerId)
-    );
-    const ordersSnap = await getDocs(ordersQuery);
+    const orders = await fetchSellerOrders(sellerId);
 
     const performanceMap = new Map<string, { sales: number; revenue: number; orders: number }>();
 
-    ordersSnap.forEach((doc) => {
-      const order = doc.data();
-      const date = order.createdAt?.toDate?.() || new Date();
+    orders.forEach((order) => {
+      const date = orderDate(order.createdAt);
       const dateStr = date.toISOString().split('T')[0];
 
       if (!performanceMap.has(dateStr)) {
@@ -251,7 +257,7 @@ export async function getSellerPerformance(
 
       const data = performanceMap.get(dateStr)!;
       data.sales += 1;
-      data.revenue += order.total || 0;
+      data.revenue += sellerOrderAmount(order, sellerId);
       data.orders += 1;
     });
 
@@ -277,22 +283,17 @@ export async function getSellerRevenueBreakdownOverTime(
   endDate: Date
 ): Promise<SellerRevenueDataPoint[]> {
   try {
-    const ordersQuery = query(
-      collection(db, COLLECTIONS.ORDERS),
-      where('sellerId', '==', sellerId),
-      where('createdAt', '>=', Timestamp.fromDate(startDate)),
-      where('createdAt', '<=', Timestamp.fromDate(endDate)),
-      orderBy('createdAt', 'asc')
-    );
-    const ordersSnap = await getDocs(ordersQuery);
+    const orders = (await fetchSellerOrders(sellerId)).filter((order) => {
+      const createdAt = orderDate(order.createdAt);
+      return createdAt >= startDate && createdAt <= endDate;
+    });
 
     const dailyRevenueMap = new Map<string, { retail: number; wholesale: number; total: number }>();
 
-    ordersSnap.forEach((doc) => {
-      const order = doc.data();
-      const amount = order.totalAmount || order.total || 0;
-      const orderDate = (order.createdAt as Timestamp).toDate();
-      const dateStr = orderDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    orders.forEach((order) => {
+      const amount = sellerOrderAmount(order, sellerId);
+      const createdDate = orderDate(order.createdAt);
+      const dateStr = createdDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
       if (!dailyRevenueMap.has(dateStr)) {
         dailyRevenueMap.set(dateStr, { retail: 0, wholesale: 0, total: 0 });
@@ -301,7 +302,7 @@ export async function getSellerRevenueBreakdownOverTime(
       const data = dailyRevenueMap.get(dateStr)!;
       data.total += amount;
 
-      if (order.buyerType === 'wholesale' || order.buyerRole === 'institutional_buyer') {
+      if (order.buyerType === 'wholesale' || (order as any).buyerRole === 'institutional_buyer') {
         data.wholesale += amount;
       } else {
         data.retail += amount;

@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { onSnapshot, query, collection, where, orderBy } from 'firebase/firestore';
+import { onSnapshot, query, collection, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import {
   getUserFavorites,
@@ -72,8 +72,7 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
 
     const q = query(
       collection(db, 'favorites'),
-      where('userId', '==', userId),
-      orderBy('addedAt', 'desc')
+      where('userId', '==', userId)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -91,6 +90,9 @@ export function useFavorites({ userId, autoFetch = true }: UseFavoritesOptions) 
           sellerName: data.sellerName,
           addedAt: data.addedAt || (new Date() as any),
         } as FavoriteItem;
+      }).sort((a, b) => {
+        const millis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+        return millis(b.addedAt) - millis(a.addedAt);
       });
       setFavorites(items);
       setCount(items.length);

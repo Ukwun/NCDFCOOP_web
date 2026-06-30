@@ -11,7 +11,6 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   Timestamp,
   updateDoc,
   deleteDoc,
@@ -79,15 +78,14 @@ export async function getMessages(conversationId: string, limit: number = 50): P
   try {
     const q = query(
       collection(db, COLLECTIONS.MESSAGES),
-      where('conversationId', '==', conversationId),
-      orderBy('timestamp', 'desc')
+      where('conversationId', '==', conversationId)
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.slice(0, limit).map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Message));
+    return snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() } as Message))
+      .sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())
+      .slice(0, limit);
   } catch (error) {
     console.error('Error fetching messages:', error);
     throw error;
@@ -101,15 +99,13 @@ export async function getUserConversations(userId: string): Promise<Conversation
   try {
     const q = query(
       collection(db, COLLECTIONS.CONVERSATIONS),
-      where('participants', 'array-contains', userId),
-      orderBy('lastMessageTime', 'desc')
+      where('participants', 'array-contains', userId)
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    } as Conversation));
+    return snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() } as Conversation))
+      .sort((a, b) => b.lastMessageTime.toMillis() - a.lastMessageTime.toMillis());
   } catch (error) {
     console.error('Error fetching conversations:', error);
     throw error;

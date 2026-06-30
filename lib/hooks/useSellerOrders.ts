@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { ErrorHandler } from '@/lib/error/errorHandler';
@@ -59,34 +59,41 @@ export function useSellerOrders(sellerId: string): UseSellerOrdersReturn {
     }
 
     try {
-      const ordersQuery = query(
+      const multiSellerQuery = query(
         collection(db, COLLECTIONS.ORDERS),
-        where('sellerIds', 'array-contains', sellerId),
-        orderBy('createdAt', 'desc')
+        where('sellerIds', 'array-contains', sellerId)
+      );
+      const singleSellerQuery = query(
+        collection(db, COLLECTIONS.ORDERS),
+        where('sellerId', '==', sellerId)
       );
 
-      const unsubscribe = onSnapshot(
-        ordersQuery,
+      let multiSellerOrders: SellerOrder[] = [];
+      let singleSellerOrders: SellerOrder[] = [];
+      let multiReady = false;
+      let singleReady = false;
+
+      const publishOrders = () => {
+        const merged = new Map<string, SellerOrder>();
+        [...multiSellerOrders, ...singleSellerOrders].forEach((order) => merged.set(order.id, order));
+        const ordersList = Array.from(merged.values())
+          .filter((order) => order.items?.some((item) => item.sellerId === sellerId))
+          .sort((a, b) => {
+            const toMillis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+            return toMillis(b.createdAt) - toMillis(a.createdAt);
+          });
+        setOrders(ordersList);
+        setError(null);
+        if (multiReady && singleReady) setLoading(false);
+      };
+
+      const unsubscribeMulti = onSnapshot(
+        multiSellerQuery,
         (snapshot) => {
           try {
-            const ordersList: SellerOrder[] = snapshot.docs
-              .map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              } as SellerOrder))
-              .filter((order) => {
-                // Filter to only this seller's orders
-                // This is a client-side filter; better to do server-side with proper schema
-                return (
-                  order.items?.some(
-                    (item: any) => item.sellerId === sellerId
-                  ) || false
-                );
-              });
-
-            setOrders(ordersList);
-            setError(null);
-            setLoading(false);
+            multiSellerOrders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as SellerOrder));
+            multiReady = true;
+            publishOrders();
           } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
             ErrorHandler.logError('SELLER_ORDERS_PARSE', error.message, 'error');
@@ -102,7 +109,25 @@ export function useSellerOrders(sellerId: string): UseSellerOrdersReturn {
         }
       );
 
-      return () => unsubscribe();
+      const unsubscribeSingle = onSnapshot(
+        singleSellerQuery,
+        (snapshot) => {
+          singleSellerOrders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as SellerOrder));
+          singleReady = true;
+          publishOrders();
+        },
+        (err) => {
+          const subscriptionError = err instanceof Error ? err : new Error(String(err));
+          ErrorHandler.logError('SELLER_LEGACY_ORDERS_LISTEN', subscriptionError.message, 'error');
+          setError(subscriptionError);
+          setLoading(false);
+        }
+      );
+
+      return () => {
+        unsubscribeMulti();
+        unsubscribeSingle();
+      };
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       ErrorHandler.logError('SELLER_ORDERS_SETUP', error.message, 'error');

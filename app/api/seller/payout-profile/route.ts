@@ -37,11 +37,15 @@ export async function PUT(request: NextRequest) {
     if (bankName.length < 2 || accountName.length < 2 || !/^\d{10}$/.test(accountNumber)) {
       return NextResponse.json({ error: 'Enter the bank, account name, and a valid 10-digit NUBAN account number.' }, { status: 400 });
     }
-    await getAdminDb().collection('payoutProfiles').doc(user.uid).set({
+    const ref = getAdminDb().collection('payoutProfiles').doc(user.uid);
+    const previous = await ref.get();
+    const old = previous.data() || {};
+    const bankChanged = previous.exists && (old.bankName !== bankName || old.accountNumber !== accountNumber || old.accountName !== accountName);
+    await ref.set({
       sellerId: user.uid, sellerEmail: user.email || '', bankName: bankName.slice(0, 120),
       accountName: accountName.slice(0, 160), accountNumber, accountLast4: accountNumber.slice(-4),
-      reviewStatus: 'pending_verification', updatedAt: FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp(),
+      reviewStatus: 'pending_verification', changedAfterVerification: bankChanged && old.reviewStatus === 'verified', updatedAt: FieldValue.serverTimestamp(),
+      ...(!previous.exists ? { createdAt: FieldValue.serverTimestamp() } : {}),
     }, { merge: true });
     return NextResponse.json({
       profile: { bankName, accountName, accountLast4: accountNumber.slice(-4), reviewStatus: 'pending_verification' },

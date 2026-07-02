@@ -17,6 +17,7 @@ export const ROUTE_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/seller/payout-profile': ['seller'],
   '/institutional/dashboard': ['institutional_buyer', 'institutional_approver'],
   '/admin': ['admin', 'super_admin'],
+  '/admin/operations': ['support_agent', 'dispute_officer', 'finance_operator', 'risk_officer', 'admin', 'super_admin'],
   '/franchise': ['franchise', 'store_manager', 'store_staff'],
   '/warehouse': ['warehouse_staff', 'delivery_driver'],
 };
@@ -71,7 +72,7 @@ export function getNextRoute(
 
   // Operational accounts are provisioned by trusted administrators rather
   // than through public onboarding.
-  if (user?.roles?.some((role) => ['admin', 'staff', 'operator'].includes(role))) {
+  if (user?.roles?.some((role) => ['admin', 'super_admin', 'support_agent', 'dispute_officer', 'finance_operator', 'risk_officer', 'staff', 'operator'].includes(role))) {
     return null;
   }
 

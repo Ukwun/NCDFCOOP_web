@@ -10,6 +10,7 @@ import { getBankTransferStatus } from '@/lib/services/bankTransferService';
 import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import { toDate } from '@/lib/utils/dateHelper';
+import { auth } from '@/lib/firebase/config';
 
 interface OrderTimeline {
   step: number;
@@ -30,6 +31,20 @@ export default function OrderTrackingPage() {
   const [error, setError] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<OrderTimeline[]>([]);
   const [bankTransferStatus, setBankTransferStatus] = useState<any>(null);
+  const [disputeMessage, setDisputeMessage] = useState('');
+
+  const openDispute = async () => {
+    if (!resolvedOrderId) return;
+    const description = window.prompt('Describe what went wrong (at least 10 characters):');
+    if (!description) return;
+    const reason = window.prompt('Reason: not_received, not_as_described, damaged, missing_items, unauthorized, or other', 'not_received') || '';
+    try {
+      const token = await auth?.currentUser?.getIdToken();
+      const response = await fetch('/api/disputes', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ orderId: resolvedOrderId, reason, description }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Unable to open dispute.');
+      setDisputeMessage('Dispute opened. The affected seller funds are now on hold.');
+    } catch (e: any) { setDisputeMessage(e.message); }
+  };
 
   const resolvedOrderId = useMemo(() => {
     if (typeof orderId === 'string') return orderId;
@@ -401,6 +416,7 @@ export default function OrderTrackingPage() {
           </div>
         </div>
 
+        {['shipped', 'delivered'].includes(String(order.status)) && order.paymentStatus === 'completed' && <section className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4"><h2 className="font-bold text-gray-900">Purchase protection</h2><p className="mt-1 text-sm text-gray-600">Report a delivery or product problem. The affected payout is held while staff review the case.</p><button onClick={() => void openDispute()} className="mt-3 rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white">Open a dispute</button>{disputeMessage && <p className="mt-2 text-sm text-gray-700">{disputeMessage}</p>}</section>}
         {/* Order Details */}
         <div
           className="mb-8 p-8 rounded-lg"

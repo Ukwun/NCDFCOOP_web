@@ -19,6 +19,11 @@ export const COLLECTIONS = {
   NOTIFICATIONS: 'notifications',
   BROADCASTS: 'broadcasts',
   REFUNDS: 'refunds',
+  DISPUTES: 'disputes',
+  PAYOUT_REQUESTS: 'payoutRequests',
+  SELLER_BALANCES: 'sellerBalances',
+  SELLER_LEDGER_ENTRIES: 'sellerLedgerEntries',
+  STAFF_INVITATIONS: 'staffInvitations',
   FAVORITES: 'favorites',
   REWARDS: 'rewards',
   INQUIRIES: 'inquiries',
@@ -38,6 +43,11 @@ export const USER_ROLES = {
   ADMIN: 'admin',
   STAFF: 'staff',
   OPERATOR: 'operator',
+  SUPPORT_AGENT: 'support_agent',
+  DISPUTE_OFFICER: 'dispute_officer',
+  FINANCE_OPERATOR: 'finance_operator',
+  RISK_OFFICER: 'risk_officer',
+  SUPER_ADMIN: 'super_admin',
 } as const;
 
 export const MEMBER_TIERS = {

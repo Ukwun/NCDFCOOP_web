@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, BadgeDollarSign, Boxes, LogOut, RefreshCw, ShoppingBag, Users } from 'lucide-react';
+import { Activity, BadgeDollarSign, Boxes, LogOut, RefreshCw, ShoppingBag, Users, ShieldCheck } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/auth/authContext';
 import { auth } from '@/lib/firebase/config';
@@ -70,6 +70,7 @@ export default function AdminPage() {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
             <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">NCDFCOOP Operations</p><h1 className="text-xl font-bold sm:text-2xl">Admin control centre</h1></div>
             <div className="flex gap-2">
+              <button onClick={() => router.push('/admin/operations')} aria-label="Open operations queues" className="rounded-xl border border-white/10 p-2.5 transition hover:bg-emerald-500/20"><ShieldCheck size={18} /></button>
               <button onClick={() => void load()} aria-label="Refresh operations" className="rounded-xl border border-white/10 p-2.5 transition hover:-translate-y-0.5 hover:bg-white/10"><RefreshCw className={loading ? 'animate-spin' : ''} size={18} /></button>
               <button onClick={async () => { await logout(); router.push('/signin'); }} aria-label="Sign out" className="rounded-xl border border-white/10 p-2.5 transition hover:bg-rose-500/20"><LogOut size={18} /></button>
             </div>

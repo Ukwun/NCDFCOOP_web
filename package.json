@@ -16,6 +16,7 @@
     "e2e:seller-upload": "node ./scripts/e2e/seller-upload.spec.js",
     "test:website": "node scripts/test-website.js",
     "audit:website": "node scripts/audit-website.js",
+    "bootstrap:super-admin": "node scripts/bootstrap-super-admin.js",
     "test:all": "npm run test:website && npm run audit:website"
   },
   "dependencies": {

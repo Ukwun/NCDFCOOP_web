@@ -12,6 +12,19 @@ export interface VerifiedRequestUser {
   sellerVerified?: boolean;
 }
 
+export const OPERATIONAL_ROLES = [
+  USER_ROLES.SUPPORT_AGENT,
+  USER_ROLES.DISPUTE_OFFICER,
+  USER_ROLES.FINANCE_OPERATOR,
+  USER_ROLES.RISK_OFFICER,
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPER_ADMIN,
+] as const;
+
+export function hasAnyRole(user: VerifiedRequestUser | null, roles: readonly string[]): boolean {
+  return !!user && roles.some((role) => user.roles.includes(role));
+}
+
 export function hasRole(user: VerifiedRequestUser | null, role: string): boolean {
   return !!user && (user.selectedRole === role || user.roles.includes(role));
 }
@@ -45,11 +58,19 @@ export async function verifyRequestUser(
   const roles = Array.isArray(data.roles)
     ? data.roles.filter((role): role is string => typeof role === 'string')
     : [];
+  const claimedRoles = Array.isArray(decoded.operationalRoles)
+    ? decoded.operationalRoles.filter((role): role is string => typeof role === 'string')
+    : [];
+  const operational = OPERATIONAL_ROLES.filter((role) => roles.includes(role));
+  // Operational access requires agreement between the signed token and the
+  // server-owned user profile. Public roles continue to use the profile only.
+  const trustedOperational = operational.filter((role) => claimedRoles.includes(role));
+  const effectiveRoles = roles.filter((role) => !OPERATIONAL_ROLES.includes(role as any)).concat(trustedOperational);
 
   return {
     uid: decoded.uid,
     email: decoded.email,
-    roles,
+    roles: effectiveRoles,
     selectedRole:
       typeof data.selectedRole === 'string' ? data.selectedRole : undefined,
     membershipStatus:
@@ -71,6 +92,7 @@ export function isTrustedOperator(user: VerifiedRequestUser | null): boolean {
     USER_ROLES.ADMIN,
     USER_ROLES.STAFF,
     USER_ROLES.OPERATOR,
+    ...OPERATIONAL_ROLES,
   ];
   return user.roles.some((role) => trustedRoles.includes(role));
 }

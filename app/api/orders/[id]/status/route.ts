@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { isTrustedOperator, verifyRequestUser } from '@/lib/server/requestAuth';
@@ -65,8 +65,23 @@ export async function POST(
           ? { trackingNumber: String(trackingNumber).slice(0, 120) }
           : {}),
         ...(notes ? { notes: String(notes).slice(0, 1000) } : {}),
-        ...(nextStatus === 'delivered' ? { deliveryDate: now } : {}),
+        ...(nextStatus === 'delivered' ? { deliveryDate: now, sellerFundsCredited: true } : {}),
       });
+      if (nextStatus === 'delivered' && order.sellerFundsCredited !== true && order.paymentStatus === 'completed') {
+        const items = Array.isArray(order.items) ? order.items : [];
+        const allocations = new Map<string, number>();
+        items.forEach((item: any) => {
+          const sellerId = String(item.sellerId || order.sellerId || '');
+          if (!sellerId) return;
+          const lineTotal = Number(item.total || item.subtotal || (Number(item.price || 0) * Number(item.quantity || 0)));
+          allocations.set(sellerId, (allocations.get(sellerId) || 0) + (Number.isFinite(lineTotal) ? lineTotal : 0));
+        });
+        if (!allocations.size && order.sellerId) allocations.set(String(order.sellerId), Number(order.sellerNetAmount || order.totalAmount || order.total || 0));
+        allocations.forEach((amount, sellerId) => {
+          transaction.set(db.collection('sellerBalances').doc(sellerId), { available: FieldValue.increment(amount), lifetimeEarned: FieldValue.increment(amount), updatedAt: now }, { merge: true });
+          transaction.set(db.collection('sellerLedgerEntries').doc(), { sellerId, orderId: params.id, type: 'order_delivered', amount, createdAt: now });
+        });
+      }
       transaction.set(db.collection('notifications').doc(), {
         userId: String(order.userId || order.buyerId),
         title: 'Order status updated',

@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { USER_ROLES } from '@/lib/constants/database';
 import { orderService } from '@/lib/services/api/orderService';
+import { auth } from '@/lib/firebase/config';
 
 function formatCurrency(value: number) {
   return `₦${value.toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
@@ -19,6 +20,8 @@ export default function SellerEarningsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutMessage, setPayoutMessage] = useState('');
   const [stats, setStats] = useState<{
     totalOrders: number;
     totalRevenue: number;
@@ -60,6 +63,10 @@ export default function SellerEarningsPage() {
   }, [user?.uid, refreshKey]);
 
   const pendingPayouts = stats ? Math.max(stats.totalRevenue - stats.paidRevenue, 0) : 0;
+  const requestPayout = async () => {
+    try { const token = await auth?.currentUser?.getIdToken(); const response = await fetch('/api/payout-requests', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: Number(payoutAmount) }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Unable to request payout.'); setPayoutMessage(`Payout request submitted: ${result.status.replace(/_/g, ' ')}.`); setPayoutAmount(''); }
+    catch (e: any) { setPayoutMessage(e.message); }
+  };
 
   return (
     <ProtectedRoute currentPath="/seller/earnings" requiredRoles={[USER_ROLES.SELLER]}>
@@ -135,6 +142,7 @@ export default function SellerEarningsPage() {
               </article>
             </section>
           )}
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800"><h2 className="font-bold text-gray-900 dark:text-white">Request a payout</h2><p className="mt-1 text-sm text-gray-500">Your bank account must be verified and only your available delivered-order balance can be requested.</p><div className="mt-3 flex flex-wrap gap-2"><input type="number" min="1000" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} placeholder="Amount in NGN" className="rounded-lg border px-3 py-2 dark:bg-gray-900"/><button onClick={() => void requestPayout()} className="rounded-lg bg-[#0B6B3A] px-4 py-2 text-sm font-bold text-white">Submit payout request</button></div>{payoutMessage && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{payoutMessage}</p>}</section>
         </div>
       </div>
     </ProtectedRoute>

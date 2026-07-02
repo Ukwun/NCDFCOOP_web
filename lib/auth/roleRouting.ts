@@ -7,6 +7,13 @@ export function getRoleLandingPath(role?: string | null): string {
       return '/seller';
     case USER_ROLES.ADMIN:
       return '/admin';
+    case USER_ROLES.SUPER_ADMIN:
+      return '/admin';
+    case USER_ROLES.SUPPORT_AGENT:
+    case USER_ROLES.DISPUTE_OFFICER:
+    case USER_ROLES.FINANCE_OPERATOR:
+    case USER_ROLES.RISK_OFFICER:
+      return '/admin/operations';
     case USER_ROLES.STAFF:
     case USER_ROLES.OPERATOR:
       return '/analytics';

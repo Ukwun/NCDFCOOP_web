@@ -14,6 +14,7 @@ export default function SellerPayoutProfile() {
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [status, setStatus] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [savedPayout, setSavedPayout] = useState<{ bankName: string; accountName: string; accountLast4: string; reviewStatus: string } | null>(null);
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function SellerPayoutProfile() {
     }
 
     setStatus('Saving...');
+    setIsSaving(true);
     try {
       const token = await auth?.currentUser?.getIdToken();
       if (!token) throw new Error('Your session expired. Please sign in again.');
@@ -61,7 +63,9 @@ export default function SellerPayoutProfile() {
       setStatus(result.message);
     } catch (err) {
       console.error(err);
-      setStatus('Failed to save payout profile. Please try again.');
+      setStatus(err instanceof Error ? err.message : 'Your payout details were not saved yet. Please retry.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -110,9 +114,10 @@ export default function SellerPayoutProfile() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
               <button
                 onClick={handleSave}
+                disabled={isSaving}
                 className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
               >
-                Save Payout Profile
+                {isSaving ? 'Saving securely…' : 'Save Payout Profile'}
               </button>
               <div className="text-sm text-gray-500 dark:text-gray-300">{status}</div>
             </div>

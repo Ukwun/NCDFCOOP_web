@@ -51,7 +51,7 @@ export default function SellerInquiriesPage() {
       },
       (err) => {
         console.error('Error loading inquiries:', err);
-        setError('Failed to load inquiries in real time');
+        setError('Enquiries are temporarily unavailable. Please refresh to reconnect.');
         setInquiries([]);
         setIsLoading(false);
       }
@@ -110,7 +110,7 @@ export default function SellerInquiriesPage() {
       toast.success(`Inquiry marked as ${status}`);
     } catch (err) {
       console.error('Error updating inquiry status:', err);
-      toast.error('Failed to update inquiry status');
+      toast.error('We could not update this enquiry yet. Please retry.');
     } finally {
       setIsSaving(false);
     }
@@ -146,7 +146,7 @@ export default function SellerInquiriesPage() {
       toast.success('Quote sent successfully');
     } catch (err) {
       console.error('Error sending quote:', err);
-      toast.error('Failed to send quote');
+      toast.error('The quote was not sent yet. Please retry.');
     } finally {
       setIsSaving(false);
     }

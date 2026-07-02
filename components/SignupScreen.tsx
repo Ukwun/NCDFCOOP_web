@@ -21,8 +21,7 @@ function SignUpContent() {
   const handleGoogleSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithGoogle();
-      if (destination) router.replace(destination);
+      await signInWithGoogle();
     } catch (err: any) {
       setError(err.message || 'Google sign-in failed');
     } finally {
@@ -33,8 +32,7 @@ function SignUpContent() {
   const handleFacebookSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithFacebook();
-      if (destination) router.replace(destination);
+      await signInWithFacebook();
     } catch (err: any) {
       setError(err.message || 'Facebook sign-in failed');
     } finally {
@@ -45,8 +43,7 @@ function SignUpContent() {
   const handleAppleSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithApple();
-      if (destination) router.replace(destination);
+      await signInWithApple();
     } catch (err: any) {
       setError(err.message || 'Apple sign-in failed');
     } finally {
@@ -119,8 +116,7 @@ function SignUpContent() {
       }
 
       // Call signup function with membership type
-      const destination = await signup(email, password, fullName.trim(), membershipType);
-      router.replace(destination);
+      await signup(email, password, fullName.trim(), membershipType);
     } catch (err: any) {
       console.error('Signup error:', err);
       

@@ -1,12 +1,12 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { verifyRequestUser } from '@/lib/server/requestAuth';
+import { hasRole, verifyRequestUser } from '@/lib/server/requestAuth';
 import { USER_ROLES } from '@/lib/constants/database';
 
 async function requireSeller(request: NextRequest) {
   const user = await verifyRequestUser(request);
-  return user?.roles.some((role) => role === USER_ROLES.SELLER || role === USER_ROLES.FRANCHISE) ? user : null;
+  return hasRole(user, USER_ROLES.SELLER) ? user : null;
 }
 
 export async function GET(request: NextRequest) {

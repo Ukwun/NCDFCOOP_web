@@ -34,7 +34,9 @@ service cloud.firestore {
     function isSeller() {
       return isAuthenticated() &&
         currentUserDocExists() &&
-        (currentRole() == 'seller' || currentRole() == 'franchise');
+        (currentRole() == 'seller' ||
+          (currentUserDoc().data.roles is list &&
+            currentUserDoc().data.roles.hasAny(['seller'])));
     }
 
     function isStaff() {

@@ -1,7 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { verifyRequestUser } from '@/lib/server/requestAuth';
+import { hasRole, verifyRequestUser } from '@/lib/server/requestAuth';
 import { USER_ROLES } from '@/lib/constants/database';
 
 function numberInRange(
@@ -22,8 +22,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     if (
-      !user.roles.includes(USER_ROLES.SELLER) &&
-      !user.roles.includes(USER_ROLES.FRANCHISE)
+      !hasRole(user, USER_ROLES.SELLER)
     ) {
       return NextResponse.json(
         { error: 'A seller account is required to create products.' },

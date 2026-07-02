@@ -232,8 +232,8 @@ export default function SellerProductsPage() {
       </div>
 
       {/* Statistics */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="max-w-7xl mx-auto flex flex-col px-4 sm:px-6 lg:px-8 py-5">
+        <div className="order-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
           {/* Total Products */}
           <div
             className="p-6 rounded-lg border-2"
@@ -315,12 +315,12 @@ export default function SellerProductsPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <div className="order-2 mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg">
             {error}
           </div>
         )}
 
-        <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <div className="order-3 mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
           <p className="font-bold">Your seller publishing access is active.</p>
           <p className="mt-1">
             Published retail listings appear for members, wholesale listings appear in the bulk catalog, and products marked both appear in both marketplaces. Identity verification adds a trust badge and is required for payout clearance, but it does not block product publishing.
@@ -330,7 +330,7 @@ export default function SellerProductsPage() {
         {/* Empty State */}
         {products.length === 0 && (
           <div
-            className="rounded-lg p-12 text-center border-2"
+            className="order-1 rounded-lg p-12 text-center border-2"
             style={{
               backgroundColor: AppColors.surface,
               borderColor: AppColors.border,
@@ -358,7 +358,7 @@ export default function SellerProductsPage() {
         {/* Products Table */}
         {products.length > 0 && (
           <div
-            className="rounded-lg border-2 overflow-hidden"
+            className="order-1 rounded-lg border-2 overflow-hidden"
             style={{
               backgroundColor: AppColors.surface,
               borderColor: AppColors.border,

@@ -12,6 +12,10 @@ export interface VerifiedRequestUser {
   sellerVerified?: boolean;
 }
 
+export function hasRole(user: VerifiedRequestUser | null, role: string): boolean {
+  return !!user && (user.selectedRole === role || user.roles.includes(role));
+}
+
 function bearerToken(request: NextRequest): string | null {
   const header = request.headers.get('authorization') || '';
   const match = header.match(/^Bearer\s+(.+)$/i);

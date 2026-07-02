@@ -30,8 +30,7 @@ export default function SignInScreen() {
     setError('');
     setSocialLoading(true);
     try {
-      const destination = await signInWithGoogle();
-      if (destination) router.replace(destination);
+      await signInWithGoogle();
     } catch (err: any) {
       setError(err?.message || 'Google sign-in failed.');
     } finally {
@@ -43,8 +42,7 @@ export default function SignInScreen() {
     setError('');
     setSocialLoading(true);
     try {
-      const destination = await signInWithFacebook();
-      if (destination) router.replace(destination);
+      await signInWithFacebook();
     } catch (err: any) {
       setError(err?.message || 'Facebook sign-in failed.');
     } finally {
@@ -56,8 +54,7 @@ export default function SignInScreen() {
     setError('');
     setSocialLoading(true);
     try {
-      const destination = await signInWithApple();
-      if (destination) router.replace(destination);
+      await signInWithApple();
     } catch (err: any) {
       setError(err?.message || 'Apple sign-in failed.');
     } finally {
@@ -91,8 +88,7 @@ export default function SignInScreen() {
       }
 
       // Call login function
-      const destination = await login(email, password, rememberMe);
-      router.replace(destination);
+      await login(email, password);
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
       setIsLoading(false);

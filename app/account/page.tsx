@@ -19,6 +19,7 @@ export default function AccountPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [changePwOpen, setChangePwOpen] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const handleSaveProfile = async (data: { displayName: string }) => {
     if (!data.displayName.trim()) {
@@ -55,9 +56,27 @@ export default function AccountPage() {
     }
   };
 
-  const handleDeleteAccountRequest = () => {
-    setStatusMessage('Account deletion workflow opened in support inbox.');
-    router.push('/inquiries');
+  const handleDeleteAccountRequest = async () => {
+    if (!auth?.currentUser || deleting) return;
+    if (!window.confirm('Permanently delete your account, products, enquiries, and private profile data? This cannot be undone.')) return;
+    const confirmation = window.prompt('Type DELETE to confirm permanent account deletion.');
+    if (confirmation !== 'DELETE') {
+      setStatusMessage('Account deletion cancelled. Nothing was changed.');
+      return;
+    }
+    setDeleting(true);
+    setStatusMessage('Deleting your account securely…');
+    try {
+      const token = await auth.currentUser.getIdToken(true);
+      const response = await fetch('/api/account/delete', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Your account was not deleted.');
+      await logout().catch(() => undefined);
+      router.replace('/signin?accountDeleted=1');
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : 'Your account was not deleted. Please retry.');
+      setDeleting(false);
+    }
   };
 
   const formatUserCode = (uid: string) => {
@@ -77,7 +96,7 @@ export default function AccountPage() {
       <div className="min-h-screen bg-[#F4F7FA] dark:bg-gray-900 p-4 md:p-6">
         <div className="max-w-3xl mx-auto space-y-5">
           <section className="rounded-2xl bg-gradient-to-r from-[#164A2E] via-[#1E7F4E] to-[#2A9B61] text-white p-6 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-col gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest opacity-80">Identity & Access</p>
                 <h1 className="text-3xl font-bold">Profile Command Center</h1>
@@ -85,12 +104,6 @@ export default function AccountPage() {
                   Manage account identity, security credentials, and role-specific operational shortcuts.
                 </p>
               </div>
-              <button
-                className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#164A2E] hover:bg-[#E8F6EE]"
-                onClick={() => router.push('/settings')}
-              >
-                Open Settings
-              </button>
             </div>
           </section>
 
@@ -171,9 +184,10 @@ export default function AccountPage() {
               </button>
               <button
                 onClick={handleDeleteAccountRequest}
+                disabled={deleting}
                 className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 dark:border-red-600 dark:text-red-200 dark:hover:bg-red-800/50"
               >
-                Request Account Deletion
+                {deleting ? 'Deleting Account…' : 'Delete Account Permanently'}
               </button>
             </div>
           </section>

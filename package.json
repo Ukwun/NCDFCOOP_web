@@ -17,6 +17,7 @@
     "test:website": "node scripts/test-website.js",
     "audit:website": "node scripts/audit-website.js",
     "bootstrap:super-admin": "node scripts/bootstrap-super-admin.js",
+    "reset:owner-test-user": "node scripts/reset-owner-test-user.js",
     "test:all": "npm run test:website && npm run audit:website"
   },
   "dependencies": {

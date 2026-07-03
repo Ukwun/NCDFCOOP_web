@@ -28,3 +28,11 @@ Staff first create and verify ordinary accounts using their company-controlled e
 Opening a dispute creates a case, flags the order, and moves the disputed amount into the seller's held balance. The staff workspace refreshes every 15 seconds. Payout requests reserve available balance immediately. Requests with open disputes, changed bank details, or amounts at/above `LARGE_PAYOUT_NGN` require two distinct approvals.
 
 `mark_paid` must only be used after the bank/payment provider accepts the transfer, and requires its external reference. Provider transfer initiation and webhook reconciliation should be connected before enabling unattended payouts; the current workflow intentionally does not pretend that a database status moved real money.
+
+## Reset the owner during pre-production testing
+
+This permanently deletes the configured owner's current Firebase Authentication identity and UID-linked test records. It does not change general signup or sign-in behavior:
+
+`npm run reset:owner-test-user -- babatundeoralusi@gmail.com --service-account "C:\secure\coop-commerce-admin.json" --confirm-reset`
+
+After it succeeds, the email can register normally and receives a new Firebase UID. Bootstrap the new verified account again only when it is ready to become the production super-admin.

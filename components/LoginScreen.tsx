@@ -1,24 +1,25 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useAuth } from '@/lib/auth/authContext';
-import { validateLoginData } from '@/lib/validation/inputValidation';
-import { trackActivity } from '@/lib/analytics/activityTracker';
-import Logo from '@/components/Logo';
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/authContext";
+import { validateLoginData } from "@/lib/validation/inputValidation";
+import { trackActivity } from "@/lib/analytics/activityTracker";
 
 export default function LoginScreen() {
+  const router = useRouter();
   const { login, error: authError } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [generalError, setGeneralError] = useState('');
+  const [generalError, setGeneralError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    setGeneralError('');
+    setGeneralError("");
 
     // Validate
     const validation = validateLoginData(email, password);
@@ -29,11 +30,12 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await login(email, password);
-      await trackActivity('login', { email });
+      const destination = await login(email, password);
+      await trackActivity("login", {});
+      router.replace(destination);
     } catch (err: any) {
-      setGeneralError(authError || err.message || 'Login failed');
-      await trackActivity('login_failed', { email, error: err.message });
+      setGeneralError(authError || err.message || "Login failed");
+      await trackActivity("login_failed", { reason: err.message });
     } finally {
       setLoading(false);
     }
@@ -44,7 +46,11 @@ export default function LoginScreen() {
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-20 w-auto mx-auto" />
+            <img
+              src="/images/logo/NCDFCOOPLOGO.png"
+              alt="NCDFCOOP Logo"
+              className="h-20 w-auto mx-auto"
+            />
           </div>
           <p className="text-gray-600 dark:text-gray-400">Member Login</p>
         </div>
@@ -65,14 +71,20 @@ export default function LoginScreen() {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                setErrors({ ...errors, email: '' });
+                setErrors({ ...errors, email: "" });
               }}
               placeholder="you@example.com"
               className={`w-full px-4 py-3 border-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 transition-colors ${
-                errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'
+                errors.email
+                  ? "border-red-500"
+                  : "border-gray-300 dark:border-gray-600 focus:border-blue-500"
               } focus:outline-none`}
             />
-            {errors.email && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                {errors.email}
+              </p>
+            )}
           </div>
 
           <div>
@@ -84,14 +96,20 @@ export default function LoginScreen() {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setErrors({ ...errors, password: '' });
+                setErrors({ ...errors, password: "" });
               }}
               placeholder="••••••••"
               className={`w-full px-4 py-3 border-2 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 transition-colors ${
-                errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'
+                errors.password
+                  ? "border-red-500"
+                  : "border-gray-300 dark:border-gray-600 focus:border-blue-500"
               } focus:outline-none`}
             />
-            {errors.password && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                {errors.password}
+              </p>
+            )}
           </div>
 
           <button
@@ -99,19 +117,25 @@ export default function LoginScreen() {
             disabled={loading}
             className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          Don't have an account?{' '}
-          <Link href="/signup" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+          Don't have an account?{" "}
+          <Link
+            href="/signup"
+            className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+          >
             Create one
           </Link>
         </div>
 
         <div className="mt-4 text-center text-sm">
-          <Link href="/forgot-password" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
+          <Link
+            href="/forgot-password"
+            className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+          >
             Forgot password?
           </Link>
         </div>

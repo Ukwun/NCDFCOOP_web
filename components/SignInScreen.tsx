@@ -1,62 +1,84 @@
-'use client';
+"use client";
 
-import { FormEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react';
-import SocialSignInButtons from '@/components/SocialSignInButtons';
-import { useAuth } from '@/lib/auth/authContext';
-import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
-import { getAuthenticatedLandingPath } from '@/lib/auth/roleRouting';
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
+import SocialSignInButtons from "@/components/SocialSignInButtons";
+import { useAuth } from "@/lib/auth/authContext";
+import { AppColors, AppSpacing, AppTextStyles } from "@/lib/theme";
+import { getAuthenticatedLandingPath } from "@/lib/auth/roleRouting";
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { user, loading, currentRole, roleSelectionComplete, login, signInWithGoogle, signInWithFacebook, signInWithApple } = useAuth();
+  const {
+    user,
+    loading,
+    currentRole,
+    roleSelectionComplete,
+    login,
+    signInWithGoogle,
+    signInWithFacebook,
+    signInWithApple,
+  } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && user && !isLoading && !socialLoading) {
-      router.replace(getAuthenticatedLandingPath(currentRole, roleSelectionComplete));
+      router.replace(
+        getAuthenticatedLandingPath(currentRole, roleSelectionComplete),
+      );
     }
-  }, [currentRole, isLoading, loading, roleSelectionComplete, router, socialLoading, user]);
+  }, [
+    currentRole,
+    isLoading,
+    loading,
+    roleSelectionComplete,
+    router,
+    socialLoading,
+    user,
+  ]);
 
   const handleGoogleSignIn = async () => {
-    setError('');
+    setError("");
     setSocialLoading(true);
     try {
-      await signInWithGoogle();
+      const destination = await signInWithGoogle();
+      if (destination) router.replace(destination);
     } catch (err: any) {
-      setError(err?.message || 'Google sign-in failed.');
+      setError(err?.message || "Google sign-in failed.");
     } finally {
       setSocialLoading(false);
     }
   };
 
   const handleFacebookSignIn = async () => {
-    setError('');
+    setError("");
     setSocialLoading(true);
     try {
-      await signInWithFacebook();
+      const destination = await signInWithFacebook();
+      if (destination) router.replace(destination);
     } catch (err: any) {
-      setError(err?.message || 'Facebook sign-in failed.');
+      setError(err?.message || "Facebook sign-in failed.");
     } finally {
       setSocialLoading(false);
     }
   };
 
   const handleAppleSignIn = async () => {
-    setError('');
+    setError("");
     setSocialLoading(true);
     try {
-      await signInWithApple();
+      const destination = await signInWithApple();
+      if (destination) router.replace(destination);
     } catch (err: any) {
-      setError(err?.message || 'Apple sign-in failed.');
+      setError(err?.message || "Apple sign-in failed.");
     } finally {
       setSocialLoading(false);
     }
@@ -64,33 +86,35 @@ export default function SignInScreen() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
       // Basic validation
       if (!email || !password) {
-        setError('Please enter email and password');
+        setError("Please enter email and password");
         setIsLoading(false);
         return;
       }
 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setError('Please enter a valid email address');
+        setError("Please enter a valid email address");
         setIsLoading(false);
         return;
       }
 
       if (password.length < 8) {
-        setError('Password must be at least 8 characters');
+        setError("Password must be at least 8 characters");
         setIsLoading(false);
         return;
       }
 
-      // Call login function
-      await login(email, password);
+      const destination = await login(email, password, rememberMe);
+      router.replace(destination);
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in. Please check your credentials.');
+      setError(
+        err.message || "Failed to sign in. Please check your credentials.",
+      );
       setIsLoading(false);
     }
   };
@@ -142,281 +166,286 @@ export default function SignInScreen() {
         <div
           className="w-full px-6"
           style={{
-            maxWidth: '400px',
+            maxWidth: "400px",
           }}
         >
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <div
-            style={{
-              ...AppTextStyles.h2,
-              color: AppColors.textPrimary,
-              marginBottom: AppSpacing.md,
-            }}
-          >
-            Sign In
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <div
+              style={{
+                ...AppTextStyles.h2,
+                color: AppColors.textPrimary,
+                marginBottom: AppSpacing.md,
+              }}
+            >
+              Sign In
+            </div>
+            <div
+              style={{
+                ...AppTextStyles.bodyMedium,
+                color: AppColors.textSecondary,
+              }}
+            >
+              Welcome back to NCDFCOOP
+            </div>
           </div>
+
+          {/* Social Auth Buttons */}
+          <SocialSignInButtons
+            onGoogleSignIn={handleGoogleSignIn}
+            onFacebookSignIn={handleFacebookSignIn}
+            onAppleSignIn={handleAppleSignIn}
+            isLoading={socialLoading}
+          />
+
           <div
             style={{
-              ...AppTextStyles.bodyMedium,
+              textAlign: "center",
+              margin: "18px 0",
               color: AppColors.textSecondary,
             }}
           >
-            Welcome back to NCDFCOOP
-          </div>
-        </div>
-
-        {/* Social Auth Buttons */}
-        <SocialSignInButtons
-          onGoogleSignIn={handleGoogleSignIn}
-          onFacebookSignIn={handleFacebookSignIn}
-          onAppleSignIn={handleAppleSignIn}
-          isLoading={socialLoading}
-        />
-
-        <div
-          style={{
-            textAlign: 'center',
-            margin: '18px 0',
-            color: AppColors.textSecondary,
-          }}
-        >
-          or continue with email
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          {/* Email Field */}
-          <div
-            style={{
-              marginBottom: AppSpacing.lg,
-            }}
-          >
-            <label
-              style={{
-                display: 'block',
-                marginBottom: AppSpacing.sm,
-                ...AppTextStyles.labelLarge,
-                color: AppColors.textPrimary,
-              }}
-            >
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              disabled={isLoading}
-              style={{
-                width: '100%',
-                padding: `${AppSpacing.md} ${AppSpacing.lg}`,
-                border: `1px solid ${error ? AppColors.error : AppColors.border}`,
-                borderRadius: '8px',
-                fontSize: '16px',
-                backgroundColor: AppColors.surface,
-                color: AppColors.textPrimary,
-                opacity: isLoading ? 0.6 : 1,
-                cursor: isLoading ? 'not-allowed' : 'auto',
-                transition: 'all 300ms ease-out',
-                boxSizing: 'border-box',
-              }}
-            />
+            or continue with email
           </div>
 
-          {/* Password Field */}
-          <div
-            style={{
-              marginBottom: AppSpacing.lg,
-            }}
-          >
-            <label
-              style={{
-                display: 'block',
-                marginBottom: AppSpacing.sm,
-                ...AppTextStyles.labelLarge,
-                color: AppColors.textPrimary,
-              }}
-            >
-              Password
-            </label>
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
+            {/* Email Field */}
             <div
               style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
+                marginBottom: AppSpacing.lg,
               }}
             >
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: AppSpacing.sm,
+                  ...AppTextStyles.labelLarge,
+                  color: AppColors.textPrimary,
+                }}
+              >
+                Email Address
+              </label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 disabled={isLoading}
                 style={{
-                  width: '100%',
+                  width: "100%",
                   padding: `${AppSpacing.md} ${AppSpacing.lg}`,
-                  paddingRight: '40px',
                   border: `1px solid ${error ? AppColors.error : AppColors.border}`,
-                  borderRadius: '8px',
-                  fontSize: '16px',
+                  borderRadius: "8px",
+                  fontSize: "16px",
                   backgroundColor: AppColors.surface,
                   color: AppColors.textPrimary,
                   opacity: isLoading ? 0.6 : 1,
-                  cursor: isLoading ? 'not-allowed' : 'auto',
-                  transition: 'all 300ms ease-out',
-                  boxSizing: 'border-box',
+                  cursor: isLoading ? "not-allowed" : "auto",
+                  transition: "all 300ms ease-out",
+                  boxSizing: "border-box",
                 }}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                disabled={isLoading}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+            </div>
+
+            {/* Password Field */}
+            <div
+              style={{
+                marginBottom: AppSpacing.lg,
+              }}
+            >
+              <label
                 style={{
-                  position: 'absolute',
-                  right: AppSpacing.lg,
-                  background: 'none',
-                  border: 'none',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  color: AppColors.textSecondary,
-                  padding: 0,
+                  display: "block",
+                  marginBottom: AppSpacing.sm,
+                  ...AppTextStyles.labelLarge,
+                  color: AppColors.textPrimary,
                 }}
               >
-                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                Password
+              </label>
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  disabled={isLoading}
+                  style={{
+                    width: "100%",
+                    padding: `${AppSpacing.md} ${AppSpacing.lg}`,
+                    paddingRight: "40px",
+                    border: `1px solid ${error ? AppColors.error : AppColors.border}`,
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    backgroundColor: AppColors.surface,
+                    color: AppColors.textPrimary,
+                    opacity: isLoading ? 0.6 : 1,
+                    cursor: isLoading ? "not-allowed" : "auto",
+                    transition: "all 300ms ease-out",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={isLoading}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  style={{
+                    position: "absolute",
+                    right: AppSpacing.lg,
+                    background: "none",
+                    border: "none",
+                    cursor: isLoading ? "not-allowed" : "pointer",
+                    color: AppColors.textSecondary,
+                    padding: 0,
+                  }}
+                >
+                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember Me & Forgot Password */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: AppSpacing.lg,
+              }}
+            >
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  ...AppTextStyles.bodySmall,
+                  color: AppColors.textSecondary,
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isLoading}
+                  style={{
+                    marginRight: AppSpacing.sm,
+                    cursor: isLoading ? "not-allowed" : "pointer",
+                    width: "18px",
+                    height: "18px",
+                    accentColor: AppColors.primary,
+                  }}
+                />
+                Remember me
+              </label>
+              <button
+                type="button"
+                onClick={() => router.push("/forgot-password")}
+                disabled={isLoading}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  ...AppTextStyles.bodySmall,
+                  color: AppColors.primary,
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  textDecoration: "none",
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <div
+                className="signin-error"
+                style={{
+                  padding: AppSpacing.md,
+                  border: `1px solid ${AppColors.error}`,
+                  borderRadius: "8px",
+                  marginBottom: AppSpacing.lg,
+                  ...AppTextStyles.bodySmall,
+                  color: AppColors.error,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {/* Sign In Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="signin-button"
+              style={{
+                width: "100%",
+                padding: `${AppSpacing.md} ${AppSpacing.lg}`,
+                backgroundColor: isLoading
+                  ? AppColors.disabled
+                  : AppColors.primary,
+                color: AppColors.surface,
+                border: "none",
+                borderRadius: "8px",
+                ...AppTextStyles.labelLarge,
+                cursor: isLoading ? "not-allowed" : "pointer",
+                opacity: isLoading ? 0.7 : 1,
+                marginBottom: AppSpacing.lg,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: AppSpacing.sm,
+              }}
+            >
+              {isLoading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <LogIn size={18} />
+              )}
+              {isLoading ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+
+          {/* Sign Up Link */}
+          <div className="text-center space-y-3">
+            <div>
+              <span
+                style={{
+                  ...AppTextStyles.bodyMedium,
+                  color: AppColors.textSecondary,
+                  marginRight: AppSpacing.sm,
+                }}
+              >
+                Don&apos;t have an account?
+              </span>
+              <button
+                onClick={() => router.push("/signup")}
+                disabled={isLoading}
+                className="signin-link"
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  ...AppTextStyles.bodyMedium,
+                  color: AppColors.primary,
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  textDecoration: "underline",
+                  opacity: isLoading ? 0.6 : 1,
+                }}
+              >
+                Create account
               </button>
             </div>
           </div>
-
-          {/* Remember Me & Forgot Password */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: AppSpacing.lg,
-            }}
-          >
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                ...AppTextStyles.bodySmall,
-                color: AppColors.textSecondary,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={isLoading}
-                style={{
-                  marginRight: AppSpacing.sm,
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  width: '18px',
-                  height: '18px',
-                  accentColor: AppColors.primary,
-                }}
-              />
-              Remember me
-            </label>
-            <button
-              type="button"
-              onClick={() => router.push('/forgot-password')}
-              disabled={isLoading}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                ...AppTextStyles.bodySmall,
-                color: AppColors.primary,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                textDecoration: 'none',
-                opacity: isLoading ? 0.6 : 1,
-              }}
-            >
-              Forgot password?
-            </button>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div
-              className="signin-error"
-              style={{
-                padding: AppSpacing.md,
-                border: `1px solid ${AppColors.error}`,
-                borderRadius: '8px',
-                marginBottom: AppSpacing.lg,
-                ...AppTextStyles.bodySmall,
-                color: AppColors.error,
-              }}
-            >
-              {error}
-            </div>
-          )}
-
-          {/* Sign In Button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="signin-button"
-            style={{
-              width: '100%',
-              padding: `${AppSpacing.md} ${AppSpacing.lg}`,
-              backgroundColor: isLoading ? AppColors.disabled : AppColors.primary,
-              color: AppColors.surface,
-              border: 'none',
-              borderRadius: '8px',
-              ...AppTextStyles.labelLarge,
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              opacity: isLoading ? 0.7 : 1,
-              marginBottom: AppSpacing.lg,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: AppSpacing.sm,
-            }}
-          >
-            {isLoading ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        {/* Sign Up Link */}
-        <div className="text-center space-y-3">
-          <div>
-            <span
-              style={{
-                ...AppTextStyles.bodyMedium,
-                color: AppColors.textSecondary,
-                marginRight: AppSpacing.sm,
-              }}
-            >
-              Don&apos;t have an account?
-            </span>
-            <button
-              onClick={() => router.push('/signup')}
-              disabled={isLoading}
-              className="signin-link"
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                ...AppTextStyles.bodyMedium,
-                color: AppColors.primary,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                textDecoration: 'underline',
-                opacity: isLoading ? 0.6 : 1,
-              }}
-            >
-              Create account
-            </button>
-          </div>
-
         </div>
-      </div>
       </div>
     </>
   );

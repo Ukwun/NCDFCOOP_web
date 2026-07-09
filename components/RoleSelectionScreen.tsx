@@ -1,12 +1,20 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/lib/auth/authContext';
-import { USER_ROLES } from '@/lib/constants/database';
-import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
-import { Building2, CheckCircle2, Loader2, Store, UserRound, type LucideIcon } from 'lucide-react';
-import { getRoleLandingPath } from '@/lib/auth/roleRouting';
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/auth/authContext";
+import { USER_ROLES } from "@/lib/constants/database";
+import { AppColors, AppSpacing, AppTextStyles } from "@/lib/theme";
+import {
+  Building2,
+  CheckCircle2,
+  Loader2,
+  LockKeyhole,
+  Store,
+  UserRound,
+  type LucideIcon,
+} from "lucide-react";
+import { getRoleLandingPath } from "@/lib/auth/roleRouting";
 
 interface RoleOption {
   id: string;
@@ -21,43 +29,43 @@ const ROLE_OPTIONS: RoleOption[] = [
   {
     id: USER_ROLES.MEMBER,
     Icon: UserRound,
-    title: 'Member',
-    description: 'Access discounts and loyalty rewards',
+    title: "Member",
+    description: "Access discounts and loyalty rewards",
     color: AppColors.roles.member,
     benefits: [
-      'Member pricing',
-      'Upgrade to Premium Member',
-      'Loyalty rewards',
-      'Priority support',
+      "Member pricing",
+      "Upgrade to Premium Member",
+      "Loyalty rewards",
+      "Priority support",
     ],
   },
   {
     id: USER_ROLES.INSTITUTIONAL_BUYER,
     Icon: Building2,
-    title: 'Wholesale Buyer',
-    description: 'Bulk buying with wholesale pricing',
+    title: "Wholesale Buyer",
+    description: "Bulk buying with wholesale pricing",
     color: AppColors.roles.wholesaleBuyer,
     benefits: [
-      'Wholesale bulk pricing',
-      'Multiple delivery locations',
-      'Flexible payment terms',
-      'Dedicated account manager',
-      'Invoice billing',
+      "Wholesale bulk pricing",
+      "Multiple delivery locations",
+      "Flexible payment terms",
+      "Dedicated account manager",
+      "Invoice billing",
     ],
   },
   {
     id: USER_ROLES.SELLER,
     Icon: Store,
-    title: 'Start Selling',
-    description: 'Sell to members and wholesalers',
+    title: "Start Selling",
+    description: "Sell to members and wholesalers",
     color: AppColors.roles.seller,
     benefits: [
-      'Sell to Members',
-      'Sell to Wholesale Buyers',
-      'Inventory management',
-      'Sales analytics',
-      'Marketing tools',
-      'Seller support',
+      "Sell to Members",
+      "Sell to Wholesale Buyers",
+      "Inventory management",
+      "Sales analytics",
+      "Marketing tools",
+      "Seller support",
     ],
   },
 ];
@@ -65,27 +73,28 @@ const ROLE_OPTIONS: RoleOption[] = [
 export default function RoleSelectionScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { selectRole } = useAuth();
+  const { selectRole, user } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
+  const activeRoles = useMemo(() => new Set(user?.roles || []), [user]);
 
   const guidanceMessage = useMemo(() => {
-    const reason = searchParams.get('reason');
-    const from = searchParams.get('from');
+    const reason = searchParams.get("reason");
+    const from = searchParams.get("from");
 
-    if (reason !== 'role_required' || !from) return null;
+    if (reason !== "role_required" || !from) return null;
 
-    const normalized = from.replace(/^\/+/, '').replace(/\?.*$/, '');
+    const normalized = from.replace(/^\/+/, "").replace(/\?.*$/, "");
     const routeLabel = normalized
-      .split('/')
+      .split("/")
       .filter(Boolean)
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-      .join(' > ');
+      .join(" > ");
 
     if (!routeLabel) {
-      return 'Select your primary role to continue in operational pages.';
+      return "Select your primary role to continue in operational pages.";
     }
 
     return `Select your primary role to continue to ${routeLabel}.`;
@@ -93,16 +102,22 @@ export default function RoleSelectionScreen() {
 
   const handleSelectRole = async (roleId: string) => {
     if (isLoading) return;
+    if (activeRoles.size > 0 && !activeRoles.has(roleId)) {
+      setError(
+        "This role is not active on your account. Choose it during signup or complete its onboarding approval.",
+      );
+      return;
+    }
 
     setSelectedRole(roleId);
-    setError('');
+    setError("");
     setIsLoading(true);
 
     try {
       await selectRole(roleId);
       router.push(getRoleLandingPath(roleId));
     } catch (err: any) {
-      setError(err.message || 'Failed to select role. Please try again.');
+      setError(err.message || "Failed to select role. Please try again.");
       setIsLoading(false);
       setSelectedRole(null);
     }
@@ -116,7 +131,7 @@ export default function RoleSelectionScreen() {
       }}
     >
       {/* Header */}
-      <div className="mb-12 text-center" style={{ maxWidth: '600px' }}>
+      <div className="mb-12 text-center" style={{ maxWidth: "600px" }}>
         <div
           style={{
             ...AppTextStyles.h1,
@@ -140,11 +155,11 @@ export default function RoleSelectionScreen() {
       {guidanceMessage && (
         <div
           style={{
-            width: '100%',
-            maxWidth: '1000px',
+            width: "100%",
+            maxWidth: "1000px",
             marginBottom: AppSpacing.lg,
             padding: AppSpacing.md,
-            backgroundColor: 'rgba(22, 74, 46, 0.08)',
+            backgroundColor: "rgba(22, 74, 46, 0.08)",
             borderLeft: `4px solid ${AppColors.roles.wholesaleBuyer}`,
             borderRadius: AppSpacing.xs,
           }}
@@ -166,7 +181,7 @@ export default function RoleSelectionScreen() {
           style={{
             marginBottom: AppSpacing.lg,
             padding: AppSpacing.md,
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
             borderLeft: `4px solid ${AppColors.error}`,
             borderRadius: AppSpacing.xs,
           }}
@@ -185,108 +200,146 @@ export default function RoleSelectionScreen() {
       {/* Role Cards Grid */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
           gap: AppSpacing.lg,
-          width: '100%',
-          maxWidth: '1000px',
+          width: "100%",
+          maxWidth: "1000px",
           marginBottom: AppSpacing.xxxl,
         }}
       >
-        {ROLE_OPTIONS.map((role) => (
-          <button
-            type="button"
-            key={role.id}
-            onClick={() => handleSelectRole(role.id)}
-            disabled={isLoading}
-            aria-pressed={selectedRole === role.id}
-            className="text-left outline-none transition duration-200 hover:-translate-y-1 hover:shadow-lg focus:ring-2 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none"
-            style={{
-              padding: AppSpacing.lg,
-              borderRadius: AppSpacing.md,
-              border: `2px solid ${selectedRole === role.id ? role.color : 'transparent'}`,
-              backgroundColor: selectedRole === role.id ? `${role.color}15` : AppColors.surface,
-              cursor: isLoading ? 'wait' : 'pointer',
-              boxShadow: selectedRole === role.id ? `0 0 0 3px ${role.color}30` : 'none',
-            }}
-          >
-            {/* Icon and Radio */}
-            <div
+        {ROLE_OPTIONS.map((role) => {
+          const enabled = activeRoles.size === 0 || activeRoles.has(role.id);
+          return (
+            <button
+              type="button"
+              key={role.id}
+              onClick={() => handleSelectRole(role.id)}
+              disabled={isLoading || !enabled}
+              aria-pressed={selectedRole === role.id}
+              className="text-left outline-none transition duration-200 hover:-translate-y-1 hover:shadow-lg focus:ring-2 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none"
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                marginBottom: AppSpacing.md,
+                padding: AppSpacing.lg,
+                borderRadius: AppSpacing.md,
+                border: `2px solid ${selectedRole === role.id ? role.color : "transparent"}`,
+                backgroundColor:
+                  selectedRole === role.id
+                    ? `${role.color}15`
+                    : AppColors.surface,
+                cursor: isLoading
+                  ? "wait"
+                  : enabled
+                    ? "pointer"
+                    : "not-allowed",
+                boxShadow:
+                  selectedRole === role.id
+                    ? `0 0 0 3px ${role.color}30`
+                    : "none",
               }}
             >
-              <role.Icon size={34} color={role.color} aria-hidden="true" />
-              {selectedRole === role.id && (
-                isLoading ? (
-                  <Loader2 size={20} className="animate-spin" color={role.color} aria-hidden="true" />
-                ) : (
-                  <CheckCircle2 size={20} color={role.color} aria-hidden="true" />
-                )
-              )}
-            </div>
-
-            {/* Title */}
-            <div
-              style={{
-                ...AppTextStyles.h3,
-                color: AppColors.textPrimary,
-                marginBottom: AppSpacing.sm,
-              }}
-            >
-              {role.title}
-            </div>
-
-            {/* Description */}
-            <div
-              style={{
-                ...AppTextStyles.bodySmall,
-                color: AppColors.textSecondary,
-                marginBottom: AppSpacing.md,
-              }}
-            >
-              {role.description}
-            </div>
-
-            {/* Benefits */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: AppSpacing.xs }}>
-              {role.benefits.map((benefit, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    gap: AppSpacing.sm,
-                    ...AppTextStyles.labelLarge,
-                    color: AppColors.textSecondary,
-                  }}
-                >
-                  <CheckCircle2 size={15} color={role.color} aria-hidden="true" />
-                  <span>{benefit}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Selected Indicator */}
-            {selectedRole === role.id && (
+              {/* Icon and Radio */}
               <div
                 style={{
-                  marginTop: AppSpacing.lg,
-                  padding: AppSpacing.md,
-                  backgroundColor: role.color,
-                  color: 'white',
-                  borderRadius: '8px',
-                  textAlign: 'center',
-                  ...AppTextStyles.labelLarge,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: AppSpacing.md,
                 }}
               >
-                {isLoading ? 'Selecting...' : 'Selected'}
+                <role.Icon size={34} color={role.color} aria-hidden="true" />
+                {selectedRole === role.id &&
+                  (isLoading ? (
+                    <Loader2
+                      size={20}
+                      className="animate-spin"
+                      color={role.color}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <CheckCircle2
+                      size={20}
+                      color={role.color}
+                      aria-hidden="true"
+                    />
+                  ))}
+                {!enabled && (
+                  <LockKeyhole
+                    size={19}
+                    color={AppColors.textSecondary}
+                    aria-hidden="true"
+                  />
+                )}
               </div>
-            )}
-          </button>
-        ))}
+
+              {/* Title */}
+              <div
+                style={{
+                  ...AppTextStyles.h3,
+                  color: AppColors.textPrimary,
+                  marginBottom: AppSpacing.sm,
+                }}
+              >
+                {role.title}
+              </div>
+
+              {/* Description */}
+              <div
+                style={{
+                  ...AppTextStyles.bodySmall,
+                  color: AppColors.textSecondary,
+                  marginBottom: AppSpacing.md,
+                }}
+              >
+                {role.description}
+              </div>
+
+              {/* Benefits */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: AppSpacing.xs,
+                }}
+              >
+                {role.benefits.map((benefit, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      gap: AppSpacing.sm,
+                      ...AppTextStyles.labelLarge,
+                      color: AppColors.textSecondary,
+                    }}
+                  >
+                    <CheckCircle2
+                      size={15}
+                      color={role.color}
+                      aria-hidden="true"
+                    />
+                    <span>{benefit}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Selected Indicator */}
+              {selectedRole === role.id && (
+                <div
+                  style={{
+                    marginTop: AppSpacing.lg,
+                    padding: AppSpacing.md,
+                    backgroundColor: role.color,
+                    color: "white",
+                    borderRadius: "8px",
+                    textAlign: "center",
+                    ...AppTextStyles.labelLarge,
+                  }}
+                >
+                  {isLoading ? "Selecting..." : "Selected"}
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

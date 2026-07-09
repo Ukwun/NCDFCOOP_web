@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAdminAuth } from '@/lib/firebase/admin';
-import { createRateLimiter } from '@/lib/middleware/rateLimiting';
-import { sendTransactionalEmail } from '@/lib/server/emailSender';
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminAuth } from "@/lib/firebase/admin";
+import { createRateLimiter } from "@/lib/middleware/rateLimiting";
+import { sendTransactionalEmail } from "@/lib/server/emailSender";
 
 interface PasswordResetPayload {
   email: string;
 }
 
 const SUCCESS_MESSAGE =
-  'If an account exists with this email, a reset link will be sent shortly.';
+  "If an account exists with this email, a reset link will be sent shortly.";
 
 function isEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -20,78 +20,105 @@ function getAppUrl(request: NextRequest): string {
     process.env.URL ||
     request.nextUrl.origin;
 
-  return configuredUrl.replace(/\/$/, '');
+  return configuredUrl.replace(/\/$/, "");
 }
 
 const resetRateLimiter = createRateLimiter(
   (input: { identifier: string }) => input.identifier,
-  'email'
+  "email",
 );
 
 function hasFirebaseAdminCredentials(): boolean {
   return Boolean(
+    process.env.FIREBASE_SERVICE_ACCOUNT ||
+    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 ||
     (process.env.FIREBASE_ADMIN_CLIENT_EMAIL &&
       process.env.FIREBASE_ADMIN_PRIVATE_KEY) ||
-      process.env.GOOGLE_APPLICATION_CREDENTIALS
+    process.env.GOOGLE_APPLICATION_CREDENTIALS,
   );
 }
 
 async function sendFirebaseManagedReset(
   email: string,
-  continueUrl: string
+  continueUrl: string,
 ): Promise<void> {
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (!apiKey) {
-    throw Object.assign(new Error('Firebase web API key is missing'), {
-      code: 'RESET_PROVIDER_NOT_CONFIGURED',
+    throw Object.assign(new Error("Firebase web API key is missing"), {
+      code: "RESET_PROVIDER_NOT_CONFIGURED",
     });
   }
 
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requestType: 'PASSWORD_RESET',
-        email,
-        continueUrl,
-      }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(10_000),
-    }
-  );
+  const sendRequest = async (includeContinueUrl: boolean) => {
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestType: "PASSWORD_RESET",
+          email,
+          ...(includeContinueUrl ? { continueUrl } : {}),
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
 
-  if (!response.ok) {
+    if (response.ok) return null;
+
     const payload = await response.json().catch(() => ({}));
-    const providerCode = String(payload?.error?.message || 'RESET_EMAIL_FAILED')
-      .split(' : ')[0]
+    const providerCode = String(payload?.error?.message || "RESET_EMAIL_FAILED")
+      .split(" : ")[0]
       .trim();
-    throw Object.assign(new Error('Firebase could not send the reset email'), {
+    return Object.assign(new Error("Firebase could not send the reset email"), {
       code: providerCode,
       status: response.status,
     });
+  };
+
+  const errorWithContinueUrl = await sendRequest(true);
+  if (!errorWithContinueUrl) return;
+
+  const code = String((errorWithContinueUrl as any).code || "");
+  const shouldRetryWithoutContinueUrl = [
+    "INVALID_CONTINUE_URI",
+    "INVALID_DYNAMIC_LINK_DOMAIN",
+    "UNAUTHORIZED_DOMAIN",
+  ].includes(code);
+
+  if (shouldRetryWithoutContinueUrl) {
+    const errorWithoutContinueUrl = await sendRequest(false);
+    if (!errorWithoutContinueUrl) return;
   }
+
+  throw errorWithContinueUrl;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { email: rawEmail } = (await request.json()) as PasswordResetPayload;
-    const email = String(rawEmail || '').trim().toLowerCase();
+    const email = String(rawEmail || "")
+      .trim()
+      .toLowerCase();
 
     if (!email || !isEmail(email)) {
       return NextResponse.json(
-        { error: 'Enter a valid email address.' },
-        { status: 400 }
+        { error: "Enter a valid email address." },
+        { status: 400 },
       );
     }
 
-    const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-    const clientIp = forwardedFor || request.headers.get('x-real-ip') || 'unknown';
+    const forwardedFor = request.headers
+      .get("x-forwarded-for")
+      ?.split(",")[0]
+      ?.trim();
+    const clientIp =
+      forwardedFor || request.headers.get("x-real-ip") || "unknown";
     await resetRateLimiter({ identifier: `${clientIp}:${email}` });
 
     const continueUrl = `${getAppUrl(request)}/signin`;
-    let resetLink = '';
+    let resetLink = "";
 
     if (hasFirebaseAdminCredentials()) {
       try {
@@ -100,13 +127,16 @@ export async function POST(request: NextRequest) {
           handleCodeInApp: false,
         });
       } catch (error: any) {
-        if (error?.code === 'auth/user-not-found') {
-          return NextResponse.json({ message: SUCCESS_MESSAGE }, { status: 200 });
+        if (error?.code === "auth/user-not-found") {
+          return NextResponse.json(
+            { message: SUCCESS_MESSAGE },
+            { status: 200 },
+          );
         }
 
         console.warn(
-          'Custom reset link unavailable; using Firebase managed email:',
-          error?.code || error?.message
+          "Custom reset link unavailable; using Firebase managed email:",
+          error?.code || error?.message,
         );
       }
     }
@@ -163,16 +193,16 @@ If you did not request this, you can ignore this email.
       try {
         await sendTransactionalEmail({
           to: email,
-          subject: 'Password Reset Request - NCDF COOP',
+          subject: "Password Reset Request - NCDF COOP",
           html,
           text,
         });
       } catch (error: any) {
         console.warn(
-          'Custom reset email unavailable; using Firebase managed email:',
-          error?.code || error?.message
+          "Custom reset email unavailable; using Firebase managed email:",
+          error?.code || error?.message,
         );
-        resetLink = '';
+        resetLink = "";
       }
     }
 
@@ -180,37 +210,42 @@ If you did not request this, you can ignore this email.
       try {
         await sendFirebaseManagedReset(email, continueUrl);
       } catch (error: any) {
-        if (error?.code === 'EMAIL_NOT_FOUND') {
-          return NextResponse.json({ message: SUCCESS_MESSAGE }, { status: 200 });
+        if (error?.code === "EMAIL_NOT_FOUND") {
+          return NextResponse.json(
+            { message: SUCCESS_MESSAGE },
+            { status: 200 },
+          );
         }
 
-        console.error('Firebase managed password reset failed:', {
+        console.error("Firebase managed password reset failed:", {
           code: error?.code,
           status: error?.status,
         });
         return NextResponse.json(
-          { error: 'We could not send the reset email right now. Please try again shortly.' },
-          { status: 503 }
+          {
+            error:
+              "We could not send the reset email right now. Please try again shortly.",
+          },
+          { status: 503 },
         );
       }
     }
 
-    return NextResponse.json(
-      { message: SUCCESS_MESSAGE },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: SUCCESS_MESSAGE }, { status: 200 });
   } catch (error: any) {
     if (error?.status === 429) {
       return NextResponse.json(
-        { error: 'Too many reset requests. Please wait a minute and try again.' },
-        { status: 429, headers: error.headers }
+        {
+          error: "Too many reset requests. Please wait a minute and try again.",
+        },
+        { status: 429, headers: error.headers },
       );
     }
 
-    console.error('Error sending password reset email:', error);
+    console.error("Error sending password reset email:", error);
     return NextResponse.json(
-      { error: 'Failed to send password reset email. Please try again later.' },
-      { status: 500 }
+      { error: "Failed to send password reset email. Please try again later." },
+      { status: 500 },
     );
   }
 }

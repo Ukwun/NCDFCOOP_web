@@ -68,7 +68,29 @@ service cloud.firestore {
       return data.roles is list &&
         data.roles.size() > 0 &&
         data.roles.hasOnly(['member', 'seller', 'institutional_buyer']) &&
-        isPublicRole(data.selectedRole);
+        isPublicRole(data.selectedRole) &&
+        data.roles.hasAny([data.selectedRole]);
+    }
+
+    function hasOnlyPublicUserProfileFields(data) {
+      return data.keys().hasOnly([
+        'id',
+        'email',
+        'name',
+        'roles',
+        'selectedRole',
+        'membershipType',
+        'roleSelectionComplete',
+        'onboardingCompleted',
+        'membershipStatus',
+        'memberTier',
+        'createdAt',
+        'updatedAt',
+        'profilePicture',
+        'phone',
+        'address',
+        'isActive'
+      ]);
     }
 
     function isSellerForOrder(data) {
@@ -90,6 +112,7 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
 
       allow create: if isOwner(userId) &&
+        hasOnlyPublicUserProfileFields(request.resource.data) &&
         hasValidPublicRoles(request.resource.data) &&
         (!request.resource.data.keys().hasAny(['membershipStatus']) ||
           request.resource.data.membershipStatus in ['pending', 'inactive']) &&
@@ -99,6 +122,8 @@ service cloud.firestore {
       allow update: if isAdmin() || (
         isOwner(userId) &&
         hasValidPublicRoles(request.resource.data) &&
+        request.resource.data.roles == resource.data.roles &&
+        request.resource.data.selectedRole in resource.data.roles &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name',
           'profilePicture',
@@ -106,9 +131,7 @@ service cloud.firestore {
           'address',
           'onboardingCompleted',
           'roleSelectionComplete',
-          'roles',
           'selectedRole',
-          'membershipType',
           'updatedAt'
         ])
       );

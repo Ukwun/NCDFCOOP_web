@@ -185,7 +185,7 @@ export default function OnboardingScreen2() {
             }}
           >
             <button
-              onClick={() => router.replace('/onboarding1')}
+              onClick={() => router.replace('/onboarding')}
               style={{
                 flex: 1,
                 padding: `${AppSpacing.md} ${AppSpacing.lg}`,

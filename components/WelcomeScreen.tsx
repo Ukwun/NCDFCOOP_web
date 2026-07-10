@@ -1,224 +1,124 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { AppColors, AppSpacing, AppTextStyles, AnimationTiming } from '@/lib/theme';
-import { getFadeInAnimation } from '@/lib/theme/animations';
-
-interface MembershipType {
-  id: string;
-  name: string;
-  title: string;
-  description: string;
-  icon: string;
-}
-
-const MEMBERSHIP_TYPES: MembershipType[] = [
-  {
-    id: 'member',
-    name: 'Member',
-    title: '👤 Member',
-    description: 'Access discounts, loyalty rewards, and premium benefits',
-    icon: '👤',
-  },
-  {
-    id: 'wholesale',
-    name: 'Wholesale',
-    title: '🛒 Wholesale Buyer',
-    description: 'Bulk buying with wholesale pricing and dedicated support',
-    icon: '🛒',
-  },
-  {
-    id: 'seller',
-    name: 'Seller',
-    title: '🚀 Seller',
-    description: 'Sell wholesale and retail products with a single seller dashboard',
-    icon: '🚀',
-  },
-];
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { LogIn, ShieldCheck, UserPlus } from "lucide-react";
+import {
+  AppColors,
+  AppSpacing,
+  AppTextStyles,
+  AnimationTiming,
+} from "@/lib/theme";
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const [isVisible, setIsVisible] = useState(false);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState<"signin" | "signup" | null>(
+    null,
+  );
 
   useEffect(() => {
-    // Trigger fade-in animation on mount
     setIsVisible(true);
   }, []);
 
-  const handleSelectMembership = async (membershipType: string) => {
-    setSelectedType(membershipType);
-    setIsLoading(true);
+  useEffect(() => {
+    router.prefetch("/signup");
+    router.prefetch("/signin");
+  }, [router]);
 
-    // Navigate to signup with membership type
-    await new Promise((resolve) => setTimeout(resolve, AnimationTiming.normal));
-    router.push(`/signup?type=${membershipType}`);
+  const navigate = (target: "signin" | "signup") => {
+    setNavigatingTo(target);
+    router.push(target === "signup" ? "/signup" : "/signin");
   };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
-        ${isVisible ? `
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
+        ${
+          isVisible
+            ? `
+          @keyframes welcomeFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
           }
-          
+
           .welcome-fade-in {
-            animation: fadeIn ${AnimationTiming.welcome}ms ease-in forwards;
+            animation: welcomeFadeIn ${AnimationTiming.normal}ms ease-out forwards;
           }
-        ` : ''}
+        `
+            : ""
+        }
       `}</style>
 
       <div
-        className={`flex min-h-screen items-center justify-center ${isVisible ? 'welcome-fade-in' : 'opacity-0'}`}
-        style={{
-          backgroundColor: AppColors.background,
-        }}
+        className={`flex min-h-screen items-center justify-center px-6 py-12 ${
+          isVisible ? "welcome-fade-in" : "opacity-0"
+        }`}
+        style={{ backgroundColor: AppColors.background }}
       >
-        <div
-          className="w-full max-w-md px-6"
-          style={{
-            maxWidth: '800px',
-          }}
-        >
-          {/* Header */}
-          <div className="mb-12 text-center">
-            <div
-              style={{
-                ...AppTextStyles.h1,
-                color: AppColors.textPrimary,
-                marginBottom: AppSpacing.lg,
-              }}
-            >
-              Welcome to NCDFCOOP
-            </div>
-            <div
-              style={{
-                ...AppTextStyles.bodyLarge,
-                color: AppColors.textSecondary,
-              }}
-            >
-              Choose your membership type to get started
-            </div>
+        <main className="w-full max-w-md text-center">
+          <div
+            className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: "rgba(22, 74, 46, 0.08)",
+              color: AppColors.primary,
+            }}
+          >
+            <ShieldCheck size={26} aria-hidden="true" />
           </div>
 
-          {/* Membership Selection Cards */}
-          <div
+          <h1
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: AppSpacing.lg,
+              ...AppTextStyles.h1,
+              color: AppColors.textPrimary,
+              marginBottom: AppSpacing.md,
+            }}
+          >
+            Welcome to NCDFCOOP
+          </h1>
+
+          <p
+            style={{
+              ...AppTextStyles.bodyLarge,
+              color: AppColors.textSecondary,
               marginBottom: AppSpacing.xxl,
             }}
           >
-            {MEMBERSHIP_TYPES.map((membership) => (
-              <button
-                key={membership.id}
-                onClick={() => handleSelectMembership(membership.id)}
-                disabled={isLoading}
-                style={{
-                  padding: AppSpacing.xxxl,
-                  backgroundColor:
-                    selectedType === membership.id ? AppColors.primaryLight : AppColors.surface,
-                  border: `2px solid ${
-                    selectedType === membership.id ? AppColors.primary : AppColors.border
-                  }`,
-                  borderRadius: '16px',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  transition: 'all 300ms ease-out',
-                  opacity: isLoading && selectedType !== membership.id ? 0.5 : 1,
-                  transform: selectedType === membership.id ? 'scale(1.02)' : 'scale(1)',
-                  boxShadow:
-                    selectedType === membership.id
-                      ? `0 4px 12px ${AppColors.primary}40`
-                      : 'none',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isLoading) {
-                    e.currentTarget.style.borderColor = AppColors.primary;
-                    e.currentTarget.style.backgroundColor = AppColors.primaryContainer;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (selectedType !== membership.id) {
-                    e.currentTarget.style.borderColor = AppColors.border;
-                    e.currentTarget.style.backgroundColor = AppColors.surface;
-                  }
-                }}
-              >
-                {/* Icon */}
-                <div
-                  style={{
-                    fontSize: '48px',
-                    marginBottom: AppSpacing.md,
-                  }}
-                >
-                  {membership.title.split(' ')[0]}
-                </div>
+            Sign in or create your secure account. You will choose your role
+            after authentication.
+          </p>
 
-                {/* Title */}
-                <div
-                  style={{
-                    ...AppTextStyles.h6,
-                    color: AppColors.textPrimary,
-                    marginBottom: AppSpacing.sm,
-                  }}
-                >
-                  {membership.name}
-                </div>
-
-                {/* Description */}
-                <div
-                  style={{
-                    ...AppTextStyles.bodySmall,
-                    color: AppColors.textSecondary,
-                    lineHeight: '1.5',
-                  }}
-                >
-                  {membership.description}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Already have account link */}
-          <div className="text-center">
-            <span
-              style={{
-                ...AppTextStyles.bodyMedium,
-                color: AppColors.textSecondary,
-                marginRight: AppSpacing.sm,
-              }}
-            >
-              Already have an account?
-            </span>
+          <div className="grid gap-3">
             <button
-              onClick={() => router.push('/signin')}
-              disabled={isLoading}
+              type="button"
+              onClick={() => navigate("signup")}
+              disabled={!!navigatingTo}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 font-semibold transition duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none"
               style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                ...AppTextStyles.bodyMedium,
-                color: AppColors.primary,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                textDecoration: 'underline',
-                opacity: isLoading ? 0.6 : 1,
+                backgroundColor: AppColors.primary,
+                color: AppColors.surface,
               }}
             >
-              Sign in
+              <UserPlus size={18} aria-hidden="true" />
+              {navigatingTo === "signup" ? "Opening..." : "Create Account"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate("signin")}
+              disabled={!!navigatingTo}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-lg border px-5 py-3 font-semibold transition duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none"
+              style={{
+                borderColor: AppColors.border,
+                backgroundColor: AppColors.surface,
+                color: AppColors.textPrimary,
+              }}
+            >
+              <LogIn size={18} aria-hidden="true" />
+              {navigatingTo === "signin" ? "Opening..." : "Sign In"}
             </button>
           </div>
-        </div>
+        </main>
       </div>
     </>
   );

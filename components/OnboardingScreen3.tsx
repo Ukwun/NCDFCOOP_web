@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/authContext';
-import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/authContext";
+import { AppColors, AppSpacing, AppTextStyles } from "@/lib/theme";
 
 export default function OnboardingScreen3() {
   const router = useRouter();
-  const { completeOnboarding } = useAuth();
+  const { completeOnboarding, user } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -15,13 +15,18 @@ export default function OnboardingScreen3() {
     setIsVisible(true);
   }, []);
 
+  useEffect(() => {
+    router.prefetch("/signup");
+    router.prefetch("/role-selection");
+  }, [router]);
+
   const features = [
     '<img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="inline h-5 w-auto align-middle mr-1" /> Access to wholesale-priced products',
-    '🚚 Dedicated delivery support',
-    '💳 Flexible payment terms',
-    '📊 Sales analytics & insights',
-    '🤝 Dedicated account manager',
-    '📱 Invoice billing options',
+    "🚚 Dedicated delivery support",
+    "💳 Flexible payment terms",
+    "📊 Sales analytics & insights",
+    "🤝 Dedicated account manager",
+    "📱 Invoice billing options",
   ];
 
   return (
@@ -52,23 +57,23 @@ export default function OnboardingScreen3() {
       `}</style>
 
       <div
-        className={`relative flex min-h-screen items-end justify-center ${isVisible ? 'onboarding-fade-in' : 'opacity-0'}`}
+        className={`relative flex min-h-screen items-end justify-center ${isVisible ? "onboarding-fade-in" : "opacity-0"}`}
         style={{
-          backgroundImage: 'url(/images/onboarding/onboardingweb3.jpg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundImage: "url(/images/onboarding/onboardingweb3.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
           backgroundColor: AppColors.border,
         }}
       >
         {/* Semi-transparent overlay */}
         <div
           style={{
-            position: 'absolute',
+            position: "absolute",
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            backgroundColor: "rgba(0, 0, 0, 0.2)",
           }}
         />
 
@@ -76,14 +81,14 @@ export default function OnboardingScreen3() {
         <div
           className="glass-effect relative w-full overflow-y-auto"
           style={{
-            minHeight: '55%',
-            maxHeight: '65%',
-            borderRadius: '25px 25px 0 0',
+            minHeight: "55%",
+            maxHeight: "65%",
+            borderRadius: "25px 25px 0 0",
             padding: AppSpacing.xxxl,
-            boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.1)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
+            boxShadow: "0px 8px 32px rgba(0, 0, 0, 0.1)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
           }}
         >
           {/* Content */}
@@ -97,7 +102,8 @@ export default function OnboardingScreen3() {
                 fontFamily: '"Libre Baskerville", serif',
               }}
             >
-              Unlock Wholesale <span style={{ color: AppColors.accent }}>Power</span>
+              Unlock Wholesale{" "}
+              <span style={{ color: AppColors.accent }}>Power</span>
             </div>
 
             {/* Subtitle */}
@@ -114,8 +120,8 @@ export default function OnboardingScreen3() {
             {/* Features List */}
             <div
               style={{
-                display: 'flex',
-                flexDirection: 'column',
+                display: "flex",
+                flexDirection: "column",
                 gap: AppSpacing.md,
                 marginBottom: AppSpacing.xl,
               }}
@@ -124,17 +130,17 @@ export default function OnboardingScreen3() {
                 <div
                   key={index}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
+                    display: "flex",
+                    alignItems: "center",
                     gap: AppSpacing.md,
                     ...AppTextStyles.bodyMedium,
                     color: AppColors.textSecondary,
                   }}
                 >
-                  <div style={{ fontSize: '20px', flexShrink: 0 }}>
-                    {feature.split(' ')[0]}
+                  <div style={{ fontSize: "20px", flexShrink: 0 }}>
+                    {feature.split(" ")[0]}
                   </div>
-                  <div>{feature.substring(feature.indexOf(' ') + 1)}</div>
+                  <div>{feature.substring(feature.indexOf(" ") + 1)}</div>
                 </div>
               ))}
             </div>
@@ -143,29 +149,29 @@ export default function OnboardingScreen3() {
           {/* Navigation buttons */}
           <div
             style={{
-              display: 'flex',
+              display: "flex",
               gap: AppSpacing.lg,
               marginTop: AppSpacing.lg,
             }}
           >
             <button
-              onClick={() => router.replace('/onboarding2')}
+              onClick={() => router.replace("/onboarding2")}
               style={{
                 flex: 1,
                 padding: `${AppSpacing.md} ${AppSpacing.lg}`,
-                backgroundColor: 'transparent',
+                backgroundColor: "transparent",
                 color: AppColors.primary,
                 border: `2px solid ${AppColors.primary}`,
-                borderRadius: '8px',
+                borderRadius: "8px",
                 ...AppTextStyles.labelLarge,
-                cursor: 'pointer',
-                transition: 'all 300ms ease-out',
+                cursor: "pointer",
+                transition: "all 300ms ease-out",
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = `${AppColors.primary}10`;
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.backgroundColor = "transparent";
               }}
             >
               Back
@@ -175,9 +181,9 @@ export default function OnboardingScreen3() {
                 setIsLoading(true);
                 try {
                   await completeOnboarding();
-                  router.push('/role-selection');
+                  router.push(user ? "/role-selection" : "/signup");
                 } catch (error) {
-                  console.error('Failed to complete onboarding:', error);
+                  console.error("Failed to complete onboarding:", error);
                   setIsLoading(false);
                 }
               }}
@@ -187,27 +193,27 @@ export default function OnboardingScreen3() {
                 padding: `${AppSpacing.md} ${AppSpacing.lg}`,
                 backgroundColor: AppColors.primary,
                 color: AppColors.surface,
-                border: 'none',
-                borderRadius: '8px',
+                border: "none",
+                borderRadius: "8px",
                 ...AppTextStyles.labelLarge,
-                cursor: isLoading ? 'not-allowed' : 'pointer',
+                cursor: isLoading ? "not-allowed" : "pointer",
                 opacity: isLoading ? 0.7 : 1,
-                transition: 'all 300ms ease-out',
+                transition: "all 300ms ease-out",
               }}
               onMouseEnter={(e) => {
                 if (!isLoading) {
                   e.currentTarget.style.backgroundColor = AppColors.primaryDark;
-                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.transform = "translateY(-2px)";
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isLoading) {
                   e.currentTarget.style.backgroundColor = AppColors.primary;
-                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.transform = "translateY(0)";
                 }
               }}
             >
-              {isLoading ? 'Loading...' : 'Get Started'}
+              {isLoading ? "Opening..." : "Get Started"}
             </button>
           </div>
         </div>

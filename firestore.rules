@@ -72,6 +72,38 @@ service cloud.firestore {
         data.roles.hasAny([data.selectedRole]);
     }
 
+    function hasPendingRoleProfile(data) {
+      return data.roles is list &&
+        data.roles.size() == 0 &&
+        data.selectedRole == 'pending_role' &&
+        data.membershipType == 'pending_role' &&
+        data.roleSelectionComplete == false;
+    }
+
+    function hasValidRoleMembershipStatus(data) {
+      return (data.selectedRole == 'member' && data.membershipStatus == 'pending') ||
+        (data.selectedRole != 'member' && data.membershipStatus == 'inactive');
+    }
+
+    function isInitialRoleAssignment() {
+      return resource.data.roles is list &&
+        resource.data.roles.size() == 0 &&
+        resource.data.selectedRole == 'pending_role' &&
+        resource.data.roleSelectionComplete == false &&
+        hasValidPublicRoles(request.resource.data) &&
+        request.resource.data.roleSelectionComplete == true &&
+        request.resource.data.membershipType == request.resource.data.selectedRole &&
+        hasValidRoleMembershipStatus(request.resource.data) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'roles',
+          'selectedRole',
+          'membershipType',
+          'roleSelectionComplete',
+          'membershipStatus',
+          'updatedAt'
+        ]);
+    }
+
     function hasOnlyPublicUserProfileFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -113,28 +145,31 @@ service cloud.firestore {
 
       allow create: if isOwner(userId) &&
         hasOnlyPublicUserProfileFields(request.resource.data) &&
-        hasValidPublicRoles(request.resource.data) &&
+        (hasPendingRoleProfile(request.resource.data) ||
+          hasValidPublicRoles(request.resource.data)) &&
         (!request.resource.data.keys().hasAny(['membershipStatus']) ||
           request.resource.data.membershipStatus in ['pending', 'inactive']) &&
         (!request.resource.data.keys().hasAny(['memberTier']) ||
           request.resource.data.memberTier == 'bronze');
 
-      allow update: if isAdmin() || (
-        isOwner(userId) &&
-        hasValidPublicRoles(request.resource.data) &&
-        request.resource.data.roles == resource.data.roles &&
-        request.resource.data.selectedRole in resource.data.roles &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'name',
-          'profilePicture',
-          'phone',
-          'address',
-          'onboardingCompleted',
-          'roleSelectionComplete',
-          'selectedRole',
-          'updatedAt'
-        ])
-      );
+      allow update: if isAdmin() ||
+        (isOwner(userId) && isInitialRoleAssignment()) ||
+        (
+          isOwner(userId) &&
+          hasValidPublicRoles(request.resource.data) &&
+          request.resource.data.roles == resource.data.roles &&
+          request.resource.data.selectedRole in resource.data.roles &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name',
+            'profilePicture',
+            'phone',
+            'address',
+            'onboardingCompleted',
+            'roleSelectionComplete',
+            'selectedRole',
+            'updatedAt'
+          ])
+        );
       allow delete: if false;
 
       // Notification preferences under users/{uid}/preferences/notifications

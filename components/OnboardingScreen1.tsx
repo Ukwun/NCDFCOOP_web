@@ -1,40 +1,43 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/authContext';
-import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/authContext";
+import { AppColors, AppSpacing, AppTextStyles } from "@/lib/theme";
 
 const SLIDES = [
   {
-    image: '/images/onboarding/onboardingweb1.jpg',
-    title: 'Welcome to',
-    titleAccent: 'NCDFCOOP',
-    subtitle: "Nigeria's controlled trade infrastructure for reliable buying and selling",
+    image: "/images/onboarding/onboardingweb1.jpg",
+    title: "Welcome to",
+    titleAccent: "NCDFCOOP",
+    subtitle:
+      "Nigeria's controlled trade infrastructure for reliable buying and selling",
     features: null,
   },
   {
-    image: '/images/onboarding/onboardingweb2.jpg',
-    title: 'Membership',
-    titleAccent: 'Benefits',
-    subtitle: 'Unlock exclusive discounts at every tier — from Bronze to Platinum',
+    image: "/images/onboarding/onboardingweb2.jpg",
+    title: "Membership",
+    titleAccent: "Benefits",
+    subtitle:
+      "Unlock exclusive discounts at every tier — from Bronze to Platinum",
     features: [
-      { icon: '🥉', label: 'Bronze — 5% off every purchase' },
-      { icon: '🥈', label: 'Silver — 10% member discount' },
-      { icon: '🥇', label: 'Gold — 15% on all products' },
-      { icon: '💎', label: 'Platinum — 20% maximum savings' },
+      { icon: "🥉", label: "Bronze — 5% off every purchase" },
+      { icon: "🥈", label: "Silver — 10% member discount" },
+      { icon: "🥇", label: "Gold — 15% on all products" },
+      { icon: "💎", label: "Platinum — 20% maximum savings" },
     ],
   },
   {
-    image: '/images/onboarding/onboardingweb3.jpg',
-    title: 'Unlock Wholesale',
-    titleAccent: 'Power',
-    subtitle: 'Take your business further with our cooperative wholesale platform',
+    image: "/images/onboarding/onboardingweb3.jpg",
+    title: "Unlock Wholesale",
+    titleAccent: "Power",
+    subtitle:
+      "Take your business further with our cooperative wholesale platform",
     features: [
-      { icon: '🏷️', label: 'Wholesale-priced products' },
-      { icon: '🚚', label: 'Dedicated delivery support' },
-      { icon: '💳', label: 'Flexible payment terms' },
-      { icon: '📊', label: 'Sales analytics & insights' },
+      { icon: "🏷️", label: "Wholesale-priced products" },
+      { icon: "🚚", label: "Dedicated delivery support" },
+      { icon: "💳", label: "Flexible payment terms" },
+      { icon: "📊", label: "Sales analytics & insights" },
     ],
   },
 ];
@@ -67,8 +70,15 @@ export default function OnboardingScreen1() {
   // Auto-advance loop
   useEffect(() => {
     resetTimer();
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [currentSlide, resetTimer]);
+
+  useEffect(() => {
+    router.prefetch("/signup");
+    router.prefetch("/signin");
+  }, [router]);
 
   const handleNext = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -85,16 +95,16 @@ export default function OnboardingScreen1() {
     setIsLoading(true);
     try {
       await completeOnboarding();
-      router.push('/signup');
+      router.push("/signup");
     } catch (error) {
-      console.error('Error completing onboarding:', error);
+      console.error("Error completing onboarding:", error);
       setIsLoading(false);
     }
   };
 
   const handleSignIn = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    router.push('/signin');
+    router.push("/signin");
   };
 
   const slide = SLIDES[currentSlide];
@@ -189,76 +199,103 @@ export default function OnboardingScreen1() {
         {SLIDES.map((s, i) => (
           <div
             key={i}
-            className={i === currentSlide ? 'ob-bg' : ''}
+            className={i === currentSlide ? "ob-bg" : ""}
             style={{
-              position: 'absolute', inset: 0,
+              position: "absolute",
+              inset: 0,
               backgroundImage: `url(${s.image})`,
-              backgroundSize: 'cover', backgroundPosition: 'center',
+              backgroundSize: "cover",
+              backgroundPosition: "center",
               backgroundColor: AppColors.border,
               opacity: i === currentSlide ? 1 : 0,
-              transition: 'opacity 600ms ease',
+              transition: "opacity 600ms ease",
               zIndex: 0,
             }}
           />
         ))}
 
         {/* Dark overlay */}
-        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.28)', zIndex: 1 }} />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.28)",
+            zIndex: 1,
+          }}
+        />
 
         {/* Glass card */}
         <div
           className="ob-glass relative w-full"
           style={{
             zIndex: 2,
-            minHeight: '52%',
-            borderRadius: '28px 28px 0 0',
+            minHeight: "52%",
+            borderRadius: "28px 28px 0 0",
             padding: `${AppSpacing.xxxl} ${AppSpacing.xxxl} 36px`,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
             gap: 16,
           }}
         >
           {/* Slide content */}
-          <div
-            key={currentSlide}
-            className="ob-card-content"
-          >
+          <div key={currentSlide} className="ob-card-content">
             {/* Title */}
-            <h2 style={{
-              ...AppTextStyles.h2,
-              color: AppColors.textPrimary,
-              marginBottom: AppSpacing.sm,
-              fontFamily: '"Libre Baskerville", serif',
-              lineHeight: 1.25,
-            }}>
-              {slide.title}{' '}
-              <span style={{ color: AppColors.accent }}>{slide.titleAccent}</span>
+            <h2
+              style={{
+                ...AppTextStyles.h2,
+                color: AppColors.textPrimary,
+                marginBottom: AppSpacing.sm,
+                fontFamily: '"Libre Baskerville", serif',
+                lineHeight: 1.25,
+              }}
+            >
+              {slide.title}{" "}
+              <span style={{ color: AppColors.accent }}>
+                {slide.titleAccent}
+              </span>
             </h2>
 
             {/* Subtitle */}
-            <p style={{
-              ...AppTextStyles.bodyLarge,
-              color: AppColors.textSecondary,
-              lineHeight: '1.6',
-              marginBottom: slide.features ? AppSpacing.lg : 0,
-            }}>
+            <p
+              style={{
+                ...AppTextStyles.bodyLarge,
+                color: AppColors.textSecondary,
+                lineHeight: "1.6",
+                marginBottom: slide.features ? AppSpacing.lg : 0,
+              }}
+            >
               {slide.subtitle}
             </p>
 
             {/* Feature list (slides 2 & 3) */}
             {slide.features && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 10 }}
+              >
                 {slide.features.map((f, i) => (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '10px 14px',
-                    background: 'rgba(255,255,255,0.2)',
-                    borderRadius: 12,
-                    backdropFilter: 'blur(8px)',
-                  }}>
-                    <span style={{ fontSize: 20, flexShrink: 0 }}>{f.icon}</span>
-                    <span style={{ ...AppTextStyles.bodyMedium, color: AppColors.textPrimary, fontWeight: 500 }}>
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 14px",
+                      background: "rgba(255,255,255,0.2)",
+                      borderRadius: 12,
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>
+                      {f.icon}
+                    </span>
+                    <span
+                      style={{
+                        ...AppTextStyles.bodyMedium,
+                        color: AppColors.textPrimary,
+                        fontWeight: 500,
+                      }}
+                    >
                       {f.label}
                     </span>
                   </div>
@@ -270,18 +307,25 @@ export default function OnboardingScreen1() {
           {/* Bottom: dots + buttons */}
           <div>
             {/* Progress dots */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 8,
+                marginBottom: 20,
+              }}
+            >
               {SLIDES.map((_, i) => (
                 <div
                   key={i}
-                  className={`ob-dot ${i === currentSlide ? 'ob-dot-active' : 'ob-dot-inactive'}`}
+                  className={`ob-dot ${i === currentSlide ? "ob-dot-active" : "ob-dot-inactive"}`}
                   onClick={() => handleDotClick(i)}
                 />
               ))}
             </div>
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: "flex", gap: 12 }}>
               {/* Sign Up — complete onboarding and go to signup */}
               <button
                 onClick={handleGetStarted}
@@ -289,18 +333,18 @@ export default function OnboardingScreen1() {
                 className="ob-btn-primary"
                 style={{
                   flex: 1,
-                  padding: '14px 20px',
+                  padding: "14px 20px",
                   backgroundColor: AppColors.primary,
-                  color: '#fff',
-                  border: 'none',
+                  color: "#fff",
+                  border: "none",
                   borderRadius: 12,
                   ...AppTextStyles.labelLarge,
                   fontWeight: 700,
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  cursor: isLoading ? "not-allowed" : "pointer",
                   opacity: isLoading ? 0.65 : 1,
                 }}
               >
-                {isLoading ? 'Creating account...' : 'Sign Up'}
+                {isLoading ? "Opening..." : "Sign Up"}
               </button>
 
               {/* Sign In — go to signin */}
@@ -310,14 +354,14 @@ export default function OnboardingScreen1() {
                 className="ob-btn-secondary"
                 style={{
                   flex: 1,
-                  padding: '14px 20px',
-                  backgroundColor: 'rgba(255,255,255,0.15)',
-                  color: '#fff',
-                  border: '1.5px solid rgba(255,255,255,0.6)',
+                  padding: "14px 20px",
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  color: "#fff",
+                  border: "1.5px solid rgba(255,255,255,0.6)",
                   borderRadius: 12,
                   ...AppTextStyles.labelLarge,
                   fontWeight: 600,
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  cursor: isLoading ? "not-allowed" : "pointer",
                   opacity: isLoading ? 0.65 : 1,
                 }}
               >

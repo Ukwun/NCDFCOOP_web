@@ -2,71 +2,15 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  Building2,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  Loader2,
-  Store,
-  UserPlus,
-  UserRound,
-  type LucideIcon,
-} from "lucide-react";
+import { Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 import SocialSignInButtons from "./SocialSignInButtons";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { AppColors, AppSpacing, AppTextStyles } from "@/lib/theme";
 import { getAuthenticatedLandingPath } from "@/lib/auth/roleRouting";
-import { USER_ROLES } from "@/lib/constants/database";
-
-interface SignupRoleOption {
-  id: string;
-  label: string;
-  summary: string;
-  Icon: LucideIcon;
-}
-
-const SIGNUP_ROLE_OPTIONS: SignupRoleOption[] = [
-  {
-    id: USER_ROLES.MEMBER,
-    label: "Member",
-    summary: "Shop with cooperative benefits and rewards.",
-    Icon: UserRound,
-  },
-  {
-    id: USER_ROLES.INSTITUTIONAL_BUYER,
-    label: "Wholesale Buyer",
-    summary: "Buy in bulk with institutional pricing.",
-    Icon: Building2,
-  },
-  {
-    id: USER_ROLES.SELLER,
-    label: "Seller",
-    summary: "Sell products to members and wholesale buyers.",
-    Icon: Store,
-  },
-];
-
-function normalizeSignupRole(value?: string | null): string {
-  const normalized = String(value || "")
-    .toLowerCase()
-    .trim();
-  if (normalized === "seller") return USER_ROLES.SELLER;
-  if (
-    normalized === "wholesale" ||
-    normalized === "wholesale_buyer" ||
-    normalized === "institutional_buyer" ||
-    normalized === "buyer"
-  ) {
-    return USER_ROLES.INSTITUTIONAL_BUYER;
-  }
-  return USER_ROLES.MEMBER;
-}
 
 function SignUpContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const {
     user,
     loading,
@@ -79,13 +23,11 @@ function SignUpContent() {
   } = useAuth();
 
   const [socialLoading, setSocialLoading] = useState(false);
-  const requestedRole = normalizeSignupRole(searchParams.get("type"));
-  const [membershipType, setMembershipType] = useState(requestedRole);
 
   const handleGoogleSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithGoogle(membershipType);
+      const destination = await signInWithGoogle();
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || "Google sign-in failed");
@@ -97,7 +39,7 @@ function SignUpContent() {
   const handleFacebookSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithFacebook(membershipType);
+      const destination = await signInWithFacebook();
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || "Facebook sign-in failed");
@@ -109,7 +51,7 @@ function SignUpContent() {
   const handleAppleSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithApple(membershipType);
+      const destination = await signInWithApple();
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || "Apple sign-in failed");
@@ -127,10 +69,6 @@ function SignUpContent() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    setMembershipType(requestedRole);
-  }, [requestedRole]);
 
   useEffect(() => {
     if (!loading && user && !isLoading && !socialLoading) {
@@ -191,12 +129,7 @@ function SignUpContent() {
         return;
       }
 
-      const destination = await signup(
-        email,
-        password,
-        fullName.trim(),
-        membershipType,
-      );
+      const destination = await signup(email, password, fullName.trim());
       router.replace(destination);
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -249,87 +182,8 @@ function SignUpContent() {
               marginBottom: AppSpacing.md,
             }}
           >
-            Join NCDFCOOP as a{" "}
-            <span style={{ fontWeight: 600, color: AppColors.primary }}>
-              {SIGNUP_ROLE_OPTIONS.find((role) => role.id === membershipType)
-                ?.label || "Member"}
-            </span>
+            Create your secure account. You will choose your role after sign up.
           </div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gap: AppSpacing.sm,
-            marginBottom: AppSpacing.lg,
-          }}
-          aria-label="Choose account role"
-        >
-          {SIGNUP_ROLE_OPTIONS.map((role) => {
-            const selected = membershipType === role.id;
-            return (
-              <button
-                key={role.id}
-                type="button"
-                onClick={() => setMembershipType(role.id)}
-                disabled={isLoading || socialLoading}
-                aria-pressed={selected}
-                className="transition duration-200 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 motion-reduce:transform-none"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: AppSpacing.md,
-                  width: "100%",
-                  padding: AppSpacing.md,
-                  borderRadius: "8px",
-                  border: `1px solid ${selected ? AppColors.primary : AppColors.border}`,
-                  backgroundColor: selected
-                    ? "rgba(22, 74, 46, 0.08)"
-                    : AppColors.surface,
-                  color: AppColors.textPrimary,
-                  cursor:
-                    isLoading || socialLoading ? "not-allowed" : "pointer",
-                  textAlign: "left",
-                  boxShadow: selected
-                    ? "0 8px 24px rgba(22, 74, 46, 0.12)"
-                    : "none",
-                }}
-              >
-                <role.Icon
-                  size={22}
-                  color={selected ? AppColors.primary : AppColors.textSecondary}
-                  aria-hidden="true"
-                />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: "block",
-                      ...AppTextStyles.labelLarge,
-                      color: AppColors.textPrimary,
-                    }}
-                  >
-                    {role.label}
-                  </span>
-                  <span
-                    style={{
-                      display: "block",
-                      ...AppTextStyles.bodySmall,
-                      color: AppColors.textSecondary,
-                    }}
-                  >
-                    {role.summary}
-                  </span>
-                </span>
-                {selected && (
-                  <CheckCircle2
-                    size={19}
-                    color={AppColors.primary}
-                    aria-hidden="true"
-                  />
-                )}
-              </button>
-            );
-          })}
         </div>
 
         {/* Social Auth Buttons */}

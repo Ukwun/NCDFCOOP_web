@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { USER_ROLES } from "@/lib/constants/database";
@@ -73,12 +73,18 @@ const ROLE_OPTIONS: RoleOption[] = [
 export default function RoleSelectionScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { selectRole, user } = useAuth();
+  const { selectRole, user, loading } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const activeRoles = useMemo(() => new Set(user?.roles || []), [user]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/signin");
+    }
+  }, [loading, router, user]);
 
   const guidanceMessage = useMemo(() => {
     const reason = searchParams.get("reason");
@@ -104,7 +110,7 @@ export default function RoleSelectionScreen() {
     if (isLoading) return;
     if (activeRoles.size > 0 && !activeRoles.has(roleId)) {
       setError(
-        "This role is not active on your account. Choose it during signup or complete its onboarding approval.",
+        "This role is not active on your account. Complete its onboarding approval first.",
       );
       return;
     }
@@ -122,6 +128,26 @@ export default function RoleSelectionScreen() {
       setSelectedRole(null);
     }
   };
+
+  if (loading) {
+    return (
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: AppColors.background }}
+      >
+        <Loader2
+          className="animate-spin"
+          size={28}
+          color={AppColors.primary}
+          aria-label="Loading"
+        />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div

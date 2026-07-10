@@ -14,6 +14,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
+  deleteUser,
   signInWithPopup,
   signInWithRedirect,
   GoogleAuthProvider,
@@ -23,7 +24,7 @@ import {
   browserSessionPersistence,
   setPersistence,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, Timestamp, writeBatch } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import {
   COLLECTIONS,
@@ -65,9 +66,9 @@ interface AuthContextType {
   ) => Promise<string>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
-  signInWithGoogle: (requestedRole?: string) => Promise<string | null>;
-  signInWithFacebook: (requestedRole?: string) => Promise<string | null>;
-  signInWithApple: (requestedRole?: string) => Promise<string | null>;
+  signInWithGoogle: () => Promise<string | null>;
+  signInWithFacebook: () => Promise<string | null>;
+  signInWithApple: () => Promise<string | null>;
   completeOnboarding: () => Promise<void>;
   selectRole: (role: string) => Promise<void>;
   switchRole: (role: string) => Promise<void>;
@@ -82,6 +83,7 @@ function generateReferralCode(): string {
 
 const LOCAL_ONBOARDING_KEY = "ncdfcoop_onboarding_completed";
 const LOCAL_ROLE_OVERRIDE_KEY = "selectedRoleOverride";
+const PENDING_ROLE = "pending_role";
 
 function sanitizeRoleInput(role?: string): string | null {
   if (!role) return null;
@@ -124,6 +126,14 @@ function normalizeRoleInput(role?: string): string {
   return sanitizeRoleInput(role) || USER_ROLES.MEMBER;
 }
 
+function isPendingRoleProfile(profile?: Record<string, any>): boolean {
+  return (
+    !profile ||
+    profile.selectedRole === PENDING_ROLE ||
+    profile.roleSelectionComplete === false
+  );
+}
+
 function getLocalOnboardingCompleted(): boolean {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(LOCAL_ONBOARDING_KEY) === "true";
@@ -153,26 +163,12 @@ function resolveSignupInputs(
   nameOrMembershipType?: string,
   membershipTypeMaybe?: string,
 ) {
-  const validRoles = Object.values(USER_ROLES) as string[];
-  if (!nameOrMembershipType) {
-    return { name: "", membershipType: USER_ROLES.MEMBER };
-  }
+  if (!nameOrMembershipType) return { name: "" };
 
-  const lower = sanitizeRoleInput(nameOrMembershipType);
-  if (lower && validRoles.includes(lower)) {
-    return { name: "", membershipType: lower };
-  }
+  const roleLikeInput = sanitizeRoleInput(nameOrMembershipType);
+  if (roleLikeInput) return { name: "" };
 
-  const normalizedMembershipTypeMaybe = sanitizeRoleInput(membershipTypeMaybe);
-
-  return {
-    name: nameOrMembershipType,
-    membershipType:
-      normalizedMembershipTypeMaybe &&
-      validRoles.includes(normalizedMembershipTypeMaybe)
-        ? normalizedMembershipTypeMaybe
-        : USER_ROLES.MEMBER,
-  };
+  return { name: nameOrMembershipType };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -185,7 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hydrateSignedInIdentity = async (
     currentUser: User,
-    requestedRoleOverride?: string,
   ): Promise<string> => {
     if (!db) throw new Error("Firebase not initialized");
 
@@ -194,16 +189,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let profile = snapshot.data();
 
     if (!profile) {
-      const roleFromUrl =
-        typeof window !== "undefined"
-          ? sanitizeRoleInput(
-              new URL(window.location.href).searchParams.get("type") ||
-                undefined,
-            )
-          : null;
-      const requestedRole =
-        sanitizeRoleInput(requestedRoleOverride) || roleFromUrl;
-      const selectedRole = requestedRole || USER_ROLES.MEMBER;
       const localOnboarding = getLocalOnboardingCompleted();
 
       profile = {
@@ -211,13 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: currentUser.email,
         name:
           currentUser.displayName || currentUser.email?.split("@")[0] || "User",
-        roles: [selectedRole],
-        selectedRole,
-        membershipType: selectedRole,
-        roleSelectionComplete: Boolean(requestedRole),
+        roles: [],
+        selectedRole: PENDING_ROLE,
+        membershipType: PENDING_ROLE,
+        roleSelectionComplete: false,
         onboardingCompleted: localOnboarding,
-        membershipStatus:
-          selectedRole === USER_ROLES.MEMBER ? "pending" : "inactive",
+        membershipStatus: "pending",
         memberTier: MEMBER_TIERS.BRONZE,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -249,17 +233,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const normalizedRoles = Array.isArray(profile.roles)
       ? (profile.roles.map(normalizeStoredRole).filter(Boolean) as string[])
       : [];
-    const storedRole =
-      normalizeStoredRole(profile.selectedRole) ||
-      normalizedRoles[0] ||
-      USER_ROLES.MEMBER;
-    const roles = Array.from(
-      new Set(normalizedRoles.length > 0 ? normalizedRoles : [storedRole]),
-    );
+    const storedRole = isPendingRoleProfile(profile)
+      ? null
+      : normalizeStoredRole(profile.selectedRole) || normalizedRoles[0] || null;
+    const roles = Array.from(new Set(normalizedRoles));
     const selectedRole =
-      getRoleOverrideFromStorage(roles) ||
-      (roles.includes(storedRole) ? storedRole : roles[0]);
-    const selectionComplete = !!profile.roleSelectionComplete;
+      storedRole && roles.length > 0
+        ? getRoleOverrideFromStorage(roles) ||
+          (roles.includes(storedRole) ? storedRole : roles[0])
+        : null;
+    const selectionComplete = !!profile.roleSelectionComplete && !!selectedRole;
     const completedOnboarding = !!(
       profile.onboardingCompleted || getLocalOnboardingCompleted()
     );
@@ -271,8 +254,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       photoURL:
         currentUser.photoURL || String(profile.profilePicture || "") || null,
       roles,
-      selectedRole,
-      currentRole: selectedRole,
+      selectedRole: selectedRole || undefined,
+      currentRole: selectedRole || undefined,
       membershipStatus:
         profile.membershipStatus ||
         (selectedRole === USER_ROLES.MEMBER ? "pending" : "inactive"),
@@ -282,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     setUser(authUser);
-    setCurrentRole(selectedRole);
+    setCurrentRole(selectedRole || null);
     setRoleSelectionComplete(selectionComplete);
     setOnboardingCompleted(completedOnboarding);
     setError(null);
@@ -352,7 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       if (!auth || !db) throw new Error("Firebase not initialized");
 
-      const { name, membershipType } = resolveSignupInputs(
+      const { name } = resolveSignupInputs(
         nameOrMembershipType,
         membershipTypeMaybe,
       );
@@ -369,29 +352,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         displayName: normalizedName,
       });
 
-      await setDoc(doc(db, COLLECTIONS.USERS, uid), {
+      const now = Timestamp.now();
+      const signupBatch = writeBatch(db);
+
+      signupBatch.set(doc(db, COLLECTIONS.USERS, uid), {
         id: uid,
         email: normalizedEmail,
         name: normalizedName,
-        roles: [membershipType],
-        selectedRole: membershipType,
-        membershipType,
-        roleSelectionComplete: true,
+        roles: [],
+        selectedRole: PENDING_ROLE,
+        membershipType: PENDING_ROLE,
+        roleSelectionComplete: false,
         onboardingCompleted: false,
-        membershipStatus:
-          membershipType === USER_ROLES.MEMBER ? "pending" : "inactive",
+        membershipStatus: "pending",
         memberTier: MEMBER_TIERS.BRONZE,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+        createdAt: now,
+        updatedAt: now,
         profilePicture: "",
         phone: "",
         address: "",
         isActive: true,
       });
 
-      await setDoc(doc(db, COLLECTIONS.MEMBERS, uid), {
+      signupBatch.set(doc(db, COLLECTIONS.MEMBERS, uid), {
         userId: uid,
-        memberSince: Timestamp.now(),
+        memberSince: now,
         loyaltyPoints: 0,
         tier: MEMBER_TIERS.BRONZE,
         totalPurchases: 0,
@@ -401,30 +386,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         kycStatus: "pending",
       });
 
+      try {
+        await signupBatch.commit();
+      } catch (profileError) {
+        console.error("Signup profile write failed:", profileError);
+        try {
+          await deleteUser(userCredential.user);
+        } catch (cleanupError) {
+          console.error("Signup auth cleanup failed:", cleanupError);
+        }
+        throw new Error(
+          "We could not finish creating your profile. Please try again.",
+        );
+      }
+
       const localOnboarding = getLocalOnboardingCompleted();
       setUser({
         ...userCredential.user,
         displayName: normalizedName,
-        roles: [membershipType],
-        selectedRole: membershipType,
-        currentRole: membershipType,
-        membershipStatus:
-          membershipType === USER_ROLES.MEMBER ? "pending" : "inactive",
-        roleSelectionComplete: true,
+        roles: [],
+        selectedRole: undefined,
+        currentRole: undefined,
+        membershipStatus: "pending",
+        roleSelectionComplete: false,
         onboardingCompleted: localOnboarding,
         memberTier: MEMBER_TIERS.BRONZE,
         isNewUser: true,
       });
-      setCurrentRole(membershipType);
-      setRoleSelectionComplete(true);
+      setCurrentRole(null);
+      setRoleSelectionComplete(false);
       setOnboardingCompleted(false);
       void logActivity(uid, "signup", {
         signupMethod: "password",
-        selectedRole: membershipType,
       });
-      return membershipType === USER_ROLES.SELLER
-        ? "/seller/onboarding"
-        : getAuthenticatedLandingPath(membershipType, true);
+      return "/role-selection";
     } catch (err: any) {
       setError(err?.message || "Failed to create account");
       throw err;
@@ -593,21 +588,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return message;
   };
 
-  const signInWithGoogle = async (
-    requestedRole?: string,
-  ): Promise<string | null> => {
+  const signInWithGoogle = async (): Promise<string | null> => {
     if (!auth) throw new Error("Firebase not initialized");
     const provider = new GoogleAuthProvider();
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      const destination = await hydrateSignedInIdentity(
-        result.user,
-        requestedRole,
-      );
+      const destination = await hydrateSignedInIdentity(result.user);
       void logActivity(result.user.uid, "login", {
         loginMethod: "google",
-        selectedRole: sanitizeRoleInput(requestedRole),
       });
       return destination;
     } catch (err: any) {
@@ -633,21 +622,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithFacebook = async (
-    requestedRole?: string,
-  ): Promise<string | null> => {
+  const signInWithFacebook = async (): Promise<string | null> => {
     if (!auth) throw new Error("Firebase not initialized");
     const provider = new FacebookAuthProvider();
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      const destination = await hydrateSignedInIdentity(
-        result.user,
-        requestedRole,
-      );
+      const destination = await hydrateSignedInIdentity(result.user);
       void logActivity(result.user.uid, "login", {
         loginMethod: "facebook",
-        selectedRole: sanitizeRoleInput(requestedRole),
       });
       return destination;
     } catch (err: any) {
@@ -673,21 +656,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithApple = async (
-    requestedRole?: string,
-  ): Promise<string | null> => {
+  const signInWithApple = async (): Promise<string | null> => {
     if (!auth) throw new Error("Firebase not initialized");
     const provider = new OAuthProvider("apple.com");
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      const destination = await hydrateSignedInIdentity(
-        result.user,
-        requestedRole,
-      );
+      const destination = await hydrateSignedInIdentity(result.user);
       void logActivity(result.user.uid, "login", {
         loginMethod: "apple",
-        selectedRole: sanitizeRoleInput(requestedRole),
       });
       return destination;
     } catch (err: any) {
@@ -735,10 +712,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error("User context is not available");
 
       const existingRoles = user.roles || [];
-      if (!existingRoles.includes(normalizedRole)) {
+      const isInitialRoleSelection =
+        !user.roleSelectionComplete && existingRoles.length === 0;
+      if (!isInitialRoleSelection && !existingRoles.includes(normalizedRole)) {
         throw new Error(
-          "This role is not active on your account yet. Choose it during signup or complete its onboarding approval.",
+          "This role is not active on your account yet. Complete its onboarding approval first.",
         );
+      }
+      const nextRoles = isInitialRoleSelection
+        ? [normalizedRole]
+        : existingRoles;
+      const updateData: Record<string, unknown> = {
+        selectedRole: normalizedRole,
+        roleSelectionComplete: true,
+        updatedAt: Timestamp.now(),
+      };
+
+      if (isInitialRoleSelection) {
+        updateData.roles = nextRoles;
+        updateData.membershipType = normalizedRole;
+        updateData.membershipStatus =
+          normalizedRole === USER_ROLES.MEMBER ? "pending" : "inactive";
       }
 
       // Attempt to update Firestore with retry logic to handle transient network issues
@@ -747,11 +741,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await setDoc(
             doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
-            {
-              selectedRole: normalizedRole,
-              roleSelectionComplete: true,
-              updatedAt: Timestamp.now(),
-            },
+            updateData,
             { merge: true },
           );
           lastError = null;
@@ -784,12 +774,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         selectedRole: normalizedRole,
         currentRole: normalizedRole,
         roleSelectionComplete: true,
-        roles: existingRoles,
+        membershipStatus: isInitialRoleSelection
+          ? normalizedRole === USER_ROLES.MEMBER
+            ? "pending"
+            : "inactive"
+          : user.membershipStatus,
+        roles: nextRoles,
       });
       void logActivity(auth.currentUser.uid, "role_changed", {
         previousRole: currentRole,
         selectedRole: normalizedRole,
-        mode: "initial_selection",
+        mode: isInitialRoleSelection ? "initial_selection" : "selection_update",
       });
     } catch (err: any) {
       setError(err?.message || "Failed to select role");
@@ -809,7 +804,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const existingRoles = user.roles || [];
       if (!existingRoles.includes(normalizedRole)) {
         throw new Error(
-          "This role is not active on your account yet. Choose it during signup or complete its onboarding approval.",
+          "This role is not active on your account yet. Complete its onboarding approval first.",
         );
       }
 
@@ -863,29 +858,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .filter(Boolean),
         ),
       ) as string[];
-      const storedRole =
-        normalizeStoredRole(userData.selectedRole) || USER_ROLES.MEMBER;
+      const storedRole = isPendingRoleProfile(userData)
+        ? null
+        : normalizeStoredRole(userData.selectedRole) || roles[0] || null;
       const selectedRole =
-        getRoleOverrideFromStorage(roles) ||
-        (roles.includes(storedRole)
-          ? storedRole
-          : roles[0] || USER_ROLES.MEMBER);
+        storedRole && roles.length > 0
+          ? getRoleOverrideFromStorage(roles) ||
+            (roles.includes(storedRole) ? storedRole : roles[0])
+          : null;
+      const selectionComplete =
+        !!userData.roleSelectionComplete && !!selectedRole;
       const refreshedUser: AuthUser = {
         ...auth.currentUser,
         roles,
-        selectedRole,
-        currentRole: selectedRole,
+        selectedRole: selectedRole || undefined,
+        currentRole: selectedRole || undefined,
         membershipStatus:
           userData.membershipStatus ||
           (selectedRole === USER_ROLES.MEMBER ? "pending" : "inactive"),
-        roleSelectionComplete: !!userData.roleSelectionComplete,
+        roleSelectionComplete: selectionComplete,
         onboardingCompleted: !!userData.onboardingCompleted,
         memberTier: userData.memberTier || MEMBER_TIERS.BRONZE,
       };
 
       setUser(refreshedUser);
-      setCurrentRole(selectedRole);
-      setRoleSelectionComplete(!!refreshedUser.roleSelectionComplete);
+      setCurrentRole(selectedRole || null);
+      setRoleSelectionComplete(selectionComplete);
       setOnboardingCompleted(!!refreshedUser.onboardingCompleted);
     } catch (err: any) {
       setError(err?.message || "Failed to refresh user data");

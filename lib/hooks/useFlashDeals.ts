@@ -12,6 +12,7 @@ import { COLLECTIONS } from '@/lib/constants/database';
 
 export interface FlashDealState {
   id: string;
+  productId: string;
   name: string;
   price: number;
   originalPrice: number;
@@ -33,7 +34,7 @@ export function useFlashDeals(): UseFlashDealsReturn {
   const [deals, setDeals] = useState<FlashDealState[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [, setTimerTick] = useState(0);
+  const [timerTick, setTimerTick] = useState(0);
 
   // Timer effect for countdown updates
   useEffect(() => {
@@ -78,6 +79,7 @@ export function useFlashDeals(): UseFlashDealsReturn {
 
             dealsList.push({
               id: doc.id,
+              productId: String(rawData.productId || doc.id),
               name: rawData.title || 'Flash Deal',
               price: Math.round(
                 (rawData.originalPrice || 0) * (1 - (rawData.discount || 0)) * 100
@@ -128,7 +130,7 @@ export function useFlashDeals(): UseFlashDealsReturn {
         }))
         .filter((d) => d.active)
     );
-  }, []);
+  }, [timerTick]);
 
   return { deals, loading, error };
 }

@@ -2,319 +2,65 @@
 
 export const dynamic = 'force-dynamic';
 
+import { useState } from 'react';
+import { ArrowLeft, Clock3, ShoppingCart, Tag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-
-interface FlashProduct {
-  id: string;
-  name: string;
-  image: string;
-  price: number;
-  originalPrice: number;
-  discount: number;
-  stock: number;
-  sold: number;
-  vendor: string;
-  rating: number;
-  reviews: number;
-  category: string;
-  description: string;
-  endsAt: string;
-}
+import { useAuth } from '@/lib/auth/authContext';
+import { useFlashDeals } from '@/lib/hooks/useFlashDeals';
+import { addToCart } from '@/lib/services/cartService';
+import { resolveProductImage } from '@/lib/utils/productImage';
 
 export default function FlashSalesPage() {
   const router = useRouter();
-  const [timeLeft, setTimeLeft] = useState('');
-  const [products, _setProducts] = useState<FlashProduct[]>([
-    {
-      id: '1',
-      name: 'Premium Milled Rice (25kg)',
-      image: '🍚',
-      price: 12500,
-      originalPrice: 15800,
-      discount: 21,
-      stock: 45,
-      sold: 127,
-      vendor: 'Golden Grain Farm Collective',
-      rating: 4.8,
-      reviews: 342,
-      category: 'Food & Grains',
-      description: 'Premium quality white rice, freshly milled. Perfect for family table.',
-      endsAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: '2',
-      name: 'Organic Cocoa Powder (500g)',
-      image: '🍫',
-      price: 4200,
-      originalPrice: 5800,
-      discount: 28,
-      stock: 78,
-      sold: 89,
-      vendor: 'Cocoa Farmers Cooperative',
-      rating: 4.9,
-      reviews: 156,
-      category: 'Food & Spices',
-      description: 'Pure organic cocoa powder. No additives. Single-origin from premium beans.',
-      endsAt: new Date(Date.now() + 3.5 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: '3',
-      name: 'Fresh Ginger Root (5kg Box)',
-      image: '🌿',
-      price: 3500,
-      originalPrice: 5000,
-      discount: 30,
-      stock: 34,
-      sold: 156,
-      vendor: 'Tropical Produce Alliance',
-      rating: 4.7,
-      reviews: 289,
-      category: 'Fresh Produce',
-      description: 'Fresh, pungent ginger root. Great for cooking, teas, and remedies.',
-      endsAt: new Date(Date.now() + 1.5 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: '4',
-      name: 'Shea Butter (Pure, 500ml)',
-      image: '🧴',
-      price: 6800,
-      originalPrice: 9500,
-      discount: 28,
-      stock: 62,
-      sold: 203,
-      vendor: 'Shea Beauty Cooperative',
-      rating: 4.8,
-      reviews: 421,
-      category: 'Beauty & Wellness',
-      description: ' 100% pure shea butter. Perfect for skin, hair, and lips. No additives.',
-      endsAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      id: '5',
-      name: 'Organic Honey (1 liter)',
-      image: '🍯',
-      price: 8500,
-      originalPrice: 11200,
-      discount: 24,
-      stock: 28,
-      sold: 78,
-      vendor: 'Bee Farmers Network',
-      rating: 4.9,
-      reviews: 234,
-      category: 'Food & Honey',
-      description: 'Raw, unfiltered honey. Rich in natural enzymes and antioxidants.',
-      endsAt: new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString(),
-    },
-  ]);
+  const { user } = useAuth();
+  const { deals, loading, error } = useFlashDeals();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState('');
 
-  // Update countdown timers
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const firstProduct = products[0];
-      const diff = new Date(firstProduct.endsAt).getTime() - now;
-
-      if (diff > 0) {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
-      } else {
-        setTimeLeft('Sale Ended');
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [products]);
+  const addDeal = async (deal: (typeof deals)[number]) => {
+    if (!user?.uid) {
+      router.push(`/signin?next=${encodeURIComponent('/flash-sales')}`);
+      return;
+    }
+    try {
+      setBusyId(deal.id);
+      setNotice('');
+      await addToCart(user.uid, deal.productId, deal.name, deal.price, deal.image || '', 1);
+      setNotice(`${deal.name} was added to your cart.`);
+    } catch {
+      setNotice('This deal could not be added. It may have expired or sold out.');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="text-2xl hover:text-blue-600"
-          >
-            ←
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-              ⚡ Flash Sales
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Limited-time deals on quality products
-            </p>
-          </div>
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-orange-950/30 dark:text-white">
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6">
+          <button onClick={() => router.back()} aria-label="Go back" className="grid h-11 w-11 place-items-center rounded-full border border-slate-200 transition hover:-translate-x-0.5 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/10"><ArrowLeft size={20}/></button>
+          <div><p className="text-xs font-black uppercase tracking-[0.22em] text-orange-600">Live offers</p><h1 className="text-2xl font-black sm:text-3xl">Flash sales</h1></div>
+          <button onClick={() => router.push('/cart')} className="ml-auto inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition hover:-translate-y-0.5 dark:bg-white dark:text-slate-950"><ShoppingCart size={17}/>Cart</button>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-orange-600 via-rose-600 to-fuchsia-700 p-6 text-white shadow-xl sm:p-9">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold"><Tag size={14}/> Verified active offers</span><h2 className="mt-4 max-w-2xl text-3xl font-black sm:text-4xl">Real discounts. Live inventory. No sample deals.</h2><p className="mt-2 max-w-xl text-sm text-orange-50">Offers disappear automatically when their configured end time passes.</p></div><div className="inline-flex items-center gap-2 rounded-2xl bg-black/20 px-4 py-3 text-sm font-bold"><Clock3 size={18}/>{deals.length} active now</div></div>
+        </section>
+
+        {notice && <p aria-live="polite" className="mt-5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold shadow-sm dark:border-white/10 dark:bg-white/5">{notice}</p>}
+        {loading && <div className="grid gap-5 py-10 sm:grid-cols-2 lg:grid-cols-3">{[1,2,3].map((n) => <div key={n} className="h-80 animate-pulse rounded-3xl bg-slate-200 dark:bg-white/10"/>)}</div>}
+        {!loading && error && <div className="my-10 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-900"><h2 className="font-black">Flash deals are temporarily unavailable</h2><p className="mt-1 text-sm">Please refresh shortly. Checkout and the standard product catalogue remain available.</p></div>}
+        {!loading && !error && deals.length === 0 && <div className="my-10 rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-white/15 dark:bg-white/5"><Clock3 className="mx-auto text-orange-500" size={34}/><h2 className="mt-4 text-xl font-black">No flash sale is active right now</h2><p className="mt-2 text-sm text-slate-500">We will show the next verified offer here as soon as it goes live.</p><button onClick={() => router.push('/products')} className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white dark:bg-white dark:text-slate-950">Browse all products</button></div>}
+
+        <div className="grid gap-5 py-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {deals.map((deal) => <article key={deal.id} className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-white/5">
+            <button onClick={() => router.push(`/products/${deal.productId}`)} className="block w-full text-left"><div className="relative h-48 overflow-hidden bg-slate-100 dark:bg-white/10"><img src={resolveProductImage(deal.image)} alt={deal.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/><span className="absolute right-3 top-3 rounded-full bg-rose-600 px-3 py-1 text-xs font-black text-white">-{deal.discountPercent}%</span></div><div className="p-5"><p className="text-xs font-bold text-orange-600">Ends in {deal.timeLeftDisplay}</p><h2 className="mt-2 line-clamp-2 font-black">{deal.name}</h2><div className="mt-3 flex items-end gap-2"><span className="text-xl font-black">₦{deal.price.toLocaleString()}</span><span className="text-sm text-slate-400 line-through">₦{deal.originalPrice.toLocaleString()}</span></div></div></button>
+            <div className="px-5 pb-5"><button onClick={() => void addDeal(deal)} disabled={busyId === deal.id} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-black text-white transition hover:bg-orange-700 disabled:opacity-50"><ShoppingCart size={17}/>{busyId === deal.id ? 'Adding…' : 'Add to cart'}</button></div>
+          </article>)}
         </div>
       </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Flash Sale Banner */}
-        <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg p-8 shadow-lg">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">🎉 Member-Only Flash Sale</h2>
-              <p className="text-red-100 text-lg">
-                Exclusive deals for COOP members only
-              </p>
-            </div>
-            <div className="bg-black bg-opacity-30 rounded-lg px-6 py-4 text-center">
-              <p className="text-red-100 text-sm mb-2">Time Remaining</p>
-              <p className="text-2xl font-bold font-mono">{timeLeft}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter & Sort */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex gap-2 flex-wrap">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-medium">
-              All Products
-            </button>
-            <button className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-full text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600">
-              Food & Grains
-            </button>
-            <button className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-full text-sm font-medium hover:bg-gray-300 dark:hover:bg-gray-600">
-              Beauty & Wellness
-            </button>
-          </div>
-          <select className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white">
-            <option>Sort by: Bestselling</option>
-            <option>Highest Discount</option>
-            <option>Price: Low to High</option>
-            <option>Price: High to Low</option>
-          </select>
-        </div>
-
-        {/* Products Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          {products.map((product) => {
-            const stockPercentage = (product.sold / (product.sold + product.stock)) * 100;
-            const endsTime = new Date(product.endsAt).getTime() - Date.now();
-            const hours = Math.floor(endsTime / (1000 * 60 * 60));
-            const minutes = Math.floor((endsTime % (1000 * 60 * 60)) / (1000 * 60));
-
-            return (
-              <div
-                key={product.id}
-                className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-              >
-                {/* Image & Discount */}
-                <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 h-32 flex items-center justify-center">
-                  <span className="text-5xl">{product.image}</span>
-                  <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-                    -{product.discount}%
-                  </div>
-                  {stockPercentage > 75 && (
-                    <div className="absolute top-2 left-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-semibold">
-                      Selling fast!
-                    </div>
-                  )}
-                </div>
-
-                {/* Product Info */}
-                <div className="p-4 space-y-3">
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2">
-                      {product.name}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {product.vendor}
-                    </p>
-                  </div>
-
-                  {/* Rating */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-yellow-500">⭐</span>
-                    <span className="text-gray-700 dark:text-gray-300">
-                      {product.rating}
-                    </span>
-                    <span className="text-gray-500 dark:text-gray-400 text-xs">
-                      ({product.reviews})
-                    </span>
-                  </div>
-
-                  {/* Price */}
-                  <div>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">
-                      ₦{product.price.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 line-through">
-                      ₦{product.originalPrice.toLocaleString()}
-                    </p>
-                  </div>
-
-                  {/* Stock Progress */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {product.sold} sold
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {product.stock} left
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="h-full bg-red-600"
-                        style={{ width: `${stockPercentage}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Time Left */}
-                  {hours >= 1 ? (
-                    <p className="text-xs text-orange-600 dark:text-orange-400 font-semibold">
-                      ⏱️ Ends in {hours}h {minutes}m
-                    </p>
-                  ) : (
-                    <p className="text-xs text-red-600 dark:text-red-400 font-semibold">
-                      ⏱️ Ends in {minutes}m
-                    </p>
-                  )}
-
-                  {/* Add to Cart */}
-                  <button className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
-                    Add to Cart
-                  </button>
-
-                  {/* View Details */}
-                  <button className="w-full py-2 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    Details
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Flash Sale Rules */}
-        <div className="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-6">
-          <h3 className="font-bold text-blue-900 dark:text-blue-100 mb-4">
-            ⚡ Flash Sale Rules
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800 dark:text-blue-200">
-            <div>
-              <p className="font-semibold mb-1">🎁 Member Exclusive</p>
-              <p>Only for logged-in COOP members</p>
-            </div>
-            <div>
-              <p className="font-semibold mb-1">⏰ Limited Time</p>
-              <p>24 hours or while stock lasts</p>
-            </div>
-            <div>
-              <p className="font-semibold mb-1">📦 Bulk Discounts</p>
-              <p>5% extra off on orders 3+ products</p>
-            </div>
-            <div>
-              <p className="font-semibold mb-1">🚚 Free Shipping</p>
-              <p>On orders over ₦10,000</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }

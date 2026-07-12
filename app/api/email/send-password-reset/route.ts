@@ -49,7 +49,9 @@ async function sendFirebaseManagedReset(
     });
   }
 
+  const deadline = Date.now() + 8_000;
   const sendRequest = async (includeContinueUrl: boolean) => {
+    const remaining = Math.max(500, deadline - Date.now());
     const response = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${encodeURIComponent(apiKey)}`,
       {
@@ -61,7 +63,7 @@ async function sendFirebaseManagedReset(
           ...(includeContinueUrl ? { continueUrl } : {}),
         }),
         cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(remaining),
       },
     );
 
@@ -88,6 +90,7 @@ async function sendFirebaseManagedReset(
   ].includes(code);
 
   if (shouldRetryWithoutContinueUrl) {
+    if (Date.now() >= deadline - 500) throw errorWithContinueUrl;
     const errorWithoutContinueUrl = await sendRequest(false);
     if (!errorWithoutContinueUrl) return;
   }

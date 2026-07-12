@@ -5,12 +5,14 @@ import { useBuyerOrders } from '@/lib/hooks';
 import { orderService } from '@/lib/services/api';
 import { ErrorHandler } from '@/lib/error/errorHandler';
 import { AnalyticsService, UserBehaviorPattern } from '@/lib/services/analyticsService';
+import { useRouter } from 'next/navigation';
 
 interface BuyerOrdersScreenProps {
   userId: string;
 }
 
 function BuyerOrdersScreen({ userId }: BuyerOrdersScreenProps) {
+  const router = useRouter();
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
@@ -295,7 +297,7 @@ function BuyerOrdersScreen({ userId }: BuyerOrdersScreenProps) {
                         Return Order
                       </button>
                     )}
-                    <button className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <button onClick={() => router.push(`/inquiries?order=${encodeURIComponent(order.id)}&seller=${encodeURIComponent(order.items?.[0]?.sellerId || '')}`)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                       Contact Seller
                     </button>
                   </div>

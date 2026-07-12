@@ -3,8 +3,11 @@
 export const dynamic = 'force-dynamic';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth/authContext';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { COLLECTIONS } from '@/lib/constants/database';
 
 interface Referral {
   id: string;
@@ -18,35 +21,50 @@ interface Referral {
 export default function ReferralProgramPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [referralCode, setReferralCode] = useState('COOP2026');
-  const [referralLink, setReferralLink] = useState(
-    `https://coopcommerce.ng/?ref=${referralCode}`
-  );
+  const [referralCode, setReferralCode] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [referrals, setReferrals] = useState<Referral[]>([
-    {
-      id: '1',
-      name: 'Chioma Obi',
-      email: 'chioma.obi@email.com',
-      joinDate: 'Feb 28, 2026',
-      status: 'completed',
-      bonusEarned: 2500,
-    },
-    {
-      id: '2',
-      name: 'Tunde Adebayo',
-      email: 'tunde.a@email.com',
-      joinDate: 'Mar 5, 2026',
-      status: 'active',
-    },
-    {
-      id: '3',
-      name: 'Amara Nwosu',
-      email: 'amara.nwosu@email.com',
-      joinDate: 'Mar 15, 2026',
-      status: 'pending',
-    },
-  ]);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState('');
+
+  const referralLink = useMemo(() => {
+    if (!referralCode) return '';
+    const origin = typeof window === 'undefined' ? '' : window.location.origin;
+    return `${origin}/signup?ref=${encodeURIComponent(referralCode)}`;
+  }, [referralCode]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!user?.uid || !db) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const [memberSnapshot, referralSnapshot] = await Promise.all([
+          getDoc(doc(db, COLLECTIONS.MEMBERS, user.uid)),
+          getDocs(collection(db, COLLECTIONS.MEMBERS, user.uid, 'referrals')),
+        ]);
+        setReferralCode(String(memberSnapshot.data()?.referralCode || ''));
+        setReferrals(referralSnapshot.docs.map((item) => {
+          const data = item.data();
+          const joined = data.createdAt?.toDate?.();
+          return {
+            id: item.id,
+            name: String(data.referredName || data.name || 'Invited member'),
+            email: String(data.referredEmail || data.email || ''),
+            joinDate: joined ? joined.toLocaleDateString() : 'Pending signup',
+            status: ['active', 'completed'].includes(data.status) ? data.status : 'pending',
+            bonusEarned: Number(data.bonusEarned || 0),
+          } as Referral;
+        }));
+      } catch {
+        setNotice('Referral activity could not be loaded. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
+  }, [user?.uid]);
 
   const stats = {
     totalReferrals: referrals.length,
@@ -56,10 +74,23 @@ export default function ReferralProgramPage() {
       .reduce((sum, r) => sum + (r.bonusEarned || 0), 0),
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(referralLink);
+  const copyToClipboard = async (value = referralLink) => {
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const share = (channel: 'whatsapp' | 'twitter' | 'facebook' | 'email') => {
+    if (!referralLink) return;
+    const message = `Join NCDFCOOP with my referral link: ${referralLink}`;
+    const targets = {
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(message)}`,
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`,
+      email: `mailto:?subject=${encodeURIComponent('Join me on NCDFCOOP')}&body=${encodeURIComponent(message)}`,
+    };
+    window.open(targets[channel], '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -111,7 +142,7 @@ export default function ReferralProgramPage() {
             <p className="text-blue-100 text-sm mb-2">Next Bonus</p>
             <p className="text-3xl font-bold">₦2,500</p>
             <p className="text-xs text-blue-200 mt-2">
-              When 1 more referral joins
+              Bonuses are credited after a referred member qualifies
             </p>
           </div>
         </div>
@@ -122,6 +153,9 @@ export default function ReferralProgramPage() {
             🔗 Share Your Referral Link
           </h2>
 
+          {notice && <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{notice}</p>}
+          {loading && <p className="text-sm text-gray-500">Loading your referral activity…</p>}
+          {!loading && referrals.length === 0 && <p className="rounded-lg bg-gray-50 p-5 text-sm text-gray-600 dark:bg-gray-700 dark:text-gray-300">No referral activity yet. Share your unique link to get started.</p>}
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -134,7 +168,7 @@ export default function ReferralProgramPage() {
                   readOnly
                   className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white"
                 />
-                <button className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
+                <button onClick={() => void copyToClipboard(referralCode)} disabled={!referralCode} className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium">
                   Copy Code
                 </button>
               </div>
@@ -152,7 +186,7 @@ export default function ReferralProgramPage() {
                   className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white text-sm"
                 />
                 <button
-                  onClick={copyToClipboard}
+                  onClick={() => void copyToClipboard()}
                   className={`px-4 py-3 rounded-lg font-medium transition-all ${
                     copiedLink
                       ? 'bg-green-600 text-white'
@@ -171,16 +205,16 @@ export default function ReferralProgramPage() {
               Share on social media:
             </p>
             <div className="flex gap-3 flex-wrap">
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium">
+              <button onClick={() => share('whatsapp')} disabled={!referralLink} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
                 📱 WhatsApp
               </button>
-              <button className="px-4 py-2 bg-blue-400 hover:bg-blue-500 text-white rounded-lg text-sm font-medium">
+              <button onClick={() => share('twitter')} disabled={!referralLink} className="px-4 py-2 bg-blue-400 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
                 𝕏 Twitter
               </button>
-              <button className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium">
+              <button onClick={() => share('facebook')} disabled={!referralLink} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
                 f Facebook
               </button>
-              <button className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg text-sm font-medium">
+              <button onClick={() => share('email')} disabled={!referralLink} className="px-4 py-2 bg-gray-700 hover:bg-gray-800 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
                 📧 Email
               </button>
             </div>

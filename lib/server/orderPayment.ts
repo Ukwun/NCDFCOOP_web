@@ -43,6 +43,16 @@ export async function completeOrderPayment(input: {
       return { orderId, userId, alreadyCompleted: true };
     }
 
+    const attributionRef = db.collection('referralAttributions').doc(userId);
+    const attributionSnapshot = await transaction.get(attributionRef);
+    const attribution = attributionSnapshot.data() || {};
+    const referrerId = String(attribution.referrerId || '');
+    const referrerMemberRef = referrerId ? db.collection('members').doc(referrerId) : null;
+    const referralRecordRef = referrerId
+      ? db.collection('members').doc(referrerId).collection('referrals').doc(userId)
+      : null;
+    if (referrerMemberRef) await transaction.get(referrerMemberRef);
+
     const now = Timestamp.now();
     transaction.update(transactionRef, {
       status: 'completed',
@@ -95,6 +105,42 @@ export async function completeOrderPayment(input: {
         { memberTier: tier, updatedAt: now },
         { merge: true }
       );
+
+      const referralPoints = Math.max(0, Math.floor(Number(attribution.rewardPoints || 2500)));
+      const qualifiesReferral = attributionSnapshot.exists &&
+        attribution.status === 'pending' &&
+        !!referrerMemberRef && !!referralRecordRef &&
+        Number(currentMember.ordersCount || 0) === 0 &&
+        orderAmount >= money(attribution.qualificationMinimum || 5000) &&
+        referralPoints > 0;
+
+      if (qualifiesReferral && referrerMemberRef && referralRecordRef) {
+        transaction.set(referrerMemberRef, {
+          loyaltyPoints: FieldValue.increment(referralPoints),
+          rewardsPoints: FieldValue.increment(referralPoints),
+          lifetimePoints: FieldValue.increment(referralPoints),
+          completedReferralCount: FieldValue.increment(1),
+          updatedAt: now,
+        }, { merge: true });
+        transaction.update(attributionRef, {
+          status: 'completed', qualifyingOrderId: orderId,
+          qualifiedPurchaseAmount: orderAmount, awardedPoints: referralPoints,
+          completedAt: now, updatedAt: now,
+        });
+        transaction.set(referralRecordRef, {
+          status: 'completed', qualifyingOrderId: orderId,
+          bonusEarned: referralPoints, awardedPoints: referralPoints,
+          completedAt: now, updatedAt: now,
+        }, { merge: true });
+        transaction.set(db.collection('notifications').doc(), {
+          userId: referrerId,
+          title: 'Referral reward earned',
+          message: `${referralPoints.toLocaleString()} reward points were added after your referral completed a qualifying purchase.`,
+          type: 'reward', read: false,
+          data: { referredUserId: userId, orderId, points: referralPoints },
+          createdAt: now,
+        });
+      }
     }
 
     transaction.set(db.collection('notifications').doc(), {

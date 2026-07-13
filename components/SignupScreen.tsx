@@ -4,13 +4,15 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, UserPlus } from "lucide-react";
 import SocialSignInButtons from "./SocialSignInButtons";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { AppColors, AppSpacing, AppTextStyles } from "@/lib/theme";
 import { getAuthenticatedLandingPath } from "@/lib/auth/roleRouting";
 
 function SignUpContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const referralCode = String(searchParams.get("ref") || "").trim().toUpperCase();
   const {
     user,
     loading,
@@ -27,7 +29,7 @@ function SignUpContent() {
   const handleGoogleSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithGoogle();
+      const destination = await signInWithGoogle(referralCode);
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || "Google sign-in failed");
@@ -39,7 +41,7 @@ function SignUpContent() {
   const handleFacebookSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithFacebook();
+      const destination = await signInWithFacebook(referralCode);
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || "Facebook sign-in failed");
@@ -51,7 +53,7 @@ function SignUpContent() {
   const handleAppleSignIn = async () => {
     setSocialLoading(true);
     try {
-      const destination = await signInWithApple();
+      const destination = await signInWithApple(referralCode);
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || "Apple sign-in failed");
@@ -129,7 +131,7 @@ function SignUpContent() {
         return;
       }
 
-      const destination = await signup(email, password, fullName.trim());
+      const destination = await signup(email, password, fullName.trim(), undefined, referralCode);
       router.replace(destination);
     } catch (err: any) {
       console.error("Signup error:", err);
@@ -184,6 +186,7 @@ function SignUpContent() {
           >
             Create your secure account. You will choose your role after sign up.
           </div>
+          {referralCode && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">Referral code {referralCode} will be verified when your account is created.</div>}
         </div>
 
         {/* Social Auth Buttons */}

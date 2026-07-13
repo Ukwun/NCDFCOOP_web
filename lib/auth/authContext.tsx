@@ -58,6 +58,7 @@ interface AuthContextType {
     password: string,
     nameOrMembershipType?: string,
     membershipTypeMaybe?: string,
+    referralCode?: string,
   ) => Promise<string>;
   login: (
     email: string,
@@ -66,9 +67,9 @@ interface AuthContextType {
   ) => Promise<string>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (displayName: string, photoURL?: string) => Promise<void>;
-  signInWithGoogle: () => Promise<string | null>;
-  signInWithFacebook: () => Promise<string | null>;
-  signInWithApple: () => Promise<string | null>;
+  signInWithGoogle: (referralCode?: string) => Promise<string | null>;
+  signInWithFacebook: (referralCode?: string) => Promise<string | null>;
+  signInWithApple: (referralCode?: string) => Promise<string | null>;
   completeOnboarding: () => Promise<void>;
   selectRole: (role: string) => Promise<void>;
   switchRole: (role: string) => Promise<void>;
@@ -84,6 +85,21 @@ function generateReferralCode(): string {
 const LOCAL_ONBOARDING_KEY = "ncdfcoop_onboarding_completed";
 const LOCAL_ROLE_OVERRIDE_KEY = "selectedRoleOverride";
 const PENDING_ROLE = "pending_role";
+
+async function attributeReferral(currentUser: User, referralCode?: string): Promise<void> {
+  const normalized = String(referralCode || "").trim().toUpperCase();
+  if (!normalized) return;
+  const token = await currentUser.getIdToken();
+  const response = await fetch("/api/referrals/attribute", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ referralCode: normalized }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload?.error || "We could not apply this referral code.");
+  }
+}
 
 function sanitizeRoleInput(role?: string): string | null {
   if (!role) return null;
@@ -181,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hydrateSignedInIdentity = async (
     currentUser: User,
+    referralCode?: string,
   ): Promise<string> => {
     if (!db) throw new Error("Firebase not initialized");
 
@@ -188,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const snapshot = await getDoc(userRef);
     let profile = snapshot.data();
 
+    const createdProfile = !profile;
     if (!profile) {
       const localOnboarding = getLocalOnboardingCompleted();
 
@@ -227,6 +245,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           isActive: false,
           kycStatus: "pending",
         });
+      }
+    }
+
+    if (createdProfile && referralCode) {
+      try {
+        await attributeReferral(currentUser, referralCode);
+      } catch (referralError) {
+        console.error("Social referral attribution failed:", referralError);
       }
     }
 
@@ -313,7 +339,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        await hydrateSignedInIdentity(currentUser);
+        const pendingReferral = typeof window !== "undefined"
+          ? window.sessionStorage.getItem("pendingReferralCode") || undefined
+          : undefined;
+        await hydrateSignedInIdentity(currentUser, pendingReferral);
+        if (pendingReferral && typeof window !== "undefined") {
+          window.sessionStorage.removeItem("pendingReferralCode");
+        }
       } catch (err) {
         console.error("Auth state change error:", err);
         setError("Failed to load user data");
@@ -330,6 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     nameOrMembershipType?: string,
     membershipTypeMaybe?: string,
+    referralCode?: string,
   ): Promise<string> => {
     try {
       setError(null);
@@ -398,6 +431,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(
           "We could not finish creating your profile. Please try again.",
         );
+      }
+
+      try {
+        await attributeReferral(userCredential.user, referralCode);
+      } catch (referralError) {
+        console.error("Referral attribution failed:", referralError);
       }
 
       const localOnboarding = getLocalOnboardingCompleted();
@@ -588,13 +627,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return message;
   };
 
-  const signInWithGoogle = async (): Promise<string | null> => {
+  const signInWithGoogle = async (referralCode?: string): Promise<string | null> => {
     if (!auth) throw new Error("Firebase not initialized");
     const provider = new GoogleAuthProvider();
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      const destination = await hydrateSignedInIdentity(result.user);
+      const destination = await hydrateSignedInIdentity(result.user, referralCode);
       void logActivity(result.user.uid, "login", {
         loginMethod: "google",
       });
@@ -607,6 +646,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         err?.code === "auth/popup-closed-by-user"
       ) {
         try {
+          if (referralCode) window.sessionStorage.setItem("pendingReferralCode", referralCode);
           await signInWithRedirect(auth, provider);
           return null;
         } catch (redirectErr: any) {
@@ -622,13 +662,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithFacebook = async (): Promise<string | null> => {
+  const signInWithFacebook = async (referralCode?: string): Promise<string | null> => {
     if (!auth) throw new Error("Firebase not initialized");
     const provider = new FacebookAuthProvider();
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      const destination = await hydrateSignedInIdentity(result.user);
+      const destination = await hydrateSignedInIdentity(result.user, referralCode);
       void logActivity(result.user.uid, "login", {
         loginMethod: "facebook",
       });
@@ -641,6 +681,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         err?.code === "auth/popup-closed-by-user"
       ) {
         try {
+          if (referralCode) window.sessionStorage.setItem("pendingReferralCode", referralCode);
           await signInWithRedirect(auth, provider);
           return null;
         } catch (redirectErr: any) {
@@ -656,13 +697,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithApple = async (): Promise<string | null> => {
+  const signInWithApple = async (referralCode?: string): Promise<string | null> => {
     if (!auth) throw new Error("Firebase not initialized");
     const provider = new OAuthProvider("apple.com");
     try {
       setError(null);
       const result = await signInWithPopup(auth, provider);
-      const destination = await hydrateSignedInIdentity(result.user);
+      const destination = await hydrateSignedInIdentity(result.user, referralCode);
       void logActivity(result.user.uid, "login", {
         loginMethod: "apple",
       });

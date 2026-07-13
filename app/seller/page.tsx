@@ -382,7 +382,7 @@ export default function SellerDashboardPage() {
             onClick={() => router.push('/seller/wholesale-orders')}
           >
             <div className="border-b border-white/15 p-6"><span className="rounded-full bg-amber-300 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-950">B2B priority</span><h2 className="mt-3 text-xl font-bold">Wholesale Fulfillment</h2><p className="mt-2 text-sm text-emerald-100">See bulk pricing, MOQ commitments, compliance gates, and set delivery SLAs.</p></div>
-            <div className="p-6"><button className="w-full rounded-lg bg-white py-3 font-bold text-emerald-900">Open Bulk Orders →</button></div>
+            <div className="p-6"><button onClick={(event) => { event.stopPropagation(); router.push('/seller/wholesale-orders'); }} className="w-full rounded-lg bg-white py-3 font-bold text-emerald-900 transition hover:-translate-y-0.5 hover:bg-emerald-50">Open Bulk Orders →</button></div>
           </div>
         </div>
 

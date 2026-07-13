@@ -129,9 +129,9 @@ export default function ReferralProgramPage() {
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border-l-4 border-green-500">
-            <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">Bonus Earned</p>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">Reward Points Earned</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ₦{stats.totalBonusEarned.toLocaleString()}
+              {stats.totalBonusEarned.toLocaleString()} pts
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               From completed referrals
@@ -139,8 +139,8 @@ export default function ReferralProgramPage() {
           </div>
 
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white shadow-sm">
-            <p className="text-blue-100 text-sm mb-2">Next Bonus</p>
-            <p className="text-3xl font-bold">₦2,500</p>
+            <p className="text-blue-100 text-sm mb-2">Next Reward</p>
+            <p className="text-3xl font-bold">2,500 pts</p>
             <p className="text-xs text-blue-200 mt-2">
               Bonuses are credited after a referred member qualifies
             </p>
@@ -249,7 +249,7 @@ export default function ReferralProgramPage() {
             <div>
               <p className="font-semibold text-amber-900 dark:text-amber-100 mb-3">Step 4: Bonus!</p>
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                Earn ₦2,500 credit + 2% of their first purchase value
+                Earn 2,500 reward points after their first paid purchase of ₦5,000 or more
               </p>
             </div>
           </div>
@@ -285,7 +285,7 @@ export default function ReferralProgramPage() {
                   <div className="text-right">
                     {referral.bonusEarned && (
                       <p className="font-semibold text-green-600 dark:text-green-400">
-                        +₦{referral.bonusEarned.toLocaleString()}
+                        +{referral.bonusEarned.toLocaleString()} pts
                       </p>
                     )}
                     <span

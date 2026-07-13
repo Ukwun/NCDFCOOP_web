@@ -39,8 +39,6 @@ export default function SocialSignInButtons({
   isLoading,
 }: SocialSignInButtonsProps) {
   const [hovered, setHovered] = useState<keyof BtnState | null>(null);
-  const facebookEnabled = process.env.NEXT_PUBLIC_FACEBOOK_AUTH_ENABLED === 'true';
-  const appleEnabled = process.env.NEXT_PUBLIC_APPLE_AUTH_ENABLED === 'true';
 
   const base: React.CSSProperties = {
     display: 'flex',
@@ -101,8 +99,8 @@ export default function SocialSignInButtons({
           <span>Continue with Google</span>
         </button>
 
-        {/* Facebook is shown only after its Firebase/provider credentials are enabled. */}
-        {facebookEnabled && <button
+        {/* Facebook */}
+        <button
           type="button"
           onClick={onFacebookSignIn}
           disabled={isLoading}
@@ -120,10 +118,10 @@ export default function SocialSignInButtons({
         >
           {isLoading ? <span className="ssb-spinner" /> : <FacebookLogo />}
           <span>Continue with Facebook</span>
-        </button>}
+        </button>
 
-        {/* Apple is shown only after its Firebase/provider credentials are enabled. */}
-        {appleEnabled && <button
+        {/* Apple */}
+        <button
           type="button"
           onClick={onAppleSignIn}
           disabled={isLoading}
@@ -141,7 +139,7 @@ export default function SocialSignInButtons({
         >
           {isLoading ? <span className="ssb-spinner" /> : <AppleLogo />}
           <span>Continue with Apple</span>
-        </button>}
+        </button>
 
       </div>
     </>

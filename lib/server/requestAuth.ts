@@ -12,6 +12,12 @@ export interface VerifiedRequestUser {
   sellerVerified?: boolean;
 }
 
+export interface VerifiedRequestIdentity {
+  uid: string;
+  email?: string;
+  operationalRoles: string[];
+}
+
 export const OPERATIONAL_ROLES = [
   USER_ROLES.SUPPORT_AGENT,
   USER_ROLES.DISPUTE_OFFICER,
@@ -35,6 +41,24 @@ function bearerToken(request: NextRequest): string | null {
   return match?.[1]?.trim() || null;
 }
 
+export async function verifyRequestIdentity(
+  request: NextRequest,
+): Promise<VerifiedRequestIdentity | null> {
+  const token = bearerToken(request);
+  if (!token) return null;
+
+  const decoded = await getAdminAuth().verifyIdToken(token, true);
+  return {
+    uid: decoded.uid,
+    email: decoded.email,
+    operationalRoles: Array.isArray(decoded.operationalRoles)
+      ? decoded.operationalRoles.filter(
+          (role): role is string => typeof role === 'string',
+        )
+      : [],
+  };
+}
+
 export function isInternalRequest(request: NextRequest): boolean {
   const expected = process.env.INTERNAL_API_SECRET;
   if (!expected) return false;
@@ -49,18 +73,15 @@ export function isInternalRequest(request: NextRequest): boolean {
 export async function verifyRequestUser(
   request: NextRequest
 ): Promise<VerifiedRequestUser | null> {
-  const token = bearerToken(request);
-  if (!token) return null;
+  const identity = await verifyRequestIdentity(request);
+  if (!identity) return null;
 
-  const decoded = await getAdminAuth().verifyIdToken(token);
-  const profile = await getAdminDb().collection('users').doc(decoded.uid).get();
+  const profile = await getAdminDb().collection('users').doc(identity.uid).get();
   const data = profile.data() || {};
   const roles = Array.isArray(data.roles)
     ? data.roles.filter((role): role is string => typeof role === 'string')
     : [];
-  const claimedRoles = Array.isArray(decoded.operationalRoles)
-    ? decoded.operationalRoles.filter((role): role is string => typeof role === 'string')
-    : [];
+  const claimedRoles = identity.operationalRoles;
   const operational = OPERATIONAL_ROLES.filter((role) => roles.includes(role));
   // Operational access requires agreement between the signed token and the
   // server-owned user profile. Public roles continue to use the profile only.
@@ -68,8 +89,8 @@ export async function verifyRequestUser(
   const effectiveRoles = roles.filter((role) => !OPERATIONAL_ROLES.includes(role as any)).concat(trustedOperational);
 
   return {
-    uid: decoded.uid,
-    email: decoded.email,
+    uid: identity.uid,
+    email: identity.email,
     roles: effectiveRoles,
     selectedRole:
       typeof data.selectedRole === 'string' ? data.selectedRole : undefined,

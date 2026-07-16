@@ -37,83 +37,20 @@ export default function CartScreen() {
       try {
         setLoading(true);
         setError(null);
-        if (user?.uid) {
-          const userCart = await getUserCart(user.uid);
+        if (!user?.uid) {
           if (active) {
-            setCart(userCart);
+            setCart(null);
+            setError('Sign in to view your saved cart.');
           }
-        } else {
-          // Use mock data if no user
-          if (active) {
-            setCart({
-            userId: '',
-            items: [
-              {
-                id: '1',
-                userId: '',
-                productId: '1',
-                productName: 'Fresh Vegetables Bundle',
-                price: 3500,
-                quantity: 2,
-                image: '🥗',
-                addedAt: { toDate: () => new Date() } as any,
-              },
-              {
-                id: '2',
-                userId: '',
-                productId: '2',
-                productName: 'Premium Grains',
-                price: 2500,
-                quantity: 1,
-                image: '🌾',
-                addedAt: { toDate: () => new Date() } as any,
-              },
-            ],
-            subtotal: 9500,
-            tax: 712.5,
-            shipping: 500,
-            total: 10712.5,
-            updatedAt: new Date(),
-            });
-          }
+          return;
         }
+        const userCart = await getUserCart(user.uid);
+        if (active) setCart(userCart);
       } catch (err) {
         console.error('Error fetching cart:', err);
         if (active) {
+          setCart(null);
           setError('Failed to load cart. Please try again.');
-        }
-        // Fallback to mock data
-        if (active) {
-          setCart({
-          userId: user?.uid || '',
-          items: [
-            {
-              id: '1',
-              userId: user?.uid || '',
-              productId: '1',
-              productName: 'Fresh Vegetables Bundle',
-              price: 3500,
-              quantity: 2,
-              image: '🥗',
-              addedAt: { toDate: () => new Date() } as any,
-            },
-            {
-              id: '2',
-              userId: user?.uid || '',
-              productId: '2',
-              productName: 'Premium Grains',
-              price: 2500,
-              quantity: 1,
-              image: '🌾',
-              addedAt: { toDate: () => new Date() } as any,
-            },
-          ],
-          subtotal: 9500,
-          tax: 712.5,
-          shipping: 500,
-          total: 10712.5,
-          updatedAt: new Date(),
-          });
         }
       } finally {
         if (active) {

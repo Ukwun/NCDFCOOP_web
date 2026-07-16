@@ -129,7 +129,7 @@ export function getPermissionsForRole(role: string): Permission[] {
       Permission.VIEW_ORDER_HISTORY,
       Permission.ADD_MONEY_TO_ACCOUNT,
     ],
-    coopMember: [
+    member: [
       Permission.VIEW_PRODUCTS,
       Permission.ADD_TO_CART,
       Permission.CHECKOUT,

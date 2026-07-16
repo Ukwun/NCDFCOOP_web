@@ -104,6 +104,21 @@ service cloud.firestore {
         ]);
     }
 
+    function isPendingProfileMaintenance() {
+      return hasPendingRoleProfile(resource.data) &&
+        hasPendingRoleProfile(request.resource.data) &&
+        request.resource.data.roles == resource.data.roles &&
+        request.resource.data.selectedRole == resource.data.selectedRole &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name',
+          'profilePicture',
+          'phone',
+          'address',
+          'onboardingCompleted',
+          'updatedAt'
+        ]);
+    }
+
     function hasOnlyPublicUserProfileFields(data) {
       return data.keys().hasOnly([
         'id',
@@ -154,6 +169,7 @@ service cloud.firestore {
 
       allow update: if isAdmin() ||
         (isOwner(userId) && isInitialRoleAssignment()) ||
+        (isOwner(userId) && isPendingProfileMaintenance()) ||
         (
           isOwner(userId) &&
           hasValidPublicRoles(request.resource.data) &&

@@ -64,23 +64,33 @@ export default function SellerDashboardHomeScreen() {
           price: p.price,
           viewCount: 0,
           addToCartCount: 0,
-          purchaseCount: 0,
+          purchaseCount: p.quantity,
           viewToCartRate: 0,
           cartToPurchaseRate: 0,
           reason: 'Seller inventory performance',
           score: Math.min(100, p.quantity),
         } as ProductPopularity));
       setTopProducts(top);
-      // Order trends (dummy: last 4 weeks)
-      setOrderTrends([12, 18, 22, 15]);
-      // Average order value (dummy)
-      setAvgOrderValue(15000);
       // Fetch recent orders for segmentation and escrow/payment status
       try {
         const orders = await getSellerRecentOrders(user.uid, 10);
         setRecentOrders(orders);
+        const orderTotal = orders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+        setAvgOrderValue(orders.length > 0 ? orderTotal / orders.length : 0);
+        const now = Date.now();
+        const week = 7 * 24 * 60 * 60 * 1000;
+        const weeklyCounts = [0, 0, 0, 0];
+        orders.forEach((order) => {
+          const raw = order.createdAt as any;
+          const createdAt = raw?.toDate?.() || (raw instanceof Date ? raw : new Date(raw || 0));
+          const bucket = 3 - Math.floor((now - createdAt.getTime()) / week);
+          if (bucket >= 0 && bucket < 4) weeklyCounts[bucket] += 1;
+        });
+        setOrderTrends(weeklyCounts);
       } catch {
         setRecentOrders([]);
+        setAvgOrderValue(0);
+        setOrderTrends([0, 0, 0, 0]);
       }
     };
     fetchAnalytics();
@@ -269,7 +279,7 @@ export default function SellerDashboardHomeScreen() {
               {topProducts.map((p) => (
                 <li key={p.productId} className="flex justify-between">
                   <span>{p.productName}</span>
-                  <span className="font-semibold">{p.purchaseCount} sales</span>
+                  <span className="font-semibold">{p.purchaseCount} units in stock</span>
                 </li>
               ))}
             </ul>

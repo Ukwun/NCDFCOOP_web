@@ -14,7 +14,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  deleteUser,
   signInWithPopup,
   signInWithRedirect,
   GoogleAuthProvider,
@@ -24,7 +23,7 @@ import {
   browserSessionPersistence,
   setPersistence,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, Timestamp, writeBatch } from "firebase/firestore";
+import { doc, setDoc, getDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import {
   COLLECTIONS,
@@ -78,13 +77,68 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function generateReferralCode(): string {
-  return `NCDF-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-}
-
 const LOCAL_ONBOARDING_KEY = "ncdfcoop_onboarding_completed";
 const LOCAL_ROLE_OVERRIDE_KEY = "selectedRoleOverride";
 const PENDING_ROLE = "pending_role";
+const PROFILE_REQUEST_TIMEOUT_MS = 12_000;
+const profileProvisioningRequests = new Map<string, Promise<void>>();
+
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(message)), milliseconds),
+    ),
+  ]);
+}
+
+async function requestCanonicalProfile(
+  currentUser: User,
+  name?: string,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const token = await currentUser.getIdToken(attempt > 0);
+      const response = await fetch("/api/auth/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: name || currentUser.displayName || "",
+          onboardingCompleted: getLocalOnboardingCompleted(),
+        }),
+        signal: AbortSignal.timeout(PROFILE_REQUEST_TIMEOUT_MS),
+      });
+      if (response.ok) return;
+      const payload = await response.json().catch(() => ({}));
+      const error = new Error(payload?.error || "Profile provisioning failed.");
+      if (response.status >= 400 && response.status < 500 && response.status !== 401) {
+        throw error;
+      }
+      lastError = error;
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 400 * 2 ** attempt));
+    }
+  }
+  throw lastError || new Error("Profile provisioning failed.");
+}
+
+function provisionCanonicalProfile(currentUser: User, name?: string): Promise<void> {
+  const existing = profileProvisioningRequests.get(currentUser.uid);
+  if (existing) return existing;
+  const request = requestCanonicalProfile(currentUser, name).finally(() => {
+    profileProvisioningRequests.delete(currentUser.uid);
+  });
+  profileProvisioningRequests.set(currentUser.uid, request);
+  return request;
+}
 
 async function attributeReferral(currentUser: User, referralCode?: string): Promise<void> {
   const normalized = String(referralCode || "").trim().toUpperCase();
@@ -202,50 +256,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!db) throw new Error("Firebase not initialized");
 
     const userRef = doc(db, COLLECTIONS.USERS, currentUser.uid);
-    const snapshot = await getDoc(userRef);
+    let snapshot = await withTimeout(
+      getDoc(userRef),
+      10_000,
+      "Your profile is taking too long to load. Check your connection and retry.",
+    );
     let profile = snapshot.data();
 
     const createdProfile = !profile;
     if (!profile) {
-      const localOnboarding = getLocalOnboardingCompleted();
-
-      profile = {
-        id: currentUser.uid,
-        email: currentUser.email,
-        name:
-          currentUser.displayName || currentUser.email?.split("@")[0] || "User",
-        roles: [],
-        selectedRole: PENDING_ROLE,
-        membershipType: PENDING_ROLE,
-        roleSelectionComplete: false,
-        onboardingCompleted: localOnboarding,
-        membershipStatus: "pending",
-        memberTier: MEMBER_TIERS.BRONZE,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        profilePicture: currentUser.photoURL || "",
-        phone: currentUser.phoneNumber || "",
-        address: "",
-        isActive: true,
-      };
-
-      await setDoc(userRef, profile);
-
-      const memberRef = doc(db, COLLECTIONS.MEMBERS, currentUser.uid);
-      const memberSnapshot = await getDoc(memberRef);
-      if (!memberSnapshot.exists()) {
-        await setDoc(memberRef, {
-          userId: currentUser.uid,
-          memberSince: Timestamp.now(),
-          loyaltyPoints: 0,
-          tier: MEMBER_TIERS.BRONZE,
-          totalPurchases: 0,
-          referralCode: generateReferralCode(),
-          isVerified: false,
-          isActive: false,
-          kycStatus: "pending",
-        });
-      }
+      await provisionCanonicalProfile(currentUser);
+      snapshot = await withTimeout(
+        getDoc(userRef),
+        10_000,
+        "Your profile was created but could not be loaded. Please sign in again.",
+      );
+      profile = snapshot.data();
+      if (!profile) throw new Error("Your profile could not be loaded after creation.");
     }
 
     if (createdProfile && referralCode) {
@@ -335,7 +362,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
           setCurrentRole(null);
           setRoleSelectionComplete(false);
-          setOnboardingCompleted(false);
+          setOnboardingCompleted(getLocalOnboardingCompleted());
           return;
         }
 
@@ -374,62 +401,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       const normalizedEmail = email.trim().toLowerCase();
       const normalizedName = name.trim() || normalizedEmail.split("@")[0];
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        normalizedEmail,
-        password,
+      const userCredential = await withTimeout(
+        createUserWithEmailAndPassword(auth, normalizedEmail, password),
+        20_000,
+        "Account creation is taking too long. Check your connection and try again.",
       );
       const uid = userCredential.user.uid;
 
-      await updateProfile(userCredential.user, {
-        displayName: normalizedName,
-      });
-
-      const now = Timestamp.now();
-      const signupBatch = writeBatch(db);
-
-      signupBatch.set(doc(db, COLLECTIONS.USERS, uid), {
-        id: uid,
-        email: normalizedEmail,
-        name: normalizedName,
-        roles: [],
-        selectedRole: PENDING_ROLE,
-        membershipType: PENDING_ROLE,
-        roleSelectionComplete: false,
-        onboardingCompleted: false,
-        membershipStatus: "pending",
-        memberTier: MEMBER_TIERS.BRONZE,
-        createdAt: now,
-        updatedAt: now,
-        profilePicture: "",
-        phone: "",
-        address: "",
-        isActive: true,
-      });
-
-      signupBatch.set(doc(db, COLLECTIONS.MEMBERS, uid), {
-        userId: uid,
-        memberSince: now,
-        loyaltyPoints: 0,
-        tier: MEMBER_TIERS.BRONZE,
-        totalPurchases: 0,
-        referralCode: generateReferralCode(),
-        isVerified: false,
-        isActive: false,
-        kycStatus: "pending",
-      });
+      try {
+        await updateProfile(userCredential.user, { displayName: normalizedName });
+      } catch (profileNameError) {
+        console.warn("Firebase display name update deferred:", profileNameError);
+      }
 
       try {
-        await signupBatch.commit();
+        await provisionCanonicalProfile(userCredential.user, normalizedName);
       } catch (profileError) {
         console.error("Signup profile write failed:", profileError);
-        try {
-          await deleteUser(userCredential.user);
-        } catch (cleanupError) {
-          console.error("Signup auth cleanup failed:", cleanupError);
-        }
         throw new Error(
-          "We could not finish creating your profile. Please try again.",
+          "Your account was created, but profile setup is temporarily unavailable. Sign in again to resume safely.",
         );
       }
 
@@ -454,7 +444,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setCurrentRole(null);
       setRoleSelectionComplete(false);
-      setOnboardingCompleted(false);
+      setOnboardingCompleted(localOnboarding);
       void logActivity(uid, "signup", {
         signupMethod: "password",
       });
@@ -477,10 +467,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         auth,
         rememberMe ? browserLocalPersistence : browserSessionPersistence,
       );
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email.trim().toLowerCase(),
-        password,
+      const userCredential = await withTimeout(
+        signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password),
+        20_000,
+        "Sign in is taking too long. Check your connection and try again.",
       );
       const destination = await hydrateSignedInIdentity(userCredential.user);
       void logActivity(userCredential.user.uid, "login", {
@@ -534,7 +524,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setCurrentRole(null);
       setRoleSelectionComplete(false);
-      setOnboardingCompleted(false);
+      setOnboardingCompleted(getLocalOnboardingCompleted());
     } catch (err: any) {
       setError(err?.message || "Failed to logout");
       throw err;
@@ -624,6 +614,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (err?.code === "auth/operation-not-allowed") {
       return `${providerName} sign-in is not enabled yet. Please contact support or sign in with email and password.`;
     }
+    if (err?.code === "auth/account-exists-with-different-credential") {
+      return "An account already exists with this email. Sign in using the original method, then link this provider from account settings.";
+    }
+    if (err?.code === "auth/network-request-failed") {
+      return "The authentication service could not be reached. Check your connection and try again.";
+    }
     return message;
   };
 
@@ -642,7 +638,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // If popup flow is blocked or not allowed, fallback to redirect flow
       if (
         err?.code === "auth/popup-blocked" ||
-        err?.code === "auth/unauthorized-domain" ||
         err?.code === "auth/popup-closed-by-user"
       ) {
         try {
@@ -677,7 +672,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fallback to redirect if popup is blocked or not permitted
       if (
         err?.code === "auth/popup-blocked" ||
-        err?.code === "auth/unauthorized-domain" ||
         err?.code === "auth/popup-closed-by-user"
       ) {
         try {
@@ -709,6 +703,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return destination;
     } catch (err: any) {
+      if (
+        err?.code === "auth/popup-blocked" ||
+        err?.code === "auth/popup-closed-by-user"
+      ) {
+        try {
+          if (referralCode) window.sessionStorage.setItem("pendingReferralCode", referralCode);
+          await signInWithRedirect(auth, provider);
+          return null;
+        } catch (redirectErr: any) {
+          const redirectMessage = normalizeSocialError(redirectErr, "Apple");
+          setError(redirectMessage);
+          throw new Error(redirectMessage);
+        }
+      }
       const errorMessage = normalizeSocialError(err, "Apple");
       setError(errorMessage);
       throw new Error(errorMessage);

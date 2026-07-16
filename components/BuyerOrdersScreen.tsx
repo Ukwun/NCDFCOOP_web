@@ -38,11 +38,25 @@ function BuyerOrdersScreen({ userId }: BuyerOrdersScreenProps) {
     const fetchAnalytics = async () => {
       const pattern = await AnalyticsService.getUserBehaviorPattern(userId);
       setBehavior(pattern);
-      // Dummy purchase trends (last 4 months)
-      setPurchaseTrends([2, 4, 3, 5]);
     };
-    fetchAnalytics();
+    void fetchAnalytics();
   }, [userId]);
+
+  useEffect(() => {
+    const now = new Date();
+    const monthKeys = Array.from({ length: 4 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (3 - index), 1);
+      return `${date.getFullYear()}-${date.getMonth()}`;
+    });
+    const counts = new Map(monthKeys.map((key) => [key, 0]));
+    orders.forEach((order) => {
+      const raw = order.createdAt;
+      const date = raw?.toDate?.() || (raw instanceof Date ? raw : new Date(raw || 0));
+      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      if (counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    setPurchaseTrends(monthKeys.map((key) => counts.get(key) || 0));
+  }, [orders]);
 
   const filteredOrders =
     filterStatus === 'all'

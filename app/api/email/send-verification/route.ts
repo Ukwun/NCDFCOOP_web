@@ -4,12 +4,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyRequestUser } from '@/lib/server/requestAuth';
+import { getAdminAuth } from '@/lib/firebase/admin';
 import { sendTransactionalEmail } from '@/lib/server/emailSender';
-
-interface VerificationPayload {
-  email: string;
-  verificationLink: string;
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,18 +14,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { email, verificationLink } = (await request.json()) as VerificationPayload;
-
-    if (!email || !verificationLink) {
-      return NextResponse.json(
-        { error: 'Missing email or verification link' },
-        { status: 400 }
-      );
-    }
-
-    if (email.trim().toLowerCase() !== user.email.toLowerCase()) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const appUrl = (
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.URL ||
+      request.nextUrl.origin
+    ).replace(/\/$/, '');
+    const verificationLink = await getAdminAuth().generateEmailVerificationLink(
+      user.email,
+      { url: `${appUrl}/signin`, handleCodeInApp: false },
+    );
 
     const html = `
       <!DOCTYPE html>

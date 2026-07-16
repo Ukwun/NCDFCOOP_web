@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 
 interface SocialSignInButtonsProps {
   onGoogleSignIn: () => void;
+  onFacebookSignIn: () => void;
+  onAppleSignIn: () => void;
   isLoading?: boolean;
 }
 
@@ -14,24 +16,28 @@ const GoogleLogo = () => (
   </svg>
 );
 
-export default function SocialSignInButtons({ onGoogleSignIn, isLoading }: SocialSignInButtonsProps) {
-  const [hovered, setHovered] = useState(false);
+const AppleLogo = () => (
+  <svg width="18" height="22" viewBox="0 0 814 1000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path fill="currentColor" d="M788 341c-6 4-108 62-108 190 0 148 130 201 134 203-1 3-21 72-69 142-43 61-87 123-155 123s-86-40-164-40c-76 0-104 41-166 41s-105-35-154-88C47 727 0 620 0 517c0-180 117-276 233-276 63 0 116 42 155 42 38 0 98-44 171-44 28 0 108 3 168 98zm-234-194c39-41 71-82 71-123 0-6-1-12-2-17-59 3-127 40-168 90-37 45-73 103-73 163 0 6 1 12 2 14 3 1 8 1 14 1 53 0 116-35 151-88z"/>
+  </svg>
+);
+
+export default function SocialSignInButtons({ onGoogleSignIn, onFacebookSignIn, onAppleSignIn, isLoading }: SocialSignInButtonsProps) {
+  const [hovered, setHovered] = useState<string | null>(null);
   return (
-    <button
-      type="button"
-      onClick={onGoogleSignIn}
-      disabled={isLoading}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 text-[15px] font-semibold text-gray-900 transition duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none"
-      style={{ boxShadow: hovered ? '0 4px 16px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.08)' }}
-    >
-      {isLoading ? (
-        <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" aria-label="Signing in" />
-      ) : (
-        <GoogleLogo />
-      )}
-      <span>Continue with Google</span>
-    </button>
+    <div className="flex flex-col gap-3">
+      <button type="button" onClick={onGoogleSignIn} disabled={isLoading} onMouseEnter={() => setHovered('google')} onMouseLeave={() => setHovered(null)} className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 text-[15px] font-semibold text-gray-900 transition duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none" style={{ boxShadow: hovered === 'google' ? '0 4px 16px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.08)' }}>
+        {isLoading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" aria-label="Signing in" /> : <GoogleLogo />}
+        <span>Continue with Google</span>
+      </button>
+      <button type="button" onClick={onFacebookSignIn} disabled={isLoading} onMouseEnter={() => setHovered('facebook')} onMouseLeave={() => setHovered(null)} className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#1877F2] px-5 py-3 text-[15px] font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-[#1565c0] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm font-black text-[#1877F2]" aria-hidden="true">f</span>
+        <span>Continue with Facebook</span>
+      </button>
+      <button type="button" onClick={onAppleSignIn} disabled={isLoading} onMouseEnter={() => setHovered('apple')} onMouseLeave={() => setHovered(null)} className="flex w-full items-center justify-center gap-3 rounded-xl bg-black px-5 py-3 text-[15px] font-semibold text-white transition duration-200 hover:-translate-y-0.5 hover:bg-gray-900 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transform-none">
+        <AppleLogo />
+        <span>Continue with Apple</span>
+      </button>
+    </div>
   );
 }

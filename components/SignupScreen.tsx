@@ -20,8 +20,6 @@ function SignUpContent() {
     roleSelectionComplete,
     signup,
     signInWithGoogle,
-    signInWithFacebook,
-    signInWithApple,
   } = useAuth();
 
   const [socialLoading, setSocialLoading] = useState(false);
@@ -33,30 +31,6 @@ function SignUpContent() {
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err.message || "Google sign-in failed");
-    } finally {
-      setSocialLoading(false);
-    }
-  };
-
-  const handleFacebookSignIn = async () => {
-    setSocialLoading(true);
-    try {
-      const destination = await signInWithFacebook(referralCode);
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err.message || "Facebook sign-in failed");
-    } finally {
-      setSocialLoading(false);
-    }
-  };
-
-  const handleAppleSignIn = async () => {
-    setSocialLoading(true);
-    try {
-      const destination = await signInWithApple(referralCode);
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err.message || "Apple sign-in failed");
     } finally {
       setSocialLoading(false);
     }
@@ -192,8 +166,6 @@ function SignUpContent() {
         {/* Social Auth Buttons */}
         <SocialSignInButtons
           onGoogleSignIn={handleGoogleSignIn}
-          onFacebookSignIn={handleFacebookSignIn}
-          onAppleSignIn={handleAppleSignIn}
           isLoading={socialLoading}
         />
 

@@ -58,6 +58,11 @@ export async function POST(
 
     const now = Timestamp.now();
     await db.runTransaction(async (transaction) => {
+      const latestSnapshot = await transaction.get(orderRef);
+      const latestOrder = latestSnapshot.data() || {};
+      if (String(latestOrder.status || 'pending').toLowerCase() !== currentStatus) {
+        throw new Error('ORDER_STATUS_CHANGED');
+      }
       transaction.update(orderRef, {
         status: nextStatus,
         updatedAt: now,
@@ -67,20 +72,35 @@ export async function POST(
         ...(notes ? { notes: String(notes).slice(0, 1000) } : {}),
         ...(nextStatus === 'delivered' ? { deliveryDate: now, sellerFundsCredited: true } : {}),
       });
-      if (nextStatus === 'delivered' && order.sellerFundsCredited !== true && order.paymentStatus === 'completed') {
-        const items = Array.isArray(order.items) ? order.items : [];
+      if (nextStatus === 'delivered' && latestOrder.sellerFundsCredited !== true && latestOrder.paymentStatus === 'completed') {
+        const items = Array.isArray(latestOrder.items) ? latestOrder.items : [];
         const allocations = new Map<string, number>();
         items.forEach((item: any) => {
-          const sellerId = String(item.sellerId || order.sellerId || '');
+          const sellerId = String(item.sellerId || latestOrder.sellerId || '');
           if (!sellerId) return;
-          const lineTotal = Number(item.total || item.subtotal || (Number(item.price || 0) * Number(item.quantity || 0)));
+          const lineTotal = Number(
+            item.sellerNetAmount ??
+              item.total ??
+              item.subtotal ??
+              (Number(item.price || 0) * Number(item.quantity || 0)),
+          );
           allocations.set(sellerId, (allocations.get(sellerId) || 0) + (Number.isFinite(lineTotal) ? lineTotal : 0));
         });
-        if (!allocations.size && order.sellerId) allocations.set(String(order.sellerId), Number(order.sellerNetAmount || order.totalAmount || order.total || 0));
+        if (!allocations.size && latestOrder.sellerId) allocations.set(String(latestOrder.sellerId), Number(latestOrder.sellerNetAmount || latestOrder.totalAmount || latestOrder.total || 0));
         allocations.forEach((amount, sellerId) => {
           transaction.set(db.collection('sellerBalances').doc(sellerId), { available: FieldValue.increment(amount), lifetimeEarned: FieldValue.increment(amount), updatedAt: now }, { merge: true });
           transaction.set(db.collection('sellerLedgerEntries').doc(), { sellerId, orderId: params.id, type: 'order_delivered', amount, createdAt: now });
         });
+        const platformCommissionAmount = Number(latestOrder.platformCommissionAmount || 0);
+        if (platformCommissionAmount > 0) {
+          transaction.set(db.collection('platformLedgerEntries').doc(), {
+            orderId: params.id,
+            type: 'seller_commission_earned',
+            amount: platformCommissionAmount,
+            commissionPercent: Number(latestOrder.sellerCommissionPercent || 0),
+            createdAt: now,
+          });
+        }
       }
       transaction.set(db.collection('notifications').doc(), {
         userId: String(order.userId || order.buyerId),
@@ -95,6 +115,12 @@ export async function POST(
 
     return NextResponse.json({ success: true, status: nextStatus });
   } catch (error: any) {
+    if (error?.message === 'ORDER_STATUS_CHANGED') {
+      return NextResponse.json(
+        { error: 'The order changed while this update was being processed. Refresh and try again.' },
+        { status: 409 },
+      );
+    }
     console.error('Order status update failed:', error?.code || error?.message);
     return NextResponse.json(
       { error: 'We could not update the order status.' },

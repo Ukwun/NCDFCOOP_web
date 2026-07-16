@@ -131,6 +131,12 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getAdminDb();
+    const commerceSettings = await db.collection('global_settings').doc('commerce').get();
+    const configuredCommission = Number(commerceSettings.data()?.sellerCommissionPercent);
+    const sellerCommissionPercent =
+      Number.isFinite(configuredCommission) && configuredCommission >= 0 && configuredCommission <= 30
+        ? Math.round(configuredCommission * 100) / 100
+        : 10;
     const productEntries = await Promise.all(
       Array.from(quantities.keys()).map(async (productId) => {
         const snapshot = await db.collection('products').doc(productId).get();
@@ -217,6 +223,20 @@ export async function POST(request: NextRequest) {
       paymentMethod !== 'cash_on_delivery';
     const prepaymentDiscount = prepaymentDiscountRequested ? money(grossSubtotal * 0.1) : 0;
     subtotal = money(grossSubtotal - prepaymentDiscount);
+    const discountRatio = grossSubtotal > 0 ? subtotal / grossSubtotal : 1;
+    const pricedItems = normalizedItems.map((item) => {
+      const sellerGrossAmount = money(Number(item.subtotal || 0) * discountRatio);
+      const platformCommissionAmount = money(
+        sellerGrossAmount * (sellerCommissionPercent / 100),
+      );
+      return {
+        ...item,
+        sellerGrossAmount,
+        platformCommissionPercent: sellerCommissionPercent,
+        platformCommissionAmount,
+        sellerNetAmount: money(sellerGrossAmount - platformCommissionAmount),
+      };
+    });
     const tax = money(subtotal * 0.1);
     const freeShippingThreshold = isActiveMember
       ? memberTier.freeShippingThreshold
@@ -233,13 +253,13 @@ export async function POST(request: NextRequest) {
           : null;
     const sellerIds = Array.from(
       new Set(
-        normalizedItems
-          .map((item) => String(item.sellerId || ''))
+        pricedItems
+          .map((item) => String(item['sellerId'] || ''))
           .filter(Boolean)
       )
     );
     const now = Timestamp.now();
-    const complianceStatus = isWholesaleBuyer && normalizedItems.some((item) => item.sellerVerified !== true)
+    const complianceStatus = isWholesaleBuyer && pricedItems.some((item) => item['sellerVerified'] !== true)
       ? 'awaiting_seller_kyc'
       : 'cleared';
     const initialStatus = complianceStatus === 'awaiting_seller_kyc'
@@ -279,7 +299,14 @@ export async function POST(request: NextRequest) {
         userId: user.uid,
         buyerId: user.uid,
         buyerEmail: user.email || '',
-        items: normalizedItems,
+        items: pricedItems,
+        sellerCommissionPercent,
+        platformCommissionAmount: money(
+          pricedItems.reduce((sum, item) => sum + Number(item.platformCommissionAmount || 0), 0),
+        ),
+        sellerNetAmount: money(
+          pricedItems.reduce((sum, item) => sum + Number(item.sellerNetAmount || 0), 0),
+        ),
         subtotal,
         grossSubtotal,
         prepaymentDiscount,

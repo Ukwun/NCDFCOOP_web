@@ -17,8 +17,6 @@ export default function SignInScreen() {
     roleSelectionComplete,
     login,
     signInWithGoogle,
-    signInWithFacebook,
-    signInWithApple,
   } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -53,32 +51,6 @@ export default function SignInScreen() {
       if (destination) router.replace(destination);
     } catch (err: any) {
       setError(err?.message || "Google sign-in failed.");
-    } finally {
-      setSocialLoading(false);
-    }
-  };
-
-  const handleFacebookSignIn = async () => {
-    setError("");
-    setSocialLoading(true);
-    try {
-      const destination = await signInWithFacebook();
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err?.message || "Facebook sign-in failed.");
-    } finally {
-      setSocialLoading(false);
-    }
-  };
-
-  const handleAppleSignIn = async () => {
-    setError("");
-    setSocialLoading(true);
-    try {
-      const destination = await signInWithApple();
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err?.message || "Apple sign-in failed.");
     } finally {
       setSocialLoading(false);
     }
@@ -193,8 +165,6 @@ export default function SignInScreen() {
           {/* Social Auth Buttons */}
           <SocialSignInButtons
             onGoogleSignIn={handleGoogleSignIn}
-            onFacebookSignIn={handleFacebookSignIn}
-            onAppleSignIn={handleAppleSignIn}
             isLoading={socialLoading}
           />
 

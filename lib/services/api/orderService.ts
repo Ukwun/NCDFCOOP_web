@@ -6,36 +6,15 @@
 import {
   collection,
   doc,
-  setDoc,
-  updateDoc,
   getDoc,
   getDocs,
   query,
   where,
   orderBy,
-  Timestamp,
 } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { COLLECTIONS } from '../../constants/database';
 import { ErrorHandler } from '../../error/errorHandler';
-
-export interface CreateOrderPayload {
-  buyerId: string;
-  buyerName: string;
-  buyerEmail: string;
-  items: Array<{
-    productId: string;
-    productName: string;
-    quantity: number;
-    price: number;
-    sellerId: string;
-    sellerName: string;
-  }>;
-  totalAmount: number;
-  shippingAddress: string;
-  paymentMethod: string;
-  notes?: string;
-}
 
 export interface UpdateOrderStatusPayload {
   orderId: string;
@@ -44,66 +23,7 @@ export interface UpdateOrderStatusPayload {
   notes?: string;
 }
 
-export interface UpdatePaymentStatusPayload {
-  orderId: string;
-  paymentStatus: 'unpaid' | 'paid' | 'refunded';
-  transactionId?: string;
-}
-
 class OrderService {
-  /**
-   * Create a new order
-   */
-  async createOrder(payload: CreateOrderPayload) {
-    try {
-      const orderId = `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      const orderData = {
-        ...payload,
-        status: 'pending',
-        paymentStatus: 'unpaid',
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      // Helper to remove undefined fields recursively (Firestore rejects undefined)
-      const sanitize = (input: any): any => {
-        if (input === undefined) return undefined;
-        if (input === null) return null;
-        if (Array.isArray(input)) return input.map((v) => sanitize(v)).filter((v) => v !== undefined);
-        if (typeof input === 'object' && !(input instanceof Timestamp)) {
-          const out: any = {};
-          Object.keys(input).forEach((k) => {
-            const v = input[k];
-            const s = sanitize(v);
-            if (s !== undefined) out[k] = s;
-          });
-          return out;
-        }
-        return input;
-      };
-
-      const sanitizedOrderData = sanitize(orderData);
-
-      const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-      await setDoc(orderRef, sanitizedOrderData);
-
-      // Create order items as a subcollection
-      const itemsRef = collection(orderRef, 'items');
-      for (const item of payload.items) {
-        const sanitizedItem = sanitize(item);
-        await setDoc(doc(itemsRef), sanitizedItem);
-      }
-
-      ErrorHandler.logInfo('ORDER_CREATED', `Order ${orderId} created successfully`);
-      return { id: orderId, ...orderData };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      ErrorHandler.logError('CREATE_ORDER_ERROR', err.message, 'error');
-      throw err;
-    }
-  }
-
   /**
    * Get order by ID
    */
@@ -146,33 +66,6 @@ class OrderService {
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       ErrorHandler.logError('UPDATE_ORDER_STATUS_ERROR', err.message, 'error');
-      throw err;
-    }
-  }
-
-  /**
-   * Update payment status
-   */
-  async updatePaymentStatus(payload: UpdatePaymentStatusPayload) {
-    try {
-      const orderRef = doc(db, COLLECTIONS.ORDERS, payload.orderId);
-
-      const updateData: any = {
-        paymentStatus: payload.paymentStatus,
-        updatedAt: Timestamp.now(),
-      };
-
-      if (payload.transactionId) {
-        updateData.transactionId = payload.transactionId;
-      }
-
-      await updateDoc(orderRef, updateData);
-
-      ErrorHandler.logInfo('PAYMENT_STATUS_UPDATED', `Order ${payload.orderId} payment status updated`);
-      return { success: true };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      ErrorHandler.logError('UPDATE_PAYMENT_STATUS_ERROR', err.message, 'error');
       throw err;
     }
   }
@@ -233,33 +126,6 @@ class OrderService {
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       ErrorHandler.logError('GET_SELLER_ORDERS_ERROR', err.message, 'error');
-      throw err;
-    }
-  }
-
-  /**
-   * Cancel order
-   */
-  async cancelOrder(orderId: string, reason?: string) {
-    try {
-      const orderRef = doc(db, COLLECTIONS.ORDERS, orderId);
-
-      const updateData: any = {
-        status: 'cancelled',
-        updatedAt: Timestamp.now(),
-      };
-
-      if (reason) {
-        updateData.cancellationReason = reason;
-      }
-
-      await updateDoc(orderRef, updateData);
-
-      ErrorHandler.logInfo('ORDER_CANCELLED', `Order ${orderId} has been cancelled`);
-      return { success: true };
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      ErrorHandler.logError('CANCEL_ORDER_ERROR', err.message, 'error');
       throw err;
     }
   }

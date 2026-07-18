@@ -1,4 +1,10 @@
-import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
+import {
+  App,
+  applicationDefault,
+  cert,
+  getApps,
+  initializeApp,
+} from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -86,9 +92,15 @@ export function getAdminApp(): App {
     return adminApp;
   }
 
-  // Falls back to GOOGLE_APPLICATION_CREDENTIALS / platform default credentials.
-  adminApp = initializeApp({ projectId });
-  return adminApp;
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    adminApp = initializeApp({
+      credential: applicationDefault(),
+      projectId,
+    });
+    return adminApp;
+  }
+
+  throw new Error('FIREBASE_ADMIN_NOT_CONFIGURED');
 }
 
 export function getAdminDb() {

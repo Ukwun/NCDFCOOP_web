@@ -1370,7 +1370,7 @@ export default function ProductDetailPage() {
         </section>
       </div>
 
-      <div className="sticky bottom-0 lg:hidden bg-white/95 dark:bg-gray-950/95 backdrop-blur border-t border-gray-200 dark:border-gray-800 p-3">
+      <div className="sticky bottom-0 border-t border-gray-200 bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur dark:border-gray-800 dark:bg-gray-950/95 lg:hidden">
         <div className="max-w-7xl mx-auto flex gap-2">
           <button
             onClick={handleAddToCart}

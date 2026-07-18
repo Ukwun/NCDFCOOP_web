@@ -6,8 +6,11 @@ import './globals.css';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'NCDFCOOP Commerce - Website Version',
-  description: 'NCDFCOOP Commerce Platform - Member-Focused E-Commerce',
+  title: {
+    default: 'NCDFCOOP Commerce',
+    template: '%s | NCDFCOOP Commerce',
+  },
+  description: 'A role-aware cooperative marketplace for members, sellers, and wholesale buyers.',
   icons: {
     icon: '/images/logo/NCDFCOOPLOGO.png',
     shortcut: '/images/logo/NCDFCOOPLOGO.png',

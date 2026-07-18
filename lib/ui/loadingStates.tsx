@@ -273,7 +273,7 @@ export const ToastContainer: React.FC<{
   toasts: Toast[];
   onRemove: (id: string) => void;
 }> = ({ toasts, onRemove }) => (
-  <div className="fixed bottom-4 right-4 space-y-2 max-w-sm">
+  <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 max-w-sm space-y-2">
     {toasts.map((toast) => (
       <ToastNotification
         key={toast.id}

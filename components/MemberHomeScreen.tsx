@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronRight, Heart, ShoppingCart, Store } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useMemberData } from '@/lib/hooks/useMemberData';
 import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
@@ -30,57 +30,6 @@ function sanitizeProductImage(url: string | undefined, category?: string): strin
   if (!url || url.includes('via.placeholder.com')) return fallback;
   return url;
 }
-
-const FALLBACK_CATEGORY_PANEL = [
-  { name: 'Agriculture, Food & Beverage', count: 126 },
-  { name: 'Raw Materials', count: 84 },
-  { name: 'Packaging & Logistics', count: 42 },
-  { name: 'Household Essentials', count: 67 },
-  { name: 'Member Cooperative Specials', count: 23 },
-];
-
-const FALLBACK_FREQUENT_SEARCHES = [
-  {
-    id: 'fallback-garri',
-    name: 'Fortified Garri Bulk Pack',
-    category: 'Agriculture, Food & Beverage',
-    price: 18400,
-    rating: 4.6,
-    reviews: 312,
-    image: '/images/Bag of garri1.png',
-    href: '/products?q=fortified%20garri',
-  },
-  {
-    id: 'fallback-rice',
-    name: 'Parboiled Rice 25kg Institutional',
-    category: 'Agriculture, Food & Beverage',
-    price: 31900,
-    rating: 4.7,
-    reviews: 221,
-    image: '/images/Buck wheat1.png',
-    href: '/products?q=parboiled%20rice%2025kg',
-  },
-  {
-    id: 'fallback-spaghetti',
-    name: 'Premium Spaghetti Carton Deal',
-    category: 'Household Essentials',
-    price: 22600,
-    rating: 4.4,
-    reviews: 188,
-    image: '/images/Household1.png',
-    href: '/products?q=spaghetti%20carton',
-  },
-  {
-    id: 'fallback-oil',
-    name: 'Red Palm Oil 25L Wholesale',
-    category: 'Raw Materials',
-    price: 27500,
-    rating: 4.5,
-    reviews: 163,
-    image: '/images/Groundnut oil1.png',
-    href: '/products?q=red%20palm%20oil',
-  },
-];
 
 export default function MemberHomeScreen() {
   const router = useRouter();
@@ -188,23 +137,58 @@ export default function MemberHomeScreen() {
       .slice(0, 8);
   }, [sanitizedCatalogProducts]);
 
-  const displayCategoryPanel = categoryPanel.length > 0 ? categoryPanel : FALLBACK_CATEGORY_PANEL;
-  const displayFrequentlySearched = frequentlySearched.length > 0
-    ? frequentlySearched.map((product) => ({
-        id: product.id,
-        name: product.name,
-        category: product.category,
-        price: Number(product.price || 0),
-        rating: product.rating || 4.0,
-        reviews: product.reviews || 0,
-        image: product.thumbnail || product.images?.[0] || '/images/Bag of garri1.png',
-        href: `/products/${product.id}`,
-      }))
-    : FALLBACK_FREQUENT_SEARCHES;
+  const displayCategoryPanel = categoryPanel;
+  const displayFrequentlySearched = frequentlySearched.map((product) => ({
+    id: product.id,
+    name: product.name,
+    category: product.category,
+    price: Number(product.price || 0),
+    rating: product.rating || 0,
+    reviews: product.reviews || 0,
+    image: product.thumbnail || product.images?.[0] || fallbackImageForCategory(product.category),
+    href: `/products/${product.id}`,
+  }));
 
   return (
     <div className="min-h-screen bg-[#F4F7FA] dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#0D3D63] via-[#0E527F] to-[#159A54] p-5 text-white shadow-lg sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] ring-1 ring-white/25">
+                <Store size={15} aria-hidden="true" />
+                Member marketplace
+              </span>
+              <h1 className="mt-4 text-2xl font-black sm:text-4xl">
+                Shop products from NCDF and verified sellers
+              </h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-blue-50 sm:text-base">
+                Browse live products, save favourites, add items to your cart and complete secure purchases using your member account.
+              </p>
+            </div>
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row lg:flex-col">
+              <Link
+                href="/member-products"
+                data-testid="member-open-marketplace"
+                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-base font-black text-[#0D3D63] shadow-md transition duration-200 hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                Browse Marketplace
+                <ArrowRight className="transition-transform group-hover:translate-x-1" size={20} aria-hidden="true" />
+              </Link>
+              <div className="grid grid-cols-2 gap-3">
+                <Link href="/favorites" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold ring-1 ring-white/25 transition hover:bg-white/20">
+                  <Heart size={17} aria-hidden="true" />
+                  Favourites
+                </Link>
+                <Link href="/cart" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold ring-1 ring-white/25 transition hover:bg-white/20">
+                  <ShoppingCart size={17} aria-hidden="true" />
+                  Cart
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -238,6 +222,11 @@ export default function MemberHomeScreen() {
                     </span>
                   </Link>
                 ))}
+                {!catalogLoading && displayCategoryPanel.length === 0 && (
+                  <p className="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    Categories will appear when sellers publish active products.
+                  </p>
+                )}
               </div>
             </aside>
 
@@ -269,7 +258,7 @@ export default function MemberHomeScreen() {
 
                 {!catalogLoading && displayFrequentlySearched.length === 0 && (
                   <div className="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-600 dark:border-gray-600 dark:text-gray-300">
-                    Search trend cards are temporarily unavailable.
+                    No active marketplace products are available yet. New seller listings will appear here automatically.
                   </div>
                 )}
               </div>

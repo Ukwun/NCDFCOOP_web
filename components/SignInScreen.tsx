@@ -91,12 +91,6 @@ export default function SignInScreen() {
         return;
       }
 
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters");
-        setIsLoading(false);
-        return;
-      }
-
       const destination = await login(email, password, rememberMe);
       router.replace(destination);
     } catch (err: any) {

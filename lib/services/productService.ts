@@ -8,88 +8,6 @@ import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { Product } from '@/lib/types/product';
 
-const FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: 'fallback_tomatoes',
-    name: 'Fresh Tomatoes (1kg)',
-    description: 'Farm-fresh tomatoes for everyday cooking and salads.',
-    type: 'both',
-    price: 850,
-    originalPrice: 1200,
-    category: 'vegetables',
-    images: ['/images/Tomatoes1.png'],
-    thumbnail: '/images/Tomatoes1.png',
-    stock: 245,
-    sellerId: 'seller_green_valley',
-    sellerName: 'Green Valley Farms',
-    rating: 4.8,
-    reviews: 324,
-    isFeatured: true,
-    unit: 'kg',
-    createdAt: new Date(),
-  },
-  {
-    id: 'fallback_grains',
-    name: 'Premium Grains Mix (5kg)',
-    description: 'Bulk grain pack for families and small businesses.',
-    type: 'wholesale',
-    price: 2500,
-    originalPrice: 3800,
-    category: 'grains',
-    images: ['/images/Buck wheat1.png'],
-    thumbnail: '/images/Buck wheat1.png',
-    stock: 142,
-    sellerId: 'seller_agri_coop',
-    sellerName: 'Agricultural Co-op',
-    rating: 4.9,
-    reviews: 521,
-    isFeatured: true,
-    unit: 'kg',
-    createdAt: new Date(),
-  },
-  {
-    id: 'fallback_greens',
-    name: 'Organic Leafy Greens Bundle',
-    description: 'Fresh spinach, kale, and lettuce bundle.',
-    type: 'retail',
-    price: 1200,
-    originalPrice: 1800,
-    category: 'vegetables',
-    images: ['/images/Groceries1.png'],
-    thumbnail: '/images/Groceries1.png',
-    stock: 187,
-    sellerId: 'seller_green_valley',
-    sellerName: 'Green Valley Farms',
-    rating: 4.7,
-    reviews: 298,
-    unit: 'bundle',
-    createdAt: new Date(),
-  },
-  {
-    id: 'fallback_palm_oil',
-    name: 'Premium Palm Oil (5L)',
-    description: 'Cold-pressed premium palm oil for cooking and trading.',
-    type: 'both',
-    price: 3200,
-    originalPrice: 4500,
-    category: 'oils',
-    images: ['/images/Groundnut oil1.png'],
-    thumbnail: '/images/Groundnut oil1.png',
-    stock: 89,
-    sellerId: 'seller_pure_oil',
-    sellerName: 'Pure Oil Producers',
-    rating: 4.9,
-    reviews: 645,
-    isFeatured: true,
-    unit: 'liter',
-    createdAt: new Date(),
-  },
-];
-
-function getFallbackProducts(limit: number): Product[] {
-  return FALLBACK_PRODUCTS.slice(0, limit);
-}
-
 export interface Offer {
   id: string;
   title: string;
@@ -164,8 +82,7 @@ export async function getOffersForTier(tier: string): Promise<Offer[]> {
 export async function getProducts(limitNumber: number = 20, type?: 'retail' | 'wholesale'): Promise<Product[]> {
   try {
     if (!db) {
-      const fallback = getFallbackProducts(limitNumber);
-      return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
+      return [];
     }
 
     // The status constraint is both the visibility boundary enforced by
@@ -188,15 +105,10 @@ export async function getProducts(limitNumber: number = 20, type?: 'retail' | 'w
       })
       .slice(0, limitNumber);
 
-    return products.length > 0 ? products : getFallbackProducts(limitNumber).filter(
-      (product) => !type || product.type === type || product.type === 'both'
-    );
+    return products;
   } catch (error) {
     console.error('Error fetching products:', error);
-    const fallback = getFallbackProducts(limitNumber);
-    return type
-      ? fallback.filter((product) => product.type === type || product.type === 'both')
-      : fallback;
+    throw error;
   }
 }
 
@@ -206,7 +118,7 @@ export async function getProducts(limitNumber: number = 20, type?: 'retail' | 'w
 export async function getProduct(productId: string): Promise<Product | null> {
   try {
     if (!db) {
-      return FALLBACK_PRODUCTS.find((product) => product.id === productId) || FALLBACK_PRODUCTS[0] || null;
+      return null;
     }
 
     const docSnap = await getDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
@@ -215,10 +127,10 @@ export async function getProduct(productId: string): Promise<Product | null> {
           id: docSnap.id,
           ...docSnap.data(),
         } as Product)
-      : FALLBACK_PRODUCTS.find((product) => product.id === productId) || null;
+      : null;
   } catch (error) {
     console.error('Error fetching product:', error);
-    return FALLBACK_PRODUCTS.find((product) => product.id === productId) || null;
+    throw error;
   }
 }
 
@@ -228,16 +140,14 @@ export async function getProduct(productId: string): Promise<Product | null> {
 export async function getProductsByCategory(category: string, type?: 'retail' | 'wholesale'): Promise<Product[]> {
   try {
     if (!db) {
-      const fallback = getFallbackProducts(100).filter((product) => product.category === category);
-      return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
+      return [];
     }
 
     const products = await getProducts(100, type);
     return products.filter((product) => product.category === category);
   } catch (error) {
     console.error('Error fetching category products:', error);
-    const fallback = getFallbackProducts(100).filter((product) => product.category === category);
-    return type ? fallback.filter(p => p.type === type || p.type === 'both') : fallback;
+    throw error;
   }
 }
 

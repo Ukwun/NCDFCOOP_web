@@ -460,6 +460,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     rememberMe = false,
   ): Promise<string> => {
+    let authenticatedUser: User;
+
     try {
       setError(null);
       if (!auth) throw new Error("Firebase not initialized");
@@ -472,11 +474,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         20_000,
         "Sign in is taking too long. Check your connection and try again.",
       );
-      const destination = await hydrateSignedInIdentity(userCredential.user);
-      void logActivity(userCredential.user.uid, "login", {
-        loginMethod: "password",
-      });
-      return destination;
+      authenticatedUser = userCredential.user;
     } catch (err: any) {
       // Sanitize error messages to not expose system details
       let errorMessage =
@@ -503,6 +501,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           "Too many failed login attempts. Please try again later.";
       }
 
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    try {
+      const destination = await hydrateSignedInIdentity(authenticatedUser);
+      void logActivity(authenticatedUser.uid, "login", {
+        loginMethod: "password",
+      });
+      return destination;
+    } catch (err) {
+      console.error("Authenticated account profile hydration failed:", err);
+      const errorMessage =
+        "Your credentials were accepted, but your account profile could not be loaded. Please retry shortly or contact support.";
       setError(errorMessage);
       throw new Error(errorMessage);
     }

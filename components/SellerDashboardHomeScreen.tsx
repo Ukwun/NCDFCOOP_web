@@ -30,20 +30,26 @@ export default function SellerDashboardHomeScreen() {
   const [orderTrends, setOrderTrends] = useState<number[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
+  const sellerNetForOrder = (order: any) => (Array.isArray(order.items) ? order.items : [])
+    .filter((item: any) => !item.sellerId || item.sellerId === user?.uid)
+    .reduce(
+      (sum: number, item: any) =>
+        sum + Number(item.sellerNetAmount ?? item.subtotal ?? (Number(item.price || 0) * Number(item.quantity || 0))),
+      0,
+    );
+
   // Calculate stats
   const stats = {
     total: products.length,
     pending: products.filter((p) => p.status === 'pending').length,
     approved: products.filter((p) => p.status === 'approved').length,
-    revenue: products
-      .filter((p) => p.status === 'approved')
-      .reduce((sum, p) => sum + (p.price * p.quantity * 0.1), 0), // Estimate 10% commission
+    revenue: recentOrders.reduce((sum, order) => sum + sellerNetForOrder(order), 0),
     retailRevenue: recentOrders
       .filter((o) => o.buyerType !== 'wholesale')
-      .reduce((sum, o) => sum + (o.totalAmount || 0), 0),
+      .reduce((sum, o) => sum + sellerNetForOrder(o), 0),
     wholesaleRevenue: recentOrders
       .filter((o) => o.buyerType === 'wholesale')
-      .reduce((sum, o) => sum + (o.totalAmount || 0), 0),
+      .reduce((sum, o) => sum + sellerNetForOrder(o), 0),
     rating: 4.8,
   };
 

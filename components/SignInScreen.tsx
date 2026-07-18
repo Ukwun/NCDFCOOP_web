@@ -59,29 +59,17 @@ export default function SignInScreen() {
   };
 
   const handleFacebookSignIn = async () => {
-    setError("");
-    setSocialLoading(true);
-    try {
-      const destination = await signInWithFacebook();
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err?.message || "Facebook sign-in failed.");
-    } finally {
-      setSocialLoading(false);
-    }
+    setError(""); setSocialLoading(true);
+    try { const destination = await signInWithFacebook(); if (destination) router.replace(destination); }
+    catch (err: any) { setError(err?.message || "Facebook sign-in failed."); }
+    finally { setSocialLoading(false); }
   };
 
   const handleAppleSignIn = async () => {
-    setError("");
-    setSocialLoading(true);
-    try {
-      const destination = await signInWithApple();
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err?.message || "Apple sign-in failed.");
-    } finally {
-      setSocialLoading(false);
-    }
+    setError(""); setSocialLoading(true);
+    try { const destination = await signInWithApple(); if (destination) router.replace(destination); }
+    catch (err: any) { setError(err?.message || "Apple sign-in failed."); }
+    finally { setSocialLoading(false); }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {

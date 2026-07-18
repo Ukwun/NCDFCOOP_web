@@ -35,6 +35,7 @@ interface RoleNavMode {
 
 const NAV_ICONS: Record<string, LucideIcon> = {
   home: Home,
+  marketplace: PackageSearch,
   investments: BarChart3,
   overview: LayoutDashboard,
   catalog: PackageSearch,
@@ -66,11 +67,18 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
     items: [
       { id: 'home', label: 'Home', icon: 'Ã°Å¸ÂÂ ', href: '/home', exactMatch: true },
       {
+        id: 'marketplace',
+        label: 'Marketplace',
+        icon: 'Marketplace',
+        href: '/member-products',
+        matchPrefixes: ['/member-products', '/products', '/cart', '/checkout', '/favorites'],
+      },
+      {
         id: 'investments',
         label: 'Investments',
         icon: 'Ã°Å¸â€œË†',
         href: '/member/investments',
-        matchPrefixes: ['/member/investments', '/member-benefits', '/member-products', '/my-rewards', '/member-voting', '/member-transparency'],
+        matchPrefixes: ['/member/investments', '/member-benefits', '/my-rewards', '/member-voting', '/member-transparency'],
       },
     ],
   },

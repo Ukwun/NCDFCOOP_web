@@ -40,26 +40,16 @@ function SignUpContent() {
 
   const handleFacebookSignIn = async () => {
     setSocialLoading(true);
-    try {
-      const destination = await signInWithFacebook(referralCode);
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err.message || "Facebook sign-in failed");
-    } finally {
-      setSocialLoading(false);
-    }
+    try { const destination = await signInWithFacebook(referralCode); if (destination) router.replace(destination); }
+    catch (err: any) { setError(err.message || "Facebook sign-in failed"); }
+    finally { setSocialLoading(false); }
   };
 
   const handleAppleSignIn = async () => {
     setSocialLoading(true);
-    try {
-      const destination = await signInWithApple(referralCode);
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err.message || "Apple sign-in failed");
-    } finally {
-      setSocialLoading(false);
-    }
+    try { const destination = await signInWithApple(referralCode); if (destination) router.replace(destination); }
+    catch (err: any) { setError(err.message || "Apple sign-in failed"); }
+    finally { setSocialLoading(false); }
   };
 
   const [fullName, setFullName] = useState("");

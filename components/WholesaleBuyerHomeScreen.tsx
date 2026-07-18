@@ -562,7 +562,7 @@ export default function WholesaleBuyerHomeScreen() {
       </div>
 
       {bannerMessage ? (
-        <div className="fixed bottom-5 left-1/2 z-50 w-[95%] max-w-lg -translate-x-1/2 rounded-xl border border-[#B6DCC6] bg-white px-4 py-3 shadow-lg dark:bg-gray-800">
+        <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-50 w-[95%] max-w-lg -translate-x-1/2 rounded-xl border border-[#B6DCC6] bg-white px-4 py-3 shadow-lg dark:bg-gray-800">
           <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 animate-in fade-in slide-in-from-bottom-2">
             <CircleCheck size={16} className="text-[#164A2E]" />
             <span>{bannerMessage}</span>
@@ -577,7 +577,7 @@ export default function WholesaleBuyerHomeScreen() {
       ) : null}
 
       {isQuoteOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-4 md:items-center animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:items-center md:pb-4 animate-in fade-in">
           <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-800">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Request Wholesale Quote</h3>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Share target quantity and price. Your request continues in supplier chat.</p>

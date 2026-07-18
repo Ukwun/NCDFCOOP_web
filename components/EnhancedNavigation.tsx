@@ -541,7 +541,7 @@ export default function EnhancedNavigation() {
       </nav>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden z-40">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-gray-700 dark:bg-gray-800 md:hidden">
         {hasMultipleRoles && (
           <div className="border-b border-gray-200 dark:border-gray-700 px-3 py-2">
             <button
@@ -579,8 +579,9 @@ export default function EnhancedNavigation() {
           <Link
             href="/favorites"
             className="flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors text-gray-600 dark:text-gray-400"
-            style={{ minWidth: `${100 / (navigationItems.length + 2)}%` }}
+            style={{ minWidth: `max(4.5rem, ${100 / (navigationItems.length + 2)}%)` }}
             aria-label="Open favorites"
+            aria-current={pathname === '/favorites' ? 'page' : undefined}
           >
             <span className="relative">
               <Heart size={18} />
@@ -596,8 +597,9 @@ export default function EnhancedNavigation() {
           <Link
             href={normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER && cartCount > 0 ? '/checkout' : '/cart'}
             className="flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors text-gray-600 dark:text-gray-400"
-            style={{ minWidth: `${100 / (navigationItems.length + 2)}%` }}
+            style={{ minWidth: `max(4.5rem, ${100 / (navigationItems.length + 2)}%)` }}
             aria-label="Open cart"
+            aria-current={pathname === '/cart' || pathname === '/checkout' ? 'page' : undefined}
           >
             <span className="relative">
               <ShoppingCart size={18} />
@@ -621,7 +623,8 @@ export default function EnhancedNavigation() {
                     ? navMode.accentClasses.active
                     : 'text-gray-600 dark:text-gray-400'
                 }`}
-                style={{ minWidth: `${100 / (navigationItems.length + 2)}%` }}
+                style={{ minWidth: `max(4.5rem, ${100 / (navigationItems.length + 2)}%)` }}
+                aria-current={isActive ? 'page' : undefined}
               >
                 <RoleNavIcon id={item.id} size={19} />
                 <span className="text-xs font-medium mt-1 text-center">{item.label}</span>
@@ -632,7 +635,7 @@ export default function EnhancedNavigation() {
       </nav>
 
       {/* Mobile Spacer */}
-      <div className="h-16 md:hidden"></div>
+      <div className="h-[calc(4rem+env(safe-area-inset-bottom))] md:hidden" aria-hidden="true"></div>
     </>
   );
 }

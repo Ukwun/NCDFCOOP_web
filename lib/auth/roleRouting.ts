@@ -30,6 +30,11 @@ export function getAuthenticatedLandingPath(
 ): string {
   const operationalRoles: string[] = [
     USER_ROLES.ADMIN,
+    USER_ROLES.SUPER_ADMIN,
+    USER_ROLES.SUPPORT_AGENT,
+    USER_ROLES.DISPUTE_OFFICER,
+    USER_ROLES.FINANCE_OPERATOR,
+    USER_ROLES.RISK_OFFICER,
     USER_ROLES.STAFF,
     USER_ROLES.OPERATOR,
   ];

@@ -16,6 +16,17 @@ import {
 } from "lucide-react";
 import { getRoleLandingPath } from "@/lib/auth/roleRouting";
 
+const OPERATIONAL_ROLES = new Set<string>([
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.SUPPORT_AGENT,
+  USER_ROLES.DISPUTE_OFFICER,
+  USER_ROLES.FINANCE_OPERATOR,
+  USER_ROLES.RISK_OFFICER,
+  USER_ROLES.STAFF,
+  USER_ROLES.OPERATOR,
+]);
+
 interface RoleOption {
   id: string;
   Icon: LucideIcon;
@@ -73,7 +84,7 @@ const ROLE_OPTIONS: RoleOption[] = [
 export default function RoleSelectionScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { selectRole, user, loading } = useAuth();
+  const { selectRole, user, loading, currentRole } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -83,8 +94,16 @@ export default function RoleSelectionScreen() {
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/signin");
+      return;
     }
-  }, [loading, router, user]);
+
+    const operationalRole =
+      (currentRole && OPERATIONAL_ROLES.has(currentRole) && currentRole) ||
+      user?.roles?.find((role) => OPERATIONAL_ROLES.has(role));
+    if (!loading && user && operationalRole) {
+      router.replace(getRoleLandingPath(operationalRole));
+    }
+  }, [currentRole, loading, router, user]);
 
   const guidanceMessage = useMemo(() => {
     const reason = searchParams.get("reason");
@@ -147,6 +166,25 @@ export default function RoleSelectionScreen() {
 
   if (!user) {
     return null;
+  }
+
+  const operationalRole =
+    (currentRole && OPERATIONAL_ROLES.has(currentRole) && currentRole) ||
+    user.roles?.find((role) => OPERATIONAL_ROLES.has(role));
+  if (operationalRole) {
+    return (
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: AppColors.background }}
+      >
+        <Loader2
+          className="animate-spin"
+          size={28}
+          color={AppColors.primary}
+          aria-label="Opening your operations dashboard"
+        />
+      </div>
+    );
   }
 
   return (

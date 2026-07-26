@@ -28,7 +28,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         currentUserDocExists() &&
-        currentRole() == 'admin';
+        currentRole() in ['admin', 'super_admin'];
     }
 
     function isSeller() {

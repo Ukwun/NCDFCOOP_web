@@ -2,17 +2,12 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Search, X } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/authContext";
 import { addDoc, collection, Timestamp } from "firebase/firestore";
-import { auth, db, storage } from "@/lib/firebase/config";
-import {
-  ref as storageRef,
-  uploadBytesResumable,
-  getDownloadURL,
-} from "firebase/storage";
+import { auth, db } from "@/lib/firebase/config";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { COLLECTIONS, USER_ROLES } from "@/lib/constants/database";
 import { AppColors, AppTextStyles } from "@/lib/theme";
@@ -53,8 +48,6 @@ export default function AddProductPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
-  const [categoryQuery, setCategoryQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
   const [confirmation, setConfirmation] = useState<{
     productId: string;
     status: "draft" | "pending";
@@ -77,14 +70,6 @@ export default function AddProductPage() {
   });
 
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
-
-  const visibleCategories = useMemo(() => {
-    const term = categoryFilter.trim().toLowerCase();
-    if (!term) return PRODUCT_CATEGORIES;
-    return PRODUCT_CATEGORIES.filter((category) =>
-      `${category.name} ${category.id}`.toLowerCase().includes(term),
-    );
-  }, [categoryFilter]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -333,7 +318,7 @@ export default function AddProductPage() {
       return;
     }
 
-    if (!storage || !auth) {
+    if (!auth) {
       setUploadError("Storage is not configured in this environment");
       return;
     }
@@ -343,8 +328,8 @@ export default function AddProductPage() {
       return;
     }
 
-    if (file.size >= 10 * 1024 * 1024) {
-      setUploadError("The image must be smaller than 10 MB.");
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("The image must be 5 MB or smaller.");
       return;
     }
 
@@ -378,74 +363,25 @@ export default function AddProductPage() {
         );
       }
 
-      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `product-images/${currentUser.uid}/${Date.now()}_${safeFileName}`;
-
-      // Log for debugging
-      console.log("[Image Upload] Path:", path);
-      console.log("[Image Upload] Auth UID:", currentUser.uid);
-      console.log("[Image Upload] File:", file.name, "|", file.size, "bytes");
-
-      const ref = storageRef(storage, path);
-      const uploadTask = uploadBytesResumable(ref, file);
-
-      await new Promise<void>((resolve, reject) => {
-        let timedOut = false;
-        const timeoutId = window.setTimeout(() => {
-          timedOut = true;
-          uploadTask.cancel();
-        }, 60_000);
-
-        uploadTask.on(
-          "state_changed",
-          (snapshot) => {
-            const percent = Math.round(
-              (snapshot.bytesTransferred / snapshot.totalBytes) * 100,
-            );
-            setUploadProgress(percent);
-          },
-          (err) => {
-            window.clearTimeout(timeoutId);
-            if (timedOut) {
-              reject(
-                new Error(
-                  "The image upload timed out. Check your connection and try again.",
-                ),
-              );
-              return;
-            }
-            console.error("[Image Upload] Error during upload:", err);
-            setUploadError(err instanceof Error ? err.message : String(err));
-            setIsUploading(false);
-            reject(err);
-          },
-          async () => {
-            window.clearTimeout(timeoutId);
-            try {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              console.log("[Image Upload] Success! URL:", url);
-
-              setFormData((prev) => ({
-                ...prev,
-                thumbnail: url,
-                images:
-                  prev.images && prev.images.length > 0
-                    ? [url, ...prev.images]
-                    : [url],
-              }));
-              setIsUploading(false);
-              setUploadProgress(100);
-              resolve();
-            } catch (getUrlErr) {
-              console.error(
-                "[Image Upload] Error getting download URL:",
-                getUrlErr,
-              );
-              reject(getUrlErr);
-            }
-          },
-        );
+      const uploadBody = new FormData();
+      uploadBody.append("image", file);
+      setUploadProgress(20);
+      const response = await fetch("/api/seller/product-images", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+        body: uploadBody,
       });
+      setUploadProgress(80);
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "The product image could not be uploaded.");
+      }
+      setFormData((prev) => ({
+        ...prev,
+        thumbnail: String(result.url),
+        images: [String(result.url), ...prev.images.filter((url) => url !== result.url)],
+      }));
+      setUploadProgress(100);
     } catch (err: unknown) {
       console.error("[Image Upload] Caught error:", err);
 
@@ -453,11 +389,7 @@ export default function AddProductPage() {
         typeof err === "object" && err !== null && "code" in err
           ? String(err.code)
           : "";
-      if (errorCode === "storage/unauthorized") {
-        setUploadError(
-          "Your upload session could not be verified. Refresh the page and sign in again. Seller approval is not required to upload product images.",
-        );
-      } else if (errorCode === "storage/object-not-found") {
+      if (errorCode === "storage/object-not-found") {
         setUploadError(
           "Storage bucket not found. Please check your Firebase configuration.",
         );
@@ -601,57 +533,20 @@ export default function AddProductPage() {
               >
                 Category *
               </label>
-              <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
-                <label className="relative block">
-                  <span className="sr-only">Search product categories</span>
-                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="search"
-                    value={categoryQuery}
-                    onChange={(event) => setCategoryQuery(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        setCategoryFilter(categoryQuery);
-                      }
-                    }}
-                    placeholder="Search categories"
-                    className="w-full rounded-xl border-2 border-slate-200 bg-white py-3 pl-10 pr-4 text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setCategoryFilter(categoryQuery)}
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-emerald-800 active:translate-y-0"
-                >
-                  <Search size={17} /> Search
-                </button>
-              </div>
-              <div className="relative mt-3">
+              <div className="relative mt-2">
                 <select
                   value={formData.category}
                   onChange={(event) => handleInputChange("category", event.target.value)}
                   className="w-full appearance-none rounded-xl border-2 border-slate-200 bg-white px-4 py-3 pr-10 text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
                 >
-                  {visibleCategories.length > 0 ? visibleCategories.map((category) => (
+                  {PRODUCT_CATEGORIES.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
                     </option>
-                  )) : (
-                    <option value={formData.category}>No matching category</option>
-                  )}
+                  ))}
                 </select>
                 <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">▼</span>
               </div>
-              {categoryFilter && (
-                <button
-                  type="button"
-                  onClick={() => { setCategoryFilter(""); setCategoryQuery(""); }}
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 transition hover:text-emerald-950"
-                >
-                  <X size={14} /> Clear category search
-                </button>
-              )}
               {fieldErrors.category && <p className={styles.fieldErrorText}>{fieldErrors.category}</p>}
             </div>
 

@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth/authContext';
 import {
   Conversation,
   Message,
+  markConversationRead,
   sendMessage,
   subscribeConversation,
   subscribeConversationMessages,
@@ -86,6 +87,18 @@ export default function MessageScreen() {
     ? selectedConversation?.participantNames?.[recipientId] || 'Marketplace user'
     : 'Conversation';
 
+  useEffect(() => {
+    if (
+      selectedChat &&
+      user?.uid &&
+      Number(selectedConversation?.unreadCounts?.[user.uid] || 0) > 0
+    ) {
+      void markConversationRead(selectedChat, user.uid).catch(() => {
+        setError('Messages are visible, but the unread badge could not be cleared.');
+      });
+    }
+  }, [selectedChat, selectedConversation?.unreadCounts, user?.uid]);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const content = message.trim();
@@ -113,7 +126,8 @@ export default function MessageScreen() {
           {loading ? <p className="p-5 text-sm text-slate-500">Loading conversations…</p> : conversations.length === 0 ? <div className="p-8 text-center text-sm text-slate-500">No conversations yet. Open chat from a product or inquiry.</div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{conversations.map((conversation) => {
             const otherId = conversation.participants.find((participant) => participant !== user?.uid) || '';
             const name = conversation.participantNames?.[otherId] || 'Marketplace user';
-            return <button key={conversation.id} onClick={() => setSelectedChat(conversation.id)} className={`w-full p-4 text-left transition hover:bg-emerald-50 dark:hover:bg-white/5 ${selectedChat === conversation.id ? 'bg-emerald-50 dark:bg-emerald-950/30' : ''}`}><p className="font-bold">{name}</p><p className="mt-0.5 text-xs font-medium text-emerald-700">{conversation.productName || 'Product inquiry'}</p><p className="mt-1 truncate text-sm text-slate-500">{conversation.lastMessage || 'Conversation opened'}</p></button>;
+            const unread = Math.max(0, Number(conversation.unreadCounts?.[user?.uid || ''] || 0));
+            return <button key={conversation.id} onClick={() => setSelectedChat(conversation.id)} className={`w-full p-4 text-left transition hover:bg-emerald-50 dark:hover:bg-white/5 ${selectedChat === conversation.id ? 'bg-emerald-50 dark:bg-emerald-950/30' : ''}`}><div className="flex items-center justify-between gap-3"><p className="truncate font-bold">{name}</p>{unread > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">{unread > 99 ? '99+' : unread}</span>}</div><p className="mt-0.5 text-xs font-medium text-emerald-700">{conversation.productName || 'Product inquiry'}</p><p className="mt-1 truncate text-sm text-slate-500">{conversation.lastMessage || 'Conversation opened'}</p></button>;
           })}</div>}
         </aside>
 

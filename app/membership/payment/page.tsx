@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
 import { auth } from "@/lib/firebase/config";
-
-const MEMBERSHIP_FEE = 5000;
+import {
+  getMembershipTier,
+  normalizeMembershipTier,
+} from "@/lib/membership/tiers";
+import { useMembershipPricing } from "@/lib/hooks/useMembershipPricing";
 
 function formatNaira(amount: number): string {
   return new Intl.NumberFormat("en-NG", {
@@ -19,7 +22,15 @@ function formatNaira(amount: number): string {
 
 export default function MembershipPaymentPage() {
   const { user, refreshUserData } = useAuth();
+  const userId = user?.uid;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedTier = normalizeMembershipTier(
+    searchParams.get("tier") || "bronze",
+  );
+  const selectedTierDefinition = getMembershipTier(selectedTier);
+  const { tiers, loading: pricingLoading } = useMembershipPricing();
+  const selectedPublicTier = tiers.find((tier) => tier.id === selectedTier);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -29,6 +40,7 @@ export default function MembershipPaymentPage() {
     reference: string;
     amount: number;
     currency: string;
+    membershipTier: string;
   } | null>(null);
 
   useEffect(() => {
@@ -39,7 +51,7 @@ export default function MembershipPaymentPage() {
           minute: "2-digit",
           second: "2-digit",
           hour12: false,
-        })
+        }),
       );
     };
 
@@ -49,7 +61,7 @@ export default function MembershipPaymentPage() {
   }, []);
 
   useEffect(() => {
-    if (!user || !auth?.currentUser) return;
+    if (!userId || !auth?.currentUser) return;
 
     let cancelled = false;
     const preparePayment = async () => {
@@ -57,18 +69,47 @@ export default function MembershipPaymentPage() {
         setLoading(true);
         setError("");
         const token = await auth.currentUser?.getIdToken();
-        const response = await fetch('/api/membership/intent', {
-          method: 'POST',
+        const response = await fetch("/api/membership/intent", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({ tier: selectedTier }),
         });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload?.error || 'Payment could not be prepared.');
-        if (!cancelled) setPaymentIntent(payload);
-      } catch (intentError: any) {
-        if (!cancelled) setError(intentError?.message || 'Payment could not be prepared.');
+        const payload = (await response.json().catch(() => ({}))) as {
+          reference?: string;
+          amount?: number;
+          currency?: string;
+          membershipTier?: string;
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(payload?.error || "Payment could not be prepared.");
+        if (
+          !payload.reference ||
+          !payload.amount ||
+          !payload.currency ||
+          !payload.membershipTier
+        ) {
+          throw new Error("The membership payment response was incomplete.");
+        }
+        if (!cancelled) {
+          setPaymentIntent({
+            reference: payload.reference,
+            amount: payload.amount,
+            currency: payload.currency,
+            membershipTier: payload.membershipTier,
+          });
+        }
+      } catch (intentError: unknown) {
+        if (!cancelled) {
+          setError(
+            intentError instanceof Error
+              ? intentError.message
+              : "Payment could not be prepared.",
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -78,7 +119,7 @@ export default function MembershipPaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [selectedTier, userId]);
 
   if (!user) {
     return (
@@ -99,13 +140,20 @@ export default function MembershipPaymentPage() {
             </Link>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900">Membership Payment</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Membership Payment
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
             Sign in to securely complete your membership activation.
           </p>
 
           <div className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">
-            Membership fee: <strong>{formatNaira(MEMBERSHIP_FEE)}</strong>
+            {selectedTierDefinition.name} membership:{" "}
+            <strong>
+              {selectedPublicTier
+                ? formatNaira(selectedPublicTier.subscriptionPrice)
+                : "Loading current price…"}
+            </strong>
           </div>
 
           <Link
@@ -120,21 +168,24 @@ export default function MembershipPaymentPage() {
   }
 
   const flutterwavePublicKey =
-    process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || process.env.NEXT_PUBLIC_FLUTTERWAVE_KEY;
+    process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY ||
+    process.env.NEXT_PUBLIC_FLUTTERWAVE_KEY;
 
-  const onPaymentSuccess = async (paymentResponse: any) => {
+  const onPaymentSuccess = async (paymentResponse: {
+    transaction_id?: string | number;
+  }) => {
     setError("");
     setLoading(true);
 
     try {
       const token = await auth?.currentUser?.getIdToken();
       if (!token || !paymentIntent || !paymentResponse?.transaction_id) {
-        throw new Error('Payment verification details are incomplete.');
+        throw new Error("Payment verification details are incomplete.");
       }
-      const response = await fetch('/api/membership/verify', {
-        method: 'POST',
+      const response = await fetch("/api/membership/verify", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -143,14 +194,19 @@ export default function MembershipPaymentPage() {
         }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || 'Membership verification failed.');
+      if (!response.ok)
+        throw new Error(payload?.error || "Membership verification failed.");
 
       setSuccess(true);
       await refreshUserData();
       closePaymentModal();
       router.push("/member-benefits");
-    } catch (paymentError: any) {
-      setError(paymentError?.message || "Payment was received, but verification is still pending. Contact support with your transaction reference.");
+    } catch (paymentError: unknown) {
+      setError(
+        paymentError instanceof Error
+          ? paymentError.message
+          : "Payment was received, but verification is still pending. Contact support with your transaction reference.",
+      );
     } finally {
       setLoading(false);
     }
@@ -192,23 +248,38 @@ export default function MembershipPaymentPage() {
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900">Complete Membership Payment</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Complete Membership Payment
+          </h1>
           <p className="mt-1 text-sm text-gray-600">
-            Activate your NCDFCOOP member account instantly after successful payment.
+            Activate your NCDFCOOP member account instantly after successful
+            payment.
           </p>
 
           <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium text-emerald-900">Membership Plan</p>
-                <p className="text-xs text-emerald-800">One-time activation, no hidden charges</p>
+                <p className="text-sm font-medium text-emerald-900">
+                  {selectedTierDefinition.name} Membership
+                </p>
+                <p className="text-xs text-emerald-800">
+                  One-time activation · server-locked price
+                </p>
               </div>
-              <p className="text-xl font-bold text-emerald-900">{formatNaira(MEMBERSHIP_FEE)}</p>
+              <p className="text-xl font-bold text-emerald-900">
+                {paymentIntent
+                  ? formatNaira(paymentIntent.amount)
+                  : selectedPublicTier
+                    ? formatNaira(selectedPublicTier.subscriptionPrice)
+                    : "—"}
+              </p>
             </div>
           </div>
 
           {error ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
           ) : null}
 
           {success ? (
@@ -219,15 +290,16 @@ export default function MembershipPaymentPage() {
 
           {!flutterwavePublicKey ? (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              Payment is temporarily unavailable because Flutterwave is not configured.
+              Payment is temporarily unavailable because Flutterwave is not
+              configured.
             </div>
-          ) : !paymentIntent ? (
+          ) : !paymentIntent || pricingLoading ? (
             <button
               type="button"
               disabled
               className="mt-5 w-full rounded-lg bg-gray-300 px-4 py-3 text-sm font-semibold text-gray-600"
             >
-              {loading ? 'Preparing secure payment...' : 'Payment unavailable'}
+              {loading ? "Preparing secure payment..." : "Payment unavailable"}
             </button>
           ) : (
             <FlutterWaveButton
@@ -242,12 +314,16 @@ export default function MembershipPaymentPage() {
               }}
               customizations={{
                 title: "NCDFCOOP Membership Payment",
-                description: "Unlock exclusive member benefits",
+                description: `Activate ${selectedTierDefinition.name} member benefits`,
                 logo: "/images/logo/NCDFCOOPLOGO.png",
               }}
               callback={onPaymentSuccess}
               onClose={() => undefined}
-              text={loading ? "Processing..." : `Pay ${formatNaira(MEMBERSHIP_FEE)} Now`}
+              text={
+                loading
+                  ? "Processing..."
+                  : `Pay ${formatNaira(paymentIntent.amount)} Now`
+              }
               disabled={loading}
               className="mt-5 w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-70"
             />

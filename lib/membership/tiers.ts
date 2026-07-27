@@ -1,4 +1,4 @@
-export type MembershipTier = 'bronze' | 'silver' | 'gold' | 'platinum';
+export type MembershipTier = "bronze" | "silver" | "gold" | "platinum";
 
 export interface MembershipTierDefinition {
   id: MembershipTier;
@@ -12,48 +12,48 @@ export interface MembershipTierDefinition {
 
 export const MEMBERSHIP_TIERS: MembershipTierDefinition[] = [
   {
-    id: 'bronze',
-    name: 'Bronze',
+    id: "bronze",
+    name: "Bronze",
     minimumSpend: 0,
     discountPercentage: 5,
     pointsPerHundredNaira: 1,
     freeShippingThreshold: 50_000,
-    supportLabel: 'Member support',
+    supportLabel: "Member support",
   },
   {
-    id: 'silver',
-    name: 'Silver',
+    id: "silver",
+    name: "Silver",
     minimumSpend: 200_000,
     discountPercentage: 10,
     pointsPerHundredNaira: 2,
     freeShippingThreshold: 5_000,
-    supportLabel: 'Priority support',
+    supportLabel: "Priority support",
   },
   {
-    id: 'gold',
-    name: 'Gold',
+    id: "gold",
+    name: "Gold",
     minimumSpend: 500_000,
     discountPercentage: 15,
     pointsPerHundredNaira: 3,
     freeShippingThreshold: 0,
-    supportLabel: 'Dedicated support',
+    supportLabel: "Dedicated support",
   },
   {
-    id: 'platinum',
-    name: 'Platinum',
+    id: "platinum",
+    name: "Platinum",
     minimumSpend: 1_000_000,
     discountPercentage: 20,
     pointsPerHundredNaira: 4,
     freeShippingThreshold: 0,
-    supportLabel: 'VIP support',
+    supportLabel: "VIP support",
   },
 ];
 
 export function normalizeMembershipTier(value?: string): MembershipTier {
-  const normalized = String(value || '').toLowerCase();
+  const normalized = String(value || "").toLowerCase();
   return MEMBERSHIP_TIERS.some((tier) => tier.id === normalized)
     ? (normalized as MembershipTier)
-    : 'bronze';
+    : "bronze";
 }
 
 export function getMembershipTier(value?: string): MembershipTierDefinition {
@@ -61,16 +61,28 @@ export function getMembershipTier(value?: string): MembershipTierDefinition {
   return MEMBERSHIP_TIERS.find((tier) => tier.id === normalized)!;
 }
 
-export function membershipTierForSpend(totalSpent: number): MembershipTierDefinition {
+export function membershipTierForSpend(
+  totalSpent: number,
+): MembershipTierDefinition {
   return [...MEMBERSHIP_TIERS]
     .reverse()
     .find((tier) => totalSpent >= tier.minimumSpend)!;
 }
 
-export function applyMemberDiscount(
-  amount: number,
-  tier?: string
-): number {
+export function highestMembershipTier(
+  left?: string,
+  right?: string,
+): MembershipTierDefinition {
+  const leftTier = normalizeMembershipTier(left);
+  const rightTier = normalizeMembershipTier(right);
+  const leftIndex = MEMBERSHIP_TIERS.findIndex((tier) => tier.id === leftTier);
+  const rightIndex = MEMBERSHIP_TIERS.findIndex(
+    (tier) => tier.id === rightTier,
+  );
+  return MEMBERSHIP_TIERS[Math.max(leftIndex, rightIndex)];
+}
+
+export function applyMemberDiscount(amount: number, tier?: string): number {
   const discount = getMembershipTier(tier).discountPercentage;
   return Math.round(amount * (1 - discount / 100) * 100) / 100;
 }

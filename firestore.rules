@@ -527,7 +527,9 @@ service cloud.firestore {
     // ============================================
     match /global_settings/{docId} {
       allow read: if true;
-      allow create, update, delete: if isAdmin();
+      // Commerce prices and commissions are written only by server routes
+      // after Firebase token/claim verification. Firebase Admin bypasses rules.
+      allow create, update, delete: if isAdmin() && docId != 'commerce';
     }
 
     // ============================================

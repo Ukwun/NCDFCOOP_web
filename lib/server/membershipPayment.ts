@@ -1,36 +1,46 @@
-import { randomBytes } from 'crypto';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { randomBytes } from "crypto";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { getAdminDb } from "@/lib/firebase/admin";
+import {
+  getMembershipTier,
+  normalizeMembershipTier,
+} from "@/lib/membership/tiers";
 
 export async function completeMembershipPayment(input: {
   reference: string;
   providerTransactionId: string | number;
   providerStatus: string;
-}): Promise<{ userId: string; membershipCode: string; alreadyCompleted: boolean }> {
+}): Promise<{
+  userId: string;
+  membershipCode: string;
+  alreadyCompleted: boolean;
+}> {
   const db = getAdminDb();
-  const paymentRef = db.collection('transactions').doc(input.reference);
+  const paymentRef = db.collection("transactions").doc(input.reference);
 
   return db.runTransaction(async (transaction) => {
     const paymentSnapshot = await transaction.get(paymentRef);
-    if (!paymentSnapshot.exists) throw new Error('TRANSACTION_NOT_FOUND');
+    if (!paymentSnapshot.exists) throw new Error("TRANSACTION_NOT_FOUND");
 
     const payment = paymentSnapshot.data() || {};
-    if (payment.type !== 'membership_activation' || !payment.userId) {
-      throw new Error('TRANSACTION_INVALID');
+    if (payment.type !== "membership_activation" || !payment.userId) {
+      throw new Error("TRANSACTION_INVALID");
     }
-    if (payment.status === 'completed') {
+    if (payment.status === "completed") {
       return {
         userId: String(payment.userId),
-        membershipCode: String(payment.membershipCode || ''),
+        membershipCode: String(payment.membershipCode || ""),
         alreadyCompleted: true,
       };
     }
 
     const userId = String(payment.userId);
-    const membershipCode = `NCDF-${randomBytes(4).toString('hex').toUpperCase()}`;
+    const membershipTier = normalizeMembershipTier(payment.membershipTier);
+    const membershipTierDefinition = getMembershipTier(membershipTier);
+    const membershipCode = `NCDF-${randomBytes(4).toString("hex").toUpperCase()}`;
     const now = Timestamp.now();
     transaction.update(paymentRef, {
-      status: 'completed',
+      status: "completed",
       membershipCode,
       providerTransactionId: String(input.providerTransactionId),
       providerStatus: input.providerStatus,
@@ -38,23 +48,27 @@ export async function completeMembershipPayment(input: {
       updatedAt: now,
     });
     transaction.set(
-      db.collection('users').doc(userId),
+      db.collection("users").doc(userId),
       {
-        roles: FieldValue.arrayUnion('member'),
-        membershipStatus: 'active',
-        memberTier: 'bronze',
+        roles: FieldValue.arrayUnion("member"),
+        membershipStatus: "active",
+        memberTier: membershipTier,
+        membershipPlanTier: membershipTier,
+        membershipSubscriptionPrice: Number(payment.amount || 0),
         membershipCode,
         membershipPaidAt: now,
         updatedAt: now,
       },
-      { merge: true }
+      { merge: true },
     );
     transaction.set(
-      db.collection('members').doc(userId),
+      db.collection("members").doc(userId),
       {
         userId,
         isActive: true,
-        tier: 'bronze',
+        tier: membershipTier,
+        membershipPlanTier: membershipTier,
+        membershipSubscriptionPrice: Number(payment.amount || 0),
         loyaltyPoints: FieldValue.increment(0),
         rewardsPoints: FieldValue.increment(0),
         totalSpent: FieldValue.increment(0),
@@ -62,15 +76,15 @@ export async function completeMembershipPayment(input: {
         memberSince: now,
         updatedAt: now,
       },
-      { merge: true }
+      { merge: true },
     );
-    transaction.set(db.collection('notifications').doc(), {
+    transaction.set(db.collection("notifications").doc(), {
       userId,
-      title: 'Membership activated',
-      message: 'Your NCDF COOP member benefits are now active.',
-      type: 'membership',
+      title: "Membership activated",
+      message: `Your ${membershipTierDefinition.name} NCDF COOP member benefits are now active.`,
+      type: "membership",
       read: false,
-      data: { membershipCode },
+      data: { membershipCode, membershipTier },
       createdAt: now,
     });
 

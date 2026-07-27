@@ -2,8 +2,9 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
 import { useAuth } from "@/lib/auth/authContext";
 import {
   collection,
@@ -21,6 +22,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { COLLECTIONS, USER_ROLES } from "@/lib/constants/database";
 import { AppColors, AppTextStyles } from "@/lib/theme";
 import Image from "next/image";
+import { resolveProductImage } from "@/lib/utils/productImage";
 
 interface SellerProduct {
   id: string;
@@ -30,7 +32,8 @@ interface SellerProduct {
   originalPrice?: number;
   stock: number;
   category: string;
-  thumbnail: string;
+  thumbnail?: string;
+  images?: string[];
   sellerId: string;
   sellerName: string;
   rating: number;
@@ -52,6 +55,18 @@ export default function SellerProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStock, setEditStock] = useState<number>(0);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const visibleProducts = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return products;
+    return products.filter((product) =>
+      [product.name, product.description, product.category, product.status]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term)),
+    );
+  }, [products, searchTerm]);
 
   // Keep inventory live so saves and moderation changes appear immediately.
   useEffect(() => {
@@ -253,7 +268,33 @@ export default function SellerProductsPage() {
 
       {/* Statistics */}
       <div className="max-w-7xl mx-auto flex flex-col px-4 sm:px-6 lg:px-8 py-5">
-        <div className="order-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+        <form
+          className="order-1 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row dark:border-slate-700 dark:bg-slate-800"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSearchTerm(searchInput);
+          }}
+        >
+          <label className="relative flex-1">
+            <span className="sr-only">Search your uploaded products</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={19} />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(event) => {
+                setSearchInput(event.target.value);
+                if (!event.target.value) setSearchTerm("");
+              }}
+              placeholder="Search your products by name, category, or status"
+              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-slate-950 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+            />
+          </label>
+          <button type="submit" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 font-bold text-white transition hover:-translate-y-0.5 hover:bg-emerald-800 active:translate-y-0">
+            <Search size={18} /> Search
+          </button>
+        </form>
+
+        <div className="order-5 grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
           {/* Total Products */}
           <div
             className="p-6 rounded-lg border-2"
@@ -268,7 +309,7 @@ export default function SellerProductsPage() {
                 color: AppColors.textSecondary,
               }}
             >
-              📦 Active Products
+              Products uploaded
             </p>
             <p
               style={{
@@ -335,26 +376,24 @@ export default function SellerProductsPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="order-2 mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg">
+          <div className="order-2 mt-4 p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg">
             {error}
           </div>
         )}
 
-        <div className="order-3 mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-          <p className="font-bold">Your seller publishing access is active.</p>
+        <div className="order-3 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <p className="font-bold">Your seller submission access is active.</p>
           <p className="mt-1">
-            Published retail listings appear for members, wholesale listings
-            appear in the bulk catalog, and products marked both appear in both
-            marketplaces. Identity verification adds a trust badge and is
-            required for payout clearance, but it does not block product
-            publishing.
+            Every new listing is visible here immediately with its uploaded
+            image, then enters verification before it can appear to members or
+            institutional buyers. Approval updates this page in real time.
           </p>
         </div>
 
         {/* Empty State */}
         {products.length === 0 && (
           <div
-            className="order-1 rounded-lg p-12 text-center border-2"
+            className="order-4 mt-4 rounded-lg p-12 text-center border-2"
             style={{
               backgroundColor: AppColors.surface,
               borderColor: AppColors.border,
@@ -379,10 +418,16 @@ export default function SellerProductsPage() {
           </div>
         )}
 
+        {products.length > 0 && visibleProducts.length === 0 && (
+          <div className="order-4 mt-4 rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            No uploaded products match “{searchTerm}”.
+          </div>
+        )}
+
         {/* Products Table */}
-        {products.length > 0 && (
+        {visibleProducts.length > 0 && (
           <div
-            className="order-1 rounded-lg border-2 overflow-hidden"
+            className="order-4 mt-4 rounded-lg border-2 overflow-hidden"
             style={{
               backgroundColor: AppColors.surface,
               borderColor: AppColors.border,
@@ -445,7 +490,7 @@ export default function SellerProductsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product) => (
+                  {visibleProducts.map((product) => (
                     <tr
                       key={product.id}
                       style={{
@@ -459,9 +504,9 @@ export default function SellerProductsPage() {
                           className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity duration-200"
                           onClick={() => router.push(`/products/${product.id}`)}
                         >
-                          {product.thumbnail && (
+                          {(product.thumbnail || product.images?.[0]) && (
                             <Image
-                              src={product.thumbnail}
+                              src={resolveProductImage(product.thumbnail || product.images?.[0])}
                               alt={product.name}
                               width={60}
                               height={60}

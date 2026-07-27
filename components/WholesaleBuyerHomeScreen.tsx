@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Boxes, ChartBar, ChevronRight, CircleCheck, Filter, Minus, Plus, Search, ShieldCheck, ShoppingCart, Truck } from 'lucide-react';
+import { Bell, Boxes, ChartBar, ChevronRight, CircleCheck, Filter, Minus, Plus, ShieldCheck, ShoppingCart, Truck } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
 import { useUtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
 import { getProducts } from '@/lib/services/productService';
@@ -36,7 +36,6 @@ export default function WholesaleBuyerHomeScreen() {
   const { activeOrders, completedOrders, totalSpent } = useBuyerOrders(user?.uid || '');
   const [wholesaleProducts, setWholesaleProducts] = useState<Product[]>([]);
 
-  const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [inStockOnly, setInStockOnly] = useState(false);
   const [desiredQuantities, setDesiredQuantities] = useState<Record<string, number>>({});
@@ -128,22 +127,15 @@ export default function WholesaleBuyerHomeScreen() {
   }, [wholesaleProducts]);
 
   const filteredProducts = useMemo(() => {
-    const query = searchText.toLowerCase();
     return wholesaleProducts
       .filter((product) => {
-        const matchesSearch =
-          query.length === 0 ||
-          product.name.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query) ||
-          product.sellerName.toLowerCase().includes(query);
-
         const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
         const matchesStock = !inStockOnly || product.stock > 0;
 
-        return matchesSearch && matchesCategory && matchesStock;
+        return matchesCategory && matchesStock;
       })
       .sort((a, b) => savingsPerUnit(b) - savingsPerUnit(a));
-  }, [wholesaleProducts, inStockOnly, searchText, selectedCategory]);
+  }, [wholesaleProducts, inStockOnly, selectedCategory]);
 
   const recentProducts = useMemo(() => {
     if (recentProductIds.length === 0) return [] as Product[];
@@ -293,35 +285,6 @@ export default function WholesaleBuyerHomeScreen() {
           <ModeTab label="Orders" isActive={false} onClick={() => router.push('/wholesale/orders')} />
         </div>
 
-        <section className="rounded-2xl border border-[#B6DCC6] bg-white dark:bg-gray-800 p-3 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <div className="flex flex-1 items-center gap-2 rounded-xl border border-[#CBE4D6] bg-[#F8FCFA] px-3 py-2">
-              <Search size={18} className="text-gray-500" />
-              <input
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Search products, SKUs, or suppliers"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
-              />
-              {searchText ? (
-                <button
-                  type="button"
-                  onClick={() => setSearchText('')}
-                  className="rounded-md px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-100"
-                >
-                  Clear
-                </button>
-              ) : null}
-            </div>
-            <button
-              onClick={() => router.push(`/products${searchText ? `?q=${encodeURIComponent(searchText)}` : ''}`)}
-              className="rounded-xl bg-[#164A2E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#113924]"
-            >
-              Search
-            </button>
-          </div>
-        </section>
-
         <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <MetricCard
             icon={<ShoppingCart size={16} />}
@@ -464,7 +427,7 @@ export default function WholesaleBuyerHomeScreen() {
             <Filter size={14} /> In-stock only
           </button>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            {searchText ? `Filtered by "${searchText}"` : 'Showing top wholesale opportunities'}
+            Showing top wholesale opportunities
           </p>
           <p className="text-sm font-semibold text-[#164A2E] dark:text-[#8FD8AE] ml-auto">
             Total spend: {formatCurrency(totalSpent)}

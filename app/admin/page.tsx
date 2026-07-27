@@ -188,7 +188,7 @@ export default function AdminPage() {
       requiredRoles={[USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]}
     >
       <div className="min-h-screen bg-slate-950 text-slate-100">
-        <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
+        <header className="sticky top-14 z-20 border-b border-white/10 bg-slate-950/90 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">

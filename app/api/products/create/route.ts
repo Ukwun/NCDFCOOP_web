@@ -72,13 +72,10 @@ export async function POST(request: NextRequest) {
       profile.sellerVerified === true ||
       profile.sellerStatus === "approved" ||
       profile.kycStatus === "verified";
-    // Verified sellers can publish immediately. Unverified sellers submit to
-    // the admin review queue; no browser-controlled field can bypass this.
-    const status = requestedDraft
-      ? "draft"
-      : sellerVerified
-        ? "live"
-        : "pending";
+    // Every seller submission enters the same review queue. Seller identity
+    // verification remains a trust and payout signal, but it cannot bypass
+    // product quality/compliance moderation.
+    const status = requestedDraft ? "draft" : "pending";
     const images = Array.isArray(body.images)
       ? body.images
           .filter((image: unknown) => typeof image === "string")
@@ -111,13 +108,10 @@ export async function POST(request: NextRequest) {
       rating: 0,
       reviews: 0,
       isFeatured: false,
-      isActive: status === "live",
+      isActive: false,
       requiresReview: status === "pending",
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-      ...(status === "live"
-        ? { publishedAt: FieldValue.serverTimestamp() }
-        : {}),
     };
 
     const document = await db.collection("products").add(product);
@@ -126,11 +120,9 @@ export async function POST(request: NextRequest) {
         id: document.id,
         status,
         message:
-          status === "live"
-            ? "Product published successfully."
-            : status === "pending"
-              ? "Product submitted for admin review."
-              : "Product saved as a draft.",
+          status === "pending"
+            ? "Product submitted and is currently under verification."
+            : "Product saved as a draft.",
       },
       { status: 201 },
     );

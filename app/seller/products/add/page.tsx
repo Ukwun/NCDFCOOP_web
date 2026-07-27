@@ -2,8 +2,9 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CheckCircle2, Search, X } from "lucide-react";
 import { useAuth } from "@/lib/auth/authContext";
 import { addDoc, collection, Timestamp } from "firebase/firestore";
 import { auth, db, storage } from "@/lib/firebase/config";
@@ -52,6 +53,13 @@ export default function AddProductPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [confirmation, setConfirmation] = useState<{
+    productId: string;
+    status: "draft" | "pending";
+    message: string;
+  } | null>(null);
 
   const [formData, setFormData] = useState<ProductForm>({
     name: "",
@@ -69,6 +77,14 @@ export default function AddProductPage() {
   });
 
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+
+  const visibleCategories = useMemo(() => {
+    const term = categoryFilter.trim().toLowerCase();
+    if (!term) return PRODUCT_CATEGORIES;
+    return PRODUCT_CATEGORIES.filter((category) =>
+      `${category.name} ${category.id}`.toLowerCase().includes(term),
+    );
+  }, [categoryFilter]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -192,11 +208,11 @@ export default function AddProductPage() {
         stock: finalStockValue,
         unit: formData.unit,
         maxOrder: 100,
-        status: publish ? "live" : "draft",
-        publishedAt: publish ? timestampValue : undefined,
-        images:
-          formData.images.length > 0
-            ? formData.images
+        status: publish ? "pending" : "draft",
+        images: formData.images.length > 0
+          ? Array.from(new Set(formData.images))
+          : formData.thumbnail
+            ? [formData.thumbnail]
             : ["/images/Groceries1.png"],
         thumbnail: formData.thumbnail || "/images/Groceries1.png",
         sellerId: user.uid,
@@ -205,7 +221,8 @@ export default function AddProductPage() {
         rating: 4.5,
         reviews: 0,
         isFeatured: false,
-        isActive: true,
+        isActive: false,
+        requiresReview: publish,
         createdAt: timestampValue,
         updatedAt: timestampValue,
       };
@@ -233,10 +250,13 @@ export default function AddProductPage() {
           collection(db, COLLECTIONS.PRODUCTS),
           fallbackProduct,
         );
-        alert(
-          `${publish ? "Product submitted for admin review." : "Product saved as a draft."}\nProduct ID: ${fallbackRef.id}`,
-        );
-        router.push("/seller/products");
+        setConfirmation({
+          productId: fallbackRef.id,
+          status: publish ? "pending" : "draft",
+          message: publish
+            ? "Your product has been submitted and is currently under verification."
+            : "Your product has been saved as a draft.",
+        });
       };
 
       if (!canUseFirebaseBackend) {
@@ -280,9 +300,13 @@ export default function AddProductPage() {
         }
 
         const json = await resp.json();
-        const successMsg = `${json.message || "Product saved successfully."}\nProduct ID: ${json.id}`;
-        alert(successMsg);
-        router.push("/seller/products");
+        setConfirmation({
+          productId: String(json.id),
+          status: json.status === "draft" ? "draft" : "pending",
+          message: json.message || (publish
+            ? "Your product has been submitted and is currently under verification."
+            : "Your product has been saved as a draft."),
+        });
         return;
       } catch (apiErr) {
         console.error("Server-side product save failed:", apiErr);
@@ -476,13 +500,12 @@ export default function AddProductPage() {
               List a new product for sale. Fill in all details below.
             </p>
             <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-              <p className="font-bold">
-                You are cleared to publish as a seller.
-              </p>
+              <p className="font-bold">All new listings are reviewed before going live.</p>
               <p className="mt-1">
-                Publish Now makes the listing live immediately. Choose retail
-                for members, wholesale for institutional buyers, or both for
-                both marketplaces.
+                Submit for Verification sends the listing to the admin review
+                queue. Retail products appear to members after approval,
+                wholesale products appear to institutional buyers, and listings
+                marked both appear in both marketplaces.
               </p>
             </div>
           </div>
@@ -506,7 +529,7 @@ export default function AddProductPage() {
               e.preventDefault();
               saveProduct(false);
             }}
-            className={`${styles.formContainer} bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 space-y-6`}
+            className={`${styles.formContainer} space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-lg sm:p-8`}
           >
             {/* Product Name */}
             <div className={styles.formGroup}>
@@ -574,23 +597,58 @@ export default function AddProductPage() {
               >
                 Category *
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                {PRODUCT_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => handleInputChange("category", cat.id)}
-                    className={`${styles.categoryButton} p-4 rounded-lg border-2 transition-all ${
-                      formData.category === cat.id
-                        ? `${styles.categoryButtonSelected} border-blue-600`
-                        : "border-gray-300 dark:border-gray-600 hover:border-blue-300"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{cat.emoji}</div>
-                    <div className="text-xs font-semibold">{cat.name}</div>
-                  </button>
-                ))}
+              <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+                <label className="relative block">
+                  <span className="sr-only">Search product categories</span>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    type="search"
+                    value={categoryQuery}
+                    onChange={(event) => setCategoryQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        setCategoryFilter(categoryQuery);
+                      }
+                    }}
+                    placeholder="Search categories"
+                    className="w-full rounded-xl border-2 border-slate-200 bg-white py-3 pl-10 pr-4 text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter(categoryQuery)}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-emerald-800 active:translate-y-0"
+                >
+                  <Search size={17} /> Search
+                </button>
               </div>
+              <div className="relative mt-3">
+                <select
+                  value={formData.category}
+                  onChange={(event) => handleInputChange("category", event.target.value)}
+                  className="w-full appearance-none rounded-xl border-2 border-slate-200 bg-white px-4 py-3 pr-10 text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+                >
+                  {visibleCategories.length > 0 ? visibleCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  )) : (
+                    <option value={formData.category}>No matching category</option>
+                  )}
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-500">▼</span>
+              </div>
+              {categoryFilter && (
+                <button
+                  type="button"
+                  onClick={() => { setCategoryFilter(""); setCategoryQuery(""); }}
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-800 transition hover:text-emerald-950"
+                >
+                  <X size={14} /> Clear category search
+                </button>
+              )}
+              {fieldErrors.category && <p className={styles.fieldErrorText}>{fieldErrors.category}</p>}
             </div>
 
             {/* Product Type */}
@@ -876,7 +934,7 @@ export default function AddProductPage() {
                 }}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Leave blank for default placeholder image
+                Uploaded images are stored with this listing and remain visible while it is under verification.
               </p>
 
               <div className="mt-3">
@@ -922,18 +980,17 @@ export default function AddProductPage() {
                   />
                 ) : (
                   <div className="flex h-56 items-center justify-center px-4 text-sm text-gray-500 dark:text-gray-400">
-                    Product image preview will appear here when you paste a
-                    valid URL.
+                    Upload an image or paste a valid image URL to preview the exact image buyers will see.
                   </div>
                 )}
               </div>
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-4 pt-6">
+            <div className="flex flex-col gap-3 pt-6 sm:flex-row sm:gap-4">
               <button
                 type="button"
-                onClick={() => router.back()}
+                onClick={() => router.push("/seller/products")}
                 disabled={isSaving || isUploading}
                 className={`${styles.cancelButton} flex-1 px-4 py-3 rounded-lg border-2 font-bold transition-all`}
                 style={{
@@ -974,10 +1031,10 @@ export default function AddProductPage() {
                 }}
               >
                 {isSaving
-                  ? "⏳ Publishing…"
+                  ? "Submitting..."
                   : isUploading
-                    ? "📤 Uploading…"
-                    : "🚀 Publish Now"}
+                    ? "Uploading..."
+                    : "Submit for Verification"}
               </button>
             </div>
           </form>
@@ -1003,6 +1060,38 @@ export default function AddProductPage() {
             </ul>
           </div>
         </div>
+
+        {confirmation && (
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-confirmation-title"
+          >
+            <div className={`${styles.successModal} w-full max-w-md rounded-3xl border border-emerald-200 bg-white p-6 text-center shadow-2xl sm:p-8`}>
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <CheckCircle2 size={36} strokeWidth={2.2} />
+              </div>
+              <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-emerald-700">
+                {confirmation.status === "pending" ? "Submission received" : "Draft saved"}
+              </p>
+              <h2 id="product-confirmation-title" className="mt-2 text-2xl font-black text-slate-950">
+                {confirmation.status === "pending" ? "Your product is under verification" : "Your product draft is ready"}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{confirmation.message}</p>
+              <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500">
+                Reference: {confirmation.productId}
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/seller/products")}
+                className="mt-6 min-h-12 w-full rounded-xl bg-emerald-700 px-5 font-bold text-white transition hover:-translate-y-0.5 hover:bg-emerald-800 hover:shadow-lg active:translate-y-0"
+              >
+                View My Products
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   );

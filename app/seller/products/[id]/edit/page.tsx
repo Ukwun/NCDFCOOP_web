@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { doc, getDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { deleteField, doc, getDoc, Timestamp, updateDoc } from "firebase/firestore";
 import { ArrowLeft, Loader2, PackageCheck, Save } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -124,7 +124,9 @@ export default function SellerProductEditPage() {
       setSaving(true);
       setError("");
       const nextStatus =
-        product.status === "rejected" ? "draft" : product.status;
+        product.status === "draft" || product.status === "rejected"
+          ? "draft"
+          : "pending";
       await updateDoc(doc(db, COLLECTIONS.PRODUCTS, params.id), {
         name,
         description,
@@ -135,8 +137,9 @@ export default function SellerProductEditPage() {
         stock,
         unit: product.unit.trim().slice(0, 50) || "unit",
         status: nextStatus,
-        isActive: nextStatus === "live",
+        isActive: false,
         requiresReview: nextStatus === "pending",
+        publishedAt: deleteField(),
         updatedAt: Timestamp.now(),
       });
       router.push("/seller/products");
@@ -173,8 +176,9 @@ export default function SellerProductEditPage() {
                 Edit product
               </h1>
               <p className="mt-2 text-sm text-emerald-100">
-                Saved changes synchronize with your seller inventory. Rejected
-                products return to draft so you can resubmit them.
+                Saved changes synchronize with your seller inventory. Changes
+                to pending or live listings return to verification before
+                buyers can see the updated product.
               </p>
             </header>
 

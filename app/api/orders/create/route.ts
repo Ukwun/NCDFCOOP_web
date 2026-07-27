@@ -10,6 +10,8 @@ import {
 } from '@/lib/membership/tiers';
 import { sendOrderReceipt } from '@/lib/server/orderEmail';
 import { resolveProductImage } from '@/lib/utils/productImage';
+import type { Product } from '@/lib/types/product';
+import { applyOfferPrice, getActiveProductOffer } from '@/lib/utils/productOffer';
 
 type PaymentMethod = 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
 
@@ -40,7 +42,7 @@ function money(value: unknown): number {
 }
 
 function resolveUnitPrice(
-  product: Record<string, any>,
+  product: Partial<Product>,
   quantity: number,
   isWholesaleBuyer: boolean,
   activeMemberTier?: string
@@ -48,31 +50,38 @@ function resolveUnitPrice(
   const retailPrice = money(
     product.price || product.retailPrice || product.originalPrice
   );
+  let basePrice = retailPrice;
 
   if (
-    !isWholesaleBuyer ||
-    !['wholesale', 'both'].includes(String(product.type || 'retail'))
+    isWholesaleBuyer &&
+    ['wholesale', 'both'].includes(String(product.type || 'retail'))
   ) {
-    return activeMemberTier
-      ? applyMemberDiscount(retailPrice, activeMemberTier)
-      : retailPrice;
+    const bulkPrices = Array.isArray(product.bulkPrices)
+      ? product.bulkPrices
+          .filter(
+            (row) =>
+              money(row?.price) > 0 &&
+              quantity >= Number(row?.minQuantity || 0) &&
+              (!row?.maxQuantity || quantity <= Number(row.maxQuantity))
+          )
+          .sort(
+            (left, right) =>
+              Number(right.minQuantity || 0) - Number(left.minQuantity || 0)
+          )
+      : [];
+    basePrice = money(bulkPrices[0]?.price || product.wholesalePrice || retailPrice);
   }
 
-  const bulkPrices = Array.isArray(product.bulkPrices)
-    ? product.bulkPrices
-        .filter(
-          (row: any) =>
-            money(row?.price) > 0 &&
-            quantity >= Number(row?.minQuantity || 0) &&
-            (!row?.maxQuantity || quantity <= Number(row.maxQuantity))
-        )
-        .sort(
-          (left: any, right: any) =>
-            Number(right.minQuantity || 0) - Number(left.minQuantity || 0)
-        )
-    : [];
-
-  return money(bulkPrices[0]?.price || product.wholesalePrice || retailPrice);
+  const buyerRole = isWholesaleBuyer
+    ? USER_ROLES.INSTITUTIONAL_BUYER
+    : USER_ROLES.MEMBER;
+  const activeOffer = getActiveProductOffer(product as Product, buyerRole);
+  const offeredPrice = activeOffer
+    ? applyOfferPrice(basePrice, activeOffer.discountPercentage)
+    : basePrice;
+  return activeMemberTier
+    ? applyMemberDiscount(offeredPrice, activeMemberTier)
+    : offeredPrice;
 }
 
 function validateAddress(serializedAddress: string): boolean {
@@ -169,6 +178,7 @@ export async function POST(request: NextRequest) {
       const minimum = isWholesaleBuyer
         ? Number(product.minOrderQuantity || product.minOrder || 1)
         : 1;
+      const maximum = Number(product.maxOrder || stock || 0);
       const unitPrice = resolveUnitPrice(
         product,
         quantity,
@@ -186,6 +196,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error: `${product.name || 'This product'} requires a minimum quantity of ${minimum}.`,
+          },
+          { status: 409 }
+        );
+      }
+      if (maximum > 0 && quantity > maximum) {
+        return NextResponse.json(
+          {
+            error: `${product.name || 'This product'} allows a maximum quantity of ${maximum}.`,
           },
           { status: 409 }
         );
@@ -405,15 +423,19 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    if (error?.message === 'INVENTORY_CHANGED') {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : '';
+    const errorCode = typeof error === 'object' && error && 'code' in error
+      ? String(error.code)
+      : '';
+    if (errorMessage === 'INVENTORY_CHANGED') {
       return NextResponse.json(
         { error: 'Inventory changed while checking out. Review your cart and try again.' },
         { status: 409 }
       );
     }
 
-    console.error('Order creation failed:', error?.code || error?.message);
+    console.error('Order creation failed:', errorCode || errorMessage);
     return NextResponse.json(
       { error: 'We could not create the order. Please try again.' },
       { status: 500 }

@@ -100,6 +100,28 @@ export default function ProductDetailPage() {
       ? applyMemberDiscount(offeredPrice, user.memberTier)
       : offeredPrice;
   };
+  const getEffectivePriceForQuantity = (targetProduct: Product, role: string | undefined, quantity: number) => {
+    let basePrice = getBaseEffectivePrice(targetProduct, role);
+    if (
+      role === USER_ROLES.INSTITUTIONAL_BUYER &&
+      (targetProduct.type === 'wholesale' || targetProduct.type === 'both')
+    ) {
+      const bulkTier = [...(targetProduct.bulkPrices || [])]
+        .filter((tier) =>
+          quantity >= tier.minQuantity &&
+          (!tier.maxQuantity || quantity <= tier.maxQuantity),
+        )
+        .sort((left, right) => right.minQuantity - left.minQuantity)[0];
+      if (bulkTier?.price && bulkTier.price > 0) {
+        basePrice = bulkTier.price;
+      }
+    }
+    const offer = getActiveProductOffer(targetProduct, role);
+    const offeredPrice = offer ? applyOfferPrice(basePrice, offer.discountPercentage) : basePrice;
+    return role === USER_ROLES.MEMBER && user?.membershipStatus === 'active'
+      ? applyMemberDiscount(offeredPrice, user.memberTier)
+      : offeredPrice;
+  };
   const { isFavorited, toggleFavorite } = useFavorites({ userId: user?.uid || '', autoFetch: true });
   const productId = params?.id as string;
 
@@ -117,11 +139,6 @@ export default function ProductDetailPage() {
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<Set<string>>(new Set());
   const isWholesaleUnavailable = currentRole === USER_ROLES.INSTITUTIONAL_BUYER && product?.type === 'retail';
 
-  useEffect(() => {
-    if (product) {
-      setInquiryQuantity(Math.max(1, product.minOrderQuantity || product.minOrder || 1));
-    }
-  }, [product]);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   const [mostSearchedRecommendations, setMostSearchedRecommendations] = useState<ProductRecommendation[]>([]);
   const [selectedBundleIds, setSelectedBundleIds] = useState<Set<string>>(new Set());
@@ -215,7 +232,18 @@ export default function ProductDetailPage() {
   const isWholesaleBuyer = currentRole === USER_ROLES.INSTITUTIONAL_BUYER;
   const wholesaleMode = product ? isWholesaleBuyer && (product.type === 'wholesale' || product.type === 'both') : false;
   const minOrderQuantity = product && wholesaleMode ? Math.max(1, product.minOrderQuantity || 1) : 1;
-  const displayPrice = product ? getEffectivePrice(product, currentRole) : 0;
+  const maxOrderQuantity = product
+    ? Math.max(
+        minOrderQuantity,
+        Math.min(
+          product.stock > 0 ? product.stock : minOrderQuantity,
+          product.maxOrder && product.maxOrder > 0 ? product.maxOrder : Number.MAX_SAFE_INTEGER,
+        ),
+      )
+    : 1;
+  const displayPrice = product
+    ? getEffectivePriceForQuantity(product, currentRole, inquiryQuantity)
+    : 0;
   const productListPath = currentRole === USER_ROLES.SELLER
     ? '/seller/products'
     : currentRole === USER_ROLES.INSTITUTIONAL_BUYER
@@ -225,6 +253,12 @@ export default function ProductDetailPage() {
   useEffect(() => {
     setSelectedImage(0);
   }, [productId, product?.id]);
+
+  useEffect(() => {
+    if (product) {
+      setInquiryQuantity(minOrderQuantity);
+    }
+  }, [minOrderQuantity, product]);
 
   const safeImages = useMemo(() => getSafeImages(product), [product]);
   const ownershipType = useMemo(() => (product ? resolveProductOwnership(product) : 'seller'), [product]);
@@ -317,9 +351,17 @@ export default function ProductDetailPage() {
   const discountPercentage = activeOffer?.discountPercentage || product?.discount || 0;
   const discountValue = product?.originalPrice ? product.originalPrice - getEffectivePrice(product, currentRole) : 0;
   const inquiryItemSubtotal = displayPrice * inquiryQuantity;
+  const originalItemSubtotal = product?.originalPrice
+    ? product.originalPrice * inquiryQuantity
+    : 0;
+
+  const updateQuantity = (nextQuantity: number) => {
+    if (!Number.isFinite(nextQuantity)) return;
+    setInquiryQuantity(Math.min(maxOrderQuantity, Math.max(minOrderQuantity, Math.floor(nextQuantity))));
+  };
 
   const addProductToCart = async (targetProduct: Product, targetQuantity: number) => {
-    const safePrice = getEffectivePrice(targetProduct, currentRole);
+    const safePrice = getEffectivePriceForQuantity(targetProduct, currentRole, targetQuantity);
     const cartUserId = user?.uid || 'guest';
 
     await addToCart(
@@ -356,10 +398,10 @@ export default function ProductDetailPage() {
 
     try {
       setIsAdding(true);
-      const quantityToAdd = minOrderQuantity;
+      const quantityToAdd = inquiryQuantity;
       const added = await addProductToCart(product, quantityToAdd);
       if (!added) return;
-      toast.success(`${product.name} added to cart`);
+      toast.success(`${inquiryQuantity} × ${product.name} added to cart`);
     } catch (err) {
       console.error('Error adding to cart:', err);
       toast.error('Failed to add to cart');
@@ -377,7 +419,7 @@ export default function ProductDetailPage() {
 
     try {
       setIsBuying(true);
-      const quantityToAdd = minOrderQuantity;
+      const quantityToAdd = inquiryQuantity;
       const added = await addProductToCart(product, quantityToAdd);
       if (!added) return;
       router.push('/checkout');
@@ -776,15 +818,23 @@ export default function ProductDetailPage() {
               </div>
 
               <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/30 border border-blue-100 dark:border-blue-900/40 p-5 mb-5">
-                <div className="flex items-baseline gap-3 mb-1">
-                  <span className="text-3xl font-bold text-blue-700 dark:text-blue-300">{formatMoney(displayPrice)}</span>
-                  {product.originalPrice && product.originalPrice > displayPrice && (
-                    <span className="text-gray-500 line-through text-lg">{formatMoney(product.originalPrice)}</span>
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-700/70 dark:text-blue-200/70">
+                  Total for {inquiryQuantity} {inquiryQuantity === 1 ? product.unit || 'item' : product.unit || 'items'}
+                </p>
+                <div className="mt-1 flex flex-wrap items-baseline gap-3">
+                  <span data-testid="product-total" className="text-3xl font-bold text-blue-700 dark:text-blue-300">
+                    {formatMoney(inquiryItemSubtotal)}
+                  </span>
+                  {originalItemSubtotal > inquiryItemSubtotal && (
+                    <span className="text-gray-500 line-through text-lg">{formatMoney(originalItemSubtotal)}</span>
                   )}
                 </div>
+                <p className="mt-1 text-sm font-semibold text-blue-900/70 dark:text-blue-100/70">
+                  {formatMoney(displayPrice)} per {product.unit || 'item'}
+                </p>
                 {discountValue > 0 && (
                   <p className="text-green-700 dark:text-green-400 font-semibold text-sm">
-                    Save {formatMoney(discountValue)} ({discountPercentage}%)
+                    Save {formatMoney(discountValue * inquiryQuantity)} ({discountPercentage}%)
                   </p>
                 )}
                 {activeOffer && (
@@ -804,6 +854,47 @@ export default function ProductDetailPage() {
               )}
 
               {isWholesaleUnavailable && <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><p className="font-bold">Not available in the wholesale catalog</p><p className="mt-1 text-sm text-amber-800">This listing is retail-only. You can ask the seller to quote an institutional quantity without adding it to checkout.</p><button onClick={() => void handleSendInquiry()} className="mt-3 rounded-xl bg-amber-900 px-4 py-2 text-sm font-bold text-white">Request from seller</button></div>}
+              <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <label htmlFor="product-quantity" className="font-bold text-gray-900 dark:text-white">Quantity</label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {wholesaleMode ? `Minimum ${minOrderQuantity}` : 'Choose how many to buy'}
+                      {product.stock > 0 ? ` · ${product.stock} available` : ''}
+                    </p>
+                  </div>
+                  <div className="inline-flex min-h-12 items-stretch overflow-hidden rounded-xl border border-gray-300 bg-white shadow-sm dark:border-gray-600 dark:bg-gray-900">
+                    <button
+                      type="button"
+                      aria-label="Decrease quantity"
+                      onClick={() => updateQuantity(inquiryQuantity - 1)}
+                      disabled={inquiryQuantity <= minOrderQuantity}
+                      className="w-12 text-xl font-black text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      −
+                    </button>
+                    <input
+                      id="product-quantity"
+                      aria-label="Product quantity"
+                      type="number"
+                      min={minOrderQuantity}
+                      max={maxOrderQuantity}
+                      value={inquiryQuantity}
+                      onChange={(event) => updateQuantity(Number(event.target.value))}
+                      className="w-20 border-x border-gray-300 bg-white text-center text-lg font-black text-gray-950 outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Increase quantity"
+                      onClick={() => updateQuantity(inquiryQuantity + 1)}
+                      disabled={inquiryQuantity >= maxOrderQuantity || product.stock === 0}
+                      className="w-12 text-xl font-black text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-3">
                 <button
                   onClick={handleAddToCart}
@@ -811,7 +902,7 @@ export default function ProductDetailPage() {
                   className="w-full py-4 rounded-2xl text-white font-bold text-lg transition-all hover:shadow-lg disabled:opacity-60"
                   style={{ backgroundColor: AppColors.primary }}
                 >
-                  {isAdding ? 'Adding to cart...' : 'Add to Cart'}
+                  {isAdding ? 'Adding to cart...' : `Add ${inquiryQuantity} to Cart · ${formatMoney(inquiryItemSubtotal)}`}
                 </button>
                 <button
                   onClick={handleBuyNow}
@@ -819,7 +910,7 @@ export default function ProductDetailPage() {
                   className="w-full py-4 rounded-2xl font-bold text-lg border transition-all hover:shadow-lg disabled:opacity-60"
                   style={{ backgroundColor: '#0B6B3A', borderColor: '#0B6B3A', color: 'white' }}
                 >
-                  {isBuying ? 'Preparing checkout...' : 'Buy Now'}
+                  {isBuying ? 'Preparing checkout...' : `Buy Now · ${formatMoney(inquiryItemSubtotal)}`}
                 </button>
                 <button
                   onClick={() => router.push('/cart')}

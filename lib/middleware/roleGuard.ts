@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import { AuthUser } from '@/lib/auth/authContext';
 
 // Define required roles for specific routes
@@ -13,6 +12,7 @@ export const ROUTE_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/seller/orders': ['seller'],
   '/seller/wholesale-orders': ['seller'],
   '/seller/earnings': ['seller'],
+  '/seller/withdrawals': ['seller'],
   '/seller/clients': ['seller'],
   '/seller/payout-profile': ['seller'],
   '/institutional/dashboard': ['institutional_buyer', 'institutional_approver'],

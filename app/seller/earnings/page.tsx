@@ -135,8 +135,14 @@ export default function SellerEarningsPage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <button
-                onClick={() => router.push('/seller/orders')}
+                onClick={() => router.push('/seller/withdrawals')}
                 className="px-4 py-2 rounded-lg bg-[#0B6B3A] hover:bg-[#095234] text-white text-sm font-semibold"
+              >
+                Withdraw Funds
+              </button>
+              <button
+                onClick={() => router.push('/seller/orders')}
+                className="px-4 py-2 rounded-lg border border-[#0B6B3A] text-[#0B6B3A] hover:bg-[#EAF6EF] text-sm font-semibold"
               >
                 Open Order Revenue
               </button>

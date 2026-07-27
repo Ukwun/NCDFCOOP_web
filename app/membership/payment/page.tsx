@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
+import { auth } from "@/lib/firebase/config";
 import {
   getMembershipTier,
   normalizeMembershipTier,
@@ -69,7 +70,13 @@ export default function MembershipPaymentPage() {
         setLoading(true);
         setError("");
         setPaymentIntent(null);
-        const token = await user.getIdToken();
+        const firebaseUser = auth?.currentUser;
+        if (!firebaseUser || firebaseUser.uid !== userId) {
+          throw new Error(
+            "Your secure session is not ready. Refresh the page and sign in again if this continues.",
+          );
+        }
+        const token = await firebaseUser.getIdToken();
         const response = await fetch("/api/membership/intent", {
           method: "POST",
           headers: {
@@ -197,7 +204,13 @@ export default function MembershipPaymentPage() {
     setLoading(true);
 
     try {
-      const token = await user.getIdToken();
+      const firebaseUser = auth?.currentUser;
+      if (!firebaseUser || firebaseUser.uid !== userId) {
+        throw new Error(
+          "Your secure session expired. Refresh the page and sign in again.",
+        );
+      }
+      const token = await firebaseUser.getIdToken();
       if (!token || !paymentIntent || !paymentResponse?.transaction_id) {
         throw new Error("Payment verification details are incomplete.");
       }

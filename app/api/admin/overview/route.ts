@@ -75,18 +75,25 @@ export async function GET(request: NextRequest) {
           complianceStatus: data.complianceStatus || null,
         };
       }),
-      payoutProfiles: payouts.docs.map((document) => {
+      payoutProfiles: payouts.docs.flatMap((document) => {
         const data = document.data();
-        return {
+        const accounts = Array.isArray(data.accounts)
+          ? data.accounts
+          : data.accountNumber
+            ? [{ id: "legacy", bankName: data.bankName, accountName: data.accountName, accountNumber: data.accountNumber, accountLast4: data.accountLast4, reviewStatus: data.reviewStatus }]
+            : [];
+        return accounts.map((account: Record<string, unknown>) => ({
           sellerId: document.id,
+          accountId: String(account.id || "legacy"),
           sellerEmail: data.sellerEmail || "",
-          bankName: data.bankName || "",
-          accountName: data.accountName || "",
-          accountNumber: data.accountNumber || "",
-          accountLast4: data.accountLast4 || "",
-          reviewStatus: data.reviewStatus || "pending_verification",
+          bankName: String(account.bankName || ""),
+          accountName: String(account.accountName || ""),
+          accountNumber: String(account.accountNumber || ""),
+          accountLast4: String(account.accountLast4 || ""),
+          reviewStatus: String(account.reviewStatus || "pending_verification"),
+          isDefault: (data.defaultAccountId || accounts[0]?.id) === account.id,
           updatedAt: iso(data.updatedAt),
-        };
+        }));
       }),
       pendingProducts: pendingProducts.docs.map((document) => {
         const data = document.data();

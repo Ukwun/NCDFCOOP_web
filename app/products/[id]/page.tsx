@@ -21,6 +21,7 @@ import { ownershipBadgeClasses, ownershipLabel, resolveProductOwnership } from '
 import { applyMemberDiscount } from '@/lib/membership/tiers';
 import { resolveProductImage } from '@/lib/utils/productImage';
 import { applyOfferPrice, getActiveProductOffer } from '@/lib/utils/productOffer';
+import { openInquiryConversation } from '@/lib/services/conversationService';
 
 const REVIEW_SNIPPETS: Array<{
   name: string;
@@ -579,21 +580,9 @@ export default function ProductDetailPage() {
         });
       }
 
-      await createNotification(user.uid, {
-        title: `Chat opened with ${sellerName}`,
-        message: `Your chat request for ${product.name} was created. Continue in notifications.`,
-        type: 'message',
-        read: false,
-        data: {
-          productId: product.id,
-          link: '/inquiries',
-          inquiryId,
-          sellerId,
-        },
-      });
-
-      toast.success('Chat request sent to seller');
-      router.push('/inquiries');
+      const conversationId = await openInquiryConversation(inquiryId);
+      toast.success('Conversation opened');
+      router.push(`/messages?conversation=${encodeURIComponent(conversationId)}`);
     } catch (err) {
       console.error('Error starting chat:', err);
       toast.error('Failed to start chat. Please try again.');

@@ -1,252 +1,118 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
 import { useAuth } from '@/lib/auth/authContext';
-import { getUserConversations, sendMessage, Conversation, getMessages, Message } from '@/lib/services/messageService';
+import {
+  Conversation,
+  Message,
+  sendMessage,
+  subscribeConversationMessages,
+  subscribeUserConversations,
+} from '@/lib/services/messageService';
+
+function messageTime(message: Message) {
+  const date = message.timestamp?.toDate?.();
+  return date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+}
 
 export default function MessageScreen() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const requestedConversation = searchParams?.get('conversation') || '';
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [selectedChat, setSelectedChat] = useState(requestedConversation);
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const messageEnd = useRef<HTMLDivElement | null>(null);
 
-  // Fetch conversations on mount and when user changes
   useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        if (user?.uid) {
-          const userConversations = await getUserConversations(user.uid);
-          setConversations(userConversations);
-        }
-      } catch (err) {
-        console.error('Error fetching conversations:', err);
-        setError('Failed to load conversations');
-        setConversations([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!user?.uid) return;
+    setLoading(true);
+    return subscribeUserConversations(user.uid, (rows) => {
+      setConversations(rows);
+      setSelectedChat((current) =>
+        current && rows.some((row) => row.id === current) ? current : rows[0]?.id || '',
+      );
+      setError('');
+      setLoading(false);
+    }, () => {
+      setError('Conversations are temporarily unavailable. Please retry.');
+      setLoading(false);
+    });
+  }, [user?.uid]);
 
-    fetchConversations();
-  }, [user]);
-
-  // Fetch messages when conversation is selected
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (selectedChat) {
-        try {
-          const chatMessages = await getMessages(selectedChat, 50);
-          setMessages(chatMessages);
-        } catch (err) {
-          console.error('Error fetching messages:', err);
-        }
-      }
-    };
-
-    fetchMessages();
-  }, [selectedChat]);
-
-  const handleSendMessage = async () => {
-    if (!message.trim() || !selectedChat || !user?.uid) {
+    if (!selectedChat) {
+      setMessages([]);
       return;
     }
+    return subscribeConversationMessages(selectedChat, (rows) => {
+      setMessages(rows);
+      window.setTimeout(() => messageEnd.current?.scrollIntoView({ behavior: 'smooth' }), 30);
+    }, () => setError('Messages could not synchronize. Please retry.'));
+  }, [selectedChat]);
 
+  const selectedConversation = useMemo(
+    () => conversations.find((conversation) => conversation.id === selectedChat) || null,
+    [conversations, selectedChat],
+  );
+  const recipientId = selectedConversation?.participants.find((participant) => participant !== user?.uid) || '';
+  const recipientName = recipientId
+    ? selectedConversation?.participantNames?.[recipientId] || 'Marketplace user'
+    : 'Conversation';
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const content = message.trim();
+    if (!content || !selectedChat || !user?.uid || !recipientId) return;
+    setSending(true);
+    setError('');
     try {
-      setSendingMessage(true);
-      const conversation = conversations.find((c) => c.id === selectedChat);
-      const recipientId = conversation?.participants.find((p) => p !== user.uid) || '';
-
-      await sendMessage(selectedChat, user.uid, recipientId, message);
-
-      // Refresh messages
-      const chatMessages = await getMessages(selectedChat, 50);
-      setMessages(chatMessages);
+      await sendMessage(selectedChat, user.uid, recipientId, content);
       setMessage('');
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError('Failed to send message');
+    } catch {
+      setError('Your message was not sent. Please retry.');
     } finally {
-      setSendingMessage(false);
+      setSending(false);
     }
-  };
-
-  const getConversationName = (conversationId: string) => {
-    const conversationNames: Record<string, string> = {
-      '1': 'Fresh Produce Farm',
-      '2': 'Customer Support',
-      '3': "John's Farm Products",
-      '4': 'Mary (Member)',
-    };
-    return conversationNames[conversationId] || 'Chat';
-  };
-
-  const getConversationAvatar = (conversationId: string) => {
-    const avatars: Record<string, string> = {
-      '1': '🏪',
-      '2': '💬',
-      '3': '👨‍🌾',
-      '4': '👩',
-    };
-    return avatars[conversationId] || '💬';
-  };
-
-  const getTimeDisplay = (timestamp: any) => {
-    if (!timestamp) return 'Just now';
-    const time = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - time.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return 'Earlier';
-  };
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">💬 Messages</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">Conversations with sellers, support, and members</p>
-      </div>
-
-      {/* Error State */}
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-          <p className="text-red-700 dark:text-red-400">{error}</p>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && (
-        <div className="text-center py-12">
-          <p className="text-gray-600 dark:text-gray-400">Loading conversations...</p>
-        </div>
-      )}
-
-      {/* Conversations List */}
-      {!loading && conversations.length > 0 ? (
-        <div className="space-y-2">
-          {conversations.map((chat) => (
-            <button
-              key={chat.id}
-              onClick={() => setSelectedChat(chat.id)}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3 flex-1">
-                  <div className="relative text-2xl">{getConversationAvatar(chat.id)}</div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 dark:text-white">{getConversationName(chat.id)}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{chat.lastMessage}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{getTimeDisplay(chat.lastMessageTime)}</p>
-                  {chat.unreadCount > 0 && (
-                    <span className="inline-block bg-red-600 text-white text-xs rounded-full px-2 py-1 mt-1">
-                      {chat.unreadCount}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      ) : !loading ? (
-        <div className="text-center py-12">
-          <p className="text-gray-600 dark:text-gray-400">No conversations yet. Start a new chat!</p>
-        </div>
-      ) : null}
-
-      {/* Chat Dialog */}
-      {selectedChat && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md h-96 max-h-screen flex flex-col">
-            {/* Header */}
-            <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{getConversationAvatar(selectedChat)}</span>
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">{getConversationName(selectedChat)}</h3>
-                  <p className="text-xs text-green-600">Online</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedChat(null);
-                  setMessages([]);
-                }}
-                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Message Area */}
-            <div className="flex-1 p-4 bg-gray-50 dark:bg-gray-900 overflow-y-auto">
-              {messages.length > 0 ? (
-                <div className="space-y-3">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`rounded-lg p-3 max-w-xs ${
-                          msg.senderId === user?.uid
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
-                        }`}
-                      >
-                        <p className="text-sm">{msg.content}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No messages yet. Start the conversation!</p>
-                </div>
-              )}
-            </div>
-
-            {/* Input Area */}
-            <div className="border-t border-gray-200 dark:border-gray-700 p-4 flex gap-2">
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !sendingMessage) {
-                    handleSendMessage();
-                  }
-                }}
-                placeholder="Type your message..."
-                disabled={sendingMessage}
-                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 dark:bg-gray-700 dark:text-white disabled:opacity-50"
-              />
-              <button
-                onClick={handleSendMessage}
-                disabled={sendingMessage || !message.trim()}
-                className="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sendingMessage ? '...' : 'Send'}
-              </button>
-            </div>
+    <main className="min-h-[calc(100vh-3.5rem)] bg-slate-100 px-3 py-4 text-slate-950 dark:bg-slate-950 dark:text-white sm:px-5">
+      <div className="mx-auto grid min-h-[70vh] max-w-6xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900 md:grid-cols-[320px_1fr]">
+        <aside className={`${selectedChat ? 'hidden md:block' : 'block'} border-r border-slate-200 dark:border-white/10`}>
+          <div className="border-b border-slate-200 p-5 dark:border-white/10">
+            <h1 className="flex items-center gap-2 text-xl font-black"><MessageCircle className="text-emerald-600"/>Messages</h1>
+            <p className="mt-1 text-xs text-slate-500">Live inquiry conversations</p>
           </div>
-        </div>
-      )}
-    </div>
+          {loading ? <p className="p-5 text-sm text-slate-500">Loading conversations…</p> : conversations.length === 0 ? <div className="p-8 text-center text-sm text-slate-500">No conversations yet. Open chat from a product or inquiry.</div> : <div className="divide-y divide-slate-100 dark:divide-white/5">{conversations.map((conversation) => {
+            const otherId = conversation.participants.find((participant) => participant !== user?.uid) || '';
+            const name = conversation.participantNames?.[otherId] || 'Marketplace user';
+            return <button key={conversation.id} onClick={() => setSelectedChat(conversation.id)} className={`w-full p-4 text-left transition hover:bg-emerald-50 dark:hover:bg-white/5 ${selectedChat === conversation.id ? 'bg-emerald-50 dark:bg-emerald-950/30' : ''}`}><p className="font-bold">{name}</p><p className="mt-0.5 text-xs font-medium text-emerald-700">{conversation.productName || 'Product inquiry'}</p><p className="mt-1 truncate text-sm text-slate-500">{conversation.lastMessage || 'Conversation opened'}</p></button>;
+          })}</div>}
+        </aside>
+
+        <section className={`${selectedChat ? 'flex' : 'hidden md:flex'} min-w-0 flex-col`}>
+          {selectedConversation ? <>
+            <header className="flex items-center gap-3 border-b border-slate-200 p-4 dark:border-white/10">
+              <button onClick={() => setSelectedChat('')} aria-label="Back to conversations" className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 md:hidden dark:border-white/10"><ArrowLeft size={18}/></button>
+              <div><h2 className="font-black">{recipientName}</h2><p className="text-xs text-slate-500">{selectedConversation.productName || 'Product inquiry'} · messages update in real time</p></div>
+            </header>
+            {error && <p role="alert" className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950 dark:text-rose-200">{error}</p>}
+            <div className="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4 dark:bg-slate-950/60">
+              {messages.length === 0 && <div className="grid h-full place-items-center text-center text-sm text-slate-500"><div><MessageCircle className="mx-auto mb-2" size={28}/><p>Start the conversation about this inquiry.</p></div></div>}
+              {messages.map((item) => <div key={item.id} className={`flex ${item.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[82%] rounded-2xl px-4 py-2.5 shadow-sm ${item.senderId === user?.uid ? 'rounded-br-sm bg-emerald-700 text-white' : 'rounded-bl-sm bg-white text-slate-900 dark:bg-slate-800 dark:text-white'}`}><p className="whitespace-pre-wrap break-words text-sm">{item.content}</p><p className={`mt-1 text-[10px] ${item.senderId === user?.uid ? 'text-emerald-100' : 'text-slate-400'}`}>{messageTime(item)}</p></div></div>)}
+              <div ref={messageEnd}/>
+            </div>
+            <form onSubmit={submit} className="flex gap-2 border-t border-slate-200 p-3 dark:border-white/10"><input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={5000} placeholder={`Message ${recipientName}`} className="min-h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 text-slate-950 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15"/><button disabled={sending || !message.trim()} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-emerald-700 px-5 font-bold text-white transition hover:bg-emerald-800 disabled:opacity-50"><Send size={17}/><span className="hidden sm:inline">{sending ? 'Sending…' : 'Send'}</span></button></form>
+          </> : <div className="grid flex-1 place-items-center text-sm text-slate-500">Select a conversation.</div>}
+        </section>
+      </div>
+    </main>
   );
 }

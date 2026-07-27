@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { ToastContainer, useToastNotifications } from '@/lib/ui/loadingStates';
 import { InquiryRecord, subscribeBuyerInquiries } from '@/lib/services/inquiryService';
+import { openInquiryConversation } from '@/lib/services/conversationService';
 
 export default function BuyerInquiriesPage() {
   const router = useRouter();
@@ -149,6 +150,19 @@ export default function BuyerInquiriesPage() {
                     className="px-3 py-2 rounded-lg text-sm font-semibold border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     View product
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const conversationId = await openInquiryConversation(inquiry.id);
+                        router.push(`/messages?conversation=${encodeURIComponent(conversationId)}`);
+                      } catch (chatError) {
+                        toast.error(chatError instanceof Error ? chatError.message : 'The conversation could not be opened.');
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm font-semibold border border-emerald-300 text-emerald-800 dark:border-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                  >
+                    Open chat
                   </button>
                   {inquiry.status === 'quoted' || inquiry.status === 'accepted' ? (
                     <button

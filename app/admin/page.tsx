@@ -30,12 +30,14 @@ type Overview = {
   }>;
   payoutProfiles: Array<{
     sellerId: string;
+    accountId: string;
     sellerEmail: string;
     bankName: string;
     accountName: string;
     accountNumber: string;
     accountLast4: string;
     reviewStatus: string;
+    isDefault: boolean;
   }>;
   pendingProducts: Array<{
     id: string;
@@ -98,14 +100,15 @@ export default function AdminPage() {
 
   const reviewPayout = async (
     sellerId: string,
+    accountId: string,
     reviewStatus: "verified" | "rejected",
   ) => {
     try {
-      setWorkingId(sellerId);
+      setWorkingId(`${sellerId}:${accountId}`);
       setError("");
       await api("/api/admin/payouts", {
         method: "PATCH",
-        body: JSON.stringify({ sellerId, reviewStatus }),
+        body: JSON.stringify({ sellerId, accountId, reviewStatus }),
       });
       await load();
     } catch (reviewError) {
@@ -434,14 +437,14 @@ export default function AdminPage() {
               </div>
               <div className="divide-y divide-white/5">
                 {data?.payoutProfiles.map((profile) => (
-                  <div key={profile.sellerId} className="p-4">
+                  <div key={`${profile.sellerId}:${profile.accountId}`} className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-semibold">
                           {profile.accountName || profile.sellerEmail}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {profile.bankName} · {revealedPayoutId === profile.sellerId
+                          {profile.bankName} · {revealedPayoutId === `${profile.sellerId}:${profile.accountId}`
                             ? profile.accountNumber
                             : `••••••${profile.accountLast4}`}
                         </p>
@@ -454,28 +457,28 @@ export default function AdminPage() {
                       <button
                         onClick={() =>
                           setRevealedPayoutId((current) =>
-                            current === profile.sellerId ? "" : profile.sellerId,
+                            current === `${profile.sellerId}:${profile.accountId}` ? "" : `${profile.sellerId}:${profile.accountId}`,
                           )
                         }
                         className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10"
                       >
-                        {revealedPayoutId === profile.sellerId
+                        {revealedPayoutId === `${profile.sellerId}:${profile.accountId}`
                           ? "Hide account"
                           : "Reveal account"}
                       </button>
                       <button
-                        disabled={workingId === profile.sellerId}
+                        disabled={workingId === `${profile.sellerId}:${profile.accountId}`}
                         onClick={() =>
-                          void reviewPayout(profile.sellerId, "verified")
+                          void reviewPayout(profile.sellerId, profile.accountId, "verified")
                         }
                         className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
                       >
                         Verify
                       </button>
                       <button
-                        disabled={workingId === profile.sellerId}
+                        disabled={workingId === `${profile.sellerId}:${profile.accountId}`}
                         onClick={() =>
-                          void reviewPayout(profile.sellerId, "rejected")
+                          void reviewPayout(profile.sellerId, profile.accountId, "rejected")
                         }
                         className="rounded-lg border border-rose-400/30 px-3 py-1.5 text-xs font-bold text-rose-300 transition hover:bg-rose-500/10 disabled:opacity-50"
                       >

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { FlutterWaveButton, closePaymentModal } from "flutterwave-react-v3";
-import { auth } from "@/lib/firebase/config";
 import {
   getMembershipTier,
   normalizeMembershipTier,
@@ -21,7 +20,7 @@ function formatNaira(amount: number): string {
 }
 
 export default function MembershipPaymentPage() {
-  const { user, refreshUserData } = useAuth();
+  const { user, loading: authLoading, refreshUserData } = useAuth();
   const userId = user?.uid;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,7 +28,7 @@ export default function MembershipPaymentPage() {
     searchParams.get("tier") || "bronze",
   );
   const selectedTierDefinition = getMembershipTier(selectedTier);
-  const { tiers, loading: pricingLoading } = useMembershipPricing();
+  const { tiers } = useMembershipPricing();
   const selectedPublicTier = tiers.find((tier) => tier.id === selectedTier);
 
   const [loading, setLoading] = useState(false);
@@ -42,6 +41,7 @@ export default function MembershipPaymentPage() {
     currency: string;
     membershipTier: string;
   } | null>(null);
+  const [prepareAttempt, setPrepareAttempt] = useState(0);
 
   useEffect(() => {
     const tick = () => {
@@ -61,14 +61,15 @@ export default function MembershipPaymentPage() {
   }, []);
 
   useEffect(() => {
-    if (!userId || !auth?.currentUser) return;
+    if (authLoading || !userId || !user) return;
 
     let cancelled = false;
     const preparePayment = async () => {
       try {
         setLoading(true);
         setError("");
-        const token = await auth.currentUser?.getIdToken();
+        setPaymentIntent(null);
+        const token = await user.getIdToken();
         const response = await fetch("/api/membership/intent", {
           method: "POST",
           headers: {
@@ -76,6 +77,7 @@ export default function MembershipPaymentPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ tier: selectedTier }),
+          signal: AbortSignal.timeout(15_000),
         });
         const payload = (await response.json().catch(() => ({}))) as {
           reference?: string;
@@ -104,8 +106,13 @@ export default function MembershipPaymentPage() {
         }
       } catch (intentError: unknown) {
         if (!cancelled) {
+          const timedOut =
+            intentError instanceof DOMException &&
+            (intentError.name === "TimeoutError" || intentError.name === "AbortError");
           setError(
-            intentError instanceof Error
+            timedOut
+              ? "Payment setup took too long. Check your connection and select Retry secure payment."
+              : intentError instanceof Error
               ? intentError.message
               : "Payment could not be prepared.",
           );
@@ -119,7 +126,19 @@ export default function MembershipPaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedTier, userId]);
+  }, [authLoading, prepareAttempt, selectedTier, user, userId]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white px-4 py-10">
+        <div role="status" className="mx-auto max-w-lg rounded-2xl border border-emerald-100 bg-white p-8 text-center shadow-sm">
+          <span className="mx-auto block h-9 w-9 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" />
+          <h1 className="mt-4 text-xl font-bold text-gray-900">Opening secure membership payment</h1>
+          <p className="mt-2 text-sm text-gray-600">Confirming your signed-in account…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -178,7 +197,7 @@ export default function MembershipPaymentPage() {
     setLoading(true);
 
     try {
-      const token = await auth?.currentUser?.getIdToken();
+      const token = await user.getIdToken();
       if (!token || !paymentIntent || !paymentResponse?.transaction_id) {
         throw new Error("Payment verification details are incomplete.");
       }
@@ -293,13 +312,14 @@ export default function MembershipPaymentPage() {
               Payment is temporarily unavailable because Flutterwave is not
               configured.
             </div>
-          ) : !paymentIntent || pricingLoading ? (
+          ) : !paymentIntent ? (
             <button
               type="button"
-              disabled
-              className="mt-5 w-full rounded-lg bg-gray-300 px-4 py-3 text-sm font-semibold text-gray-600"
+              onClick={() => setPrepareAttempt((attempt) => attempt + 1)}
+              disabled={loading}
+              className="mt-5 w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-wait disabled:bg-gray-300 disabled:text-gray-600"
             >
-              {loading ? "Preparing secure payment..." : "Payment unavailable"}
+              {loading ? "Preparing secure payment…" : "Retry secure payment"}
             </button>
           ) : (
             <FlutterWaveButton

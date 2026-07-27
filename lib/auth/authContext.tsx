@@ -265,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       "Your profile is taking too long to load. Check your connection and retry.",
     );
 
-    if (!snapshot.exists()) {
+    try {
       const tokenRefreshRequired = await provisionCanonicalProfile(currentUser);
       if (tokenRefreshRequired) {
         await currentUser.getIdToken(true);
@@ -274,6 +274,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         getDoc(userRef),
         10_000,
         "Your reconciled profile could not be loaded. Please retry.",
+      );
+    } catch (profileError) {
+      if (!snapshot.exists()) {
+        throw profileError;
+      }
+      // Existing users must not be locked out if optional server-side
+      // reconciliation is temporarily unavailable.
+      console.warn(
+        "Server profile reconciliation unavailable; using the existing authenticated profile.",
+        profileError,
       );
     }
 

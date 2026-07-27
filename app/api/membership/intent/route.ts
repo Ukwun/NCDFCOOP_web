@@ -5,6 +5,11 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { verifyRequestUser } from "@/lib/server/requestAuth";
 import { normalizeMembershipTier } from "@/lib/membership/tiers";
 import { normalizeMembershipTierPrices } from "@/lib/membership/pricing";
+import {
+  initializePaystackTransaction,
+  isPaystackConfigured,
+  paystackEnvironment,
+} from "@/lib/server/paystack";
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +47,9 @@ export async function POST(request: NextRequest) {
     const membershipFee = membershipTierPrices[membershipTier];
     const reference = `MEM-${Date.now()}-${randomUUID().slice(0, 10)}`;
     const now = Timestamp.now();
+    const paymentProvider = isPaystackConfigured()
+      ? "paystack"
+      : "flutterwave";
     await db
       .collection("transactions")
       .doc(reference)
@@ -55,10 +63,53 @@ export async function POST(request: NextRequest) {
         membershipTier,
         pricingSource: "global_settings/commerce",
         status: "pending",
-        paymentMethod: "flutterwave",
+        paymentMethod: paymentProvider,
         createdAt: now,
         updatedAt: now,
       });
+
+    if (paymentProvider === "paystack") {
+      try {
+        const initialized = await initializePaystackTransaction({
+          email: user.email || "",
+          amount: membershipFee,
+          currency: "NGN",
+          reference,
+          callbackUrl: new URL(
+            "/membership/payment/callback",
+            request.nextUrl.origin,
+          ).toString(),
+          metadata: {
+            userId: user.uid,
+            membershipTier,
+            transactionType: "membership_activation",
+          },
+        });
+        await db.collection("transactions").doc(reference).update({
+          providerReference: initialized.reference,
+          providerAccessCode: initialized.accessCode,
+          updatedAt: Timestamp.now(),
+        });
+        return NextResponse.json(
+          {
+            reference,
+            amount: membershipFee,
+            currency: "NGN",
+            membershipTier,
+            paymentProvider,
+            paymentEnvironment: paystackEnvironment(),
+            authorizationUrl: initialized.authorizationUrl,
+          },
+          { status: 201 },
+        );
+      } catch (providerError) {
+        await db.collection("transactions").doc(reference).update({
+          status: "initialization_failed",
+          updatedAt: Timestamp.now(),
+        });
+        throw providerError;
+      }
+    }
 
     return NextResponse.json(
       {
@@ -66,6 +117,12 @@ export async function POST(request: NextRequest) {
         amount: membershipFee,
         currency: "NGN",
         membershipTier,
+        paymentProvider,
+        paymentEnvironment: /^FLWPUBK_LIVE-/i.test(
+          process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || "",
+        )
+          ? "live"
+          : "test",
       },
       { status: 201 },
     );

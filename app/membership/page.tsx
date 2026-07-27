@@ -45,7 +45,7 @@ const FAQ = [
   {
     question: "Are the displayed prices current?",
     answer:
-      "Yes. The prices come from the server-owned commerce settings and refresh automatically. Your payment intent locks the displayed tier and amount before Flutterwave opens.",
+      "Yes. The prices come from the server-owned commerce settings and refresh automatically. Your payment intent locks the displayed tier and amount before secure checkout opens.",
   },
   {
     question: "Can a normal account change these prices?",
@@ -227,8 +227,8 @@ export default function MembershipPage() {
               Server-verified membership activation
             </h2>
             <p className="mt-1 text-sm text-emerald-900/75 dark:text-emerald-100/75">
-              The browser cannot activate membership by itself. Flutterwave
-              verification and the locked payment intent must agree.
+              The browser cannot activate membership by itself. Payment
+              provider verification and the locked payment intent must agree.
             </p>
           </div>
           <button

@@ -41,11 +41,28 @@ export async function GET(request: NextRequest) {
     adminError = error instanceof Error ? error.message : 'Firebase Admin unavailable';
   }
 
+  const configuredPublicPaymentKey =
+    process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ||
+    process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY ||
+    '';
+  const configuredServerPaymentKey =
+    process.env.PAYSTACK_SECRET_KEY ||
+    process.env.FLUTTERWAVE_SECRET_KEY ||
+    '';
   const dependencies = {
     firebaseClient: clientReady,
     firebaseAdmin: adminReady,
-    flutterwavePublic: !!process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
-    flutterwaveServer: !!process.env.FLUTTERWAVE_SECRET_KEY,
+    paymentProvider: /^pk_(test|live)_/i.test(configuredPublicPaymentKey) &&
+      /^sk_(test|live)_/i.test(configuredServerPaymentKey)
+      ? 'paystack'
+      : /^FLWPUBK_(TEST|LIVE)-/i.test(configuredPublicPaymentKey) &&
+          /^FLWSECK_(TEST|LIVE)-/i.test(configuredServerPaymentKey)
+        ? 'flutterwave'
+        : 'unconfigured',
+    paystackPublic: /^pk_(test|live)_/i.test(configuredPublicPaymentKey),
+    paystackServer: /^sk_(test|live)_/i.test(configuredServerPaymentKey),
+    flutterwavePublic: /^FLWPUBK_(TEST|LIVE)-/i.test(configuredPublicPaymentKey),
+    flutterwaveServer: /^FLWSECK_(TEST|LIVE)-/i.test(configuredServerPaymentKey),
     transactionalEmail: !!process.env.SENDGRID_API_KEY && !!process.env.SENDGRID_FROM_EMAIL,
   };
   const commerceReady = clientReady && adminReady;

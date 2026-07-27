@@ -337,7 +337,7 @@ export default function MembershipPaymentPage() {
               Review Benefits
             </Link>
             <Link
-              href="/home"
+              href="/member-products"
               className="rounded-xl border border-gray-200 px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Continue Shopping

@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { getOrder } from '@/lib/services/orderService';
-import { generateInvoiceData, previewInvoice } from '@/lib/services/invoiceService';
+import { generateHTMLInvoice, generateInvoiceData, previewInvoice } from '@/lib/services/invoiceService';
 import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { USER_ROLES } from '@/lib/constants/database';
 
 interface ConfirmationStep {
   step: number;
@@ -18,7 +19,7 @@ interface ConfirmationStep {
 export function OrderConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, currentRole } = useAuth();
 
   const orderId = searchParams.get('orderId');
   const paymentStatus = searchParams.get('status'); // 'success' or 'failed'
@@ -96,7 +97,6 @@ export function OrderConfirmationContent() {
       const invoiceData = generateInvoiceData(order, user.displayName || 'Customer', user.email || '', user.phoneNumber || '');
       // Trigger print dialog for manual PDF save
       try {
-        const { generateHTMLInvoice } = require('@/lib/services/invoiceService');
         const html = generateHTMLInvoice(invoiceData);
         const newWindow = window.open();
         if (newWindow) {
@@ -111,7 +111,11 @@ export function OrderConfirmationContent() {
   };
 
   const handleContinueShopping = () => {
-    router.push('/products');
+    router.push(
+      currentRole === USER_ROLES.INSTITUTIONAL_BUYER
+        ? '/wholesale/products'
+        : '/member-products',
+    );
   };
 
   const handleViewOrder = () => {

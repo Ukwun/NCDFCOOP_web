@@ -34,7 +34,7 @@ export default function MyRewardsPage() {
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-100">Available points</p>
               <p className="mt-2 text-5xl font-black">{points.toLocaleString()}</p>
               <p className="mt-3 max-w-2xl text-sm text-amber-50">Points shown here come from your member record. Cash values and redemption history are never estimated or fabricated.</p>
-              <button onClick={() => router.push('/products')} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-amber-800 transition hover:-translate-y-0.5"><ShoppingBag size={17}/> Continue shopping</button>
+              <button onClick={() => router.push('/member-products')} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-amber-800 transition hover:-translate-y-0.5"><ShoppingBag size={17}/> Continue shopping</button>
             </section>
 
             <section className="grid gap-4 sm:grid-cols-3">

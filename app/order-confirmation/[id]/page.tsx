@@ -9,16 +9,21 @@ import { getOrder } from '@/lib/services/orderService';
 import { Order } from '@/lib/types/product';
 import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
 import Image from 'next/image';
+import { USER_ROLES } from '@/lib/constants/database';
 
 export default function OrderConfirmationPage() {
   const router = useRouter();
   const params = useParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, currentRole, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const orderId = params?.id as string;
+  const marketplacePath =
+    order?.buyerType === 'wholesale' || currentRole === USER_ROLES.INSTITUTIONAL_BUYER
+      ? '/wholesale/products'
+      : '/member-products';
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -84,7 +89,7 @@ export default function OrderConfirmationPage() {
         >
           <p style={{ color: '#E53E3E' }}>{error}</p>
           <button
-            onClick={() => router.push('/products')}
+            onClick={() => router.push(marketplacePath)}
             className="mt-4 px-6 py-3 rounded-lg text-white font-bold"
             style={{
               backgroundColor: AppColors.primary,
@@ -403,7 +408,7 @@ export default function OrderConfirmationPage() {
           </button>
 
           <button
-            onClick={() => router.push('/products')}
+            onClick={() => router.push(marketplacePath)}
             className="flex-1 py-4 rounded-lg font-bold border-2 transition-all"
             style={{
               borderColor: AppColors.primary,

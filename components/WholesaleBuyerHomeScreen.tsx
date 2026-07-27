@@ -12,20 +12,6 @@ import { Product } from '@/lib/types/product';
 import { useBuyerOrders } from '@/lib/hooks/useBuyerOrders';
 import { addToCart, CART_CHANGED_EVENT, getUserCart } from '@/lib/services/cartService';
 
-interface WholesaleProduct {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  originalPrice: number;
-  category: string;
-  stock: number;
-  unit: string;
-  thumbnail: string;
-  minimumOrder: number;
-  sellerName: string;
-}
-
 interface QuoteDraft {
   productId?: string;
   productName: string;
@@ -303,7 +289,7 @@ export default function WholesaleBuyerHomeScreen() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-4">
         <div className="flex items-center gap-3 overflow-x-auto pb-1">
           <ModeTab label="Discover" isActive={false} onClick={() => router.push('/products')} />
-          <ModeTab label="Wholesale" isActive onClick={() => {}} />
+          <ModeTab label="Wholesale" isActive onClick={() => router.refresh()} />
           <ModeTab label="Orders" isActive={false} onClick={() => router.push('/wholesale/orders')} />
         </div>
 

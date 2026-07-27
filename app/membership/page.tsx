@@ -3,14 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   BadgeCheck,
   Check,
   CircleHelp,
   Crown,
   Gem,
   Medal,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -76,20 +74,12 @@ function formatNaira(amount: number) {
 export default function MembershipPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"tiers" | "faq">("tiers");
-  const { tiers, loading, error, refresh } = useMembershipPricing();
+  const { tiers, error } = useMembershipPricing();
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950 dark:text-white">
       <header className="sticky top-14 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => router.push("/home")}
-            aria-label="Go back"
-            className="grid min-h-11 min-w-11 place-items-center rounded-xl border border-slate-200 transition hover:-translate-x-0.5 hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/10"
-          >
-            <ArrowLeft size={19} />
-          </button>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">
               Live membership plans
@@ -98,15 +88,6 @@ export default function MembershipPage() {
               NCDFCOOP Membership
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            disabled={loading}
-            aria-label="Refresh membership prices"
-            className="grid min-h-11 min-w-11 place-items-center rounded-xl border border-slate-200 transition hover:-translate-y-0.5 hover:bg-slate-100 disabled:opacity-60 dark:border-white/10 dark:hover:bg-white/10"
-          >
-            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-          </button>
         </div>
       </header>
 
@@ -252,7 +233,7 @@ export default function MembershipPage() {
           </div>
           <button
             type="button"
-            onClick={() => router.push("/home")}
+            onClick={() => router.push("/member-products")}
             className="min-h-11 shrink-0 rounded-xl border border-emerald-700 px-5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-300"
           >
             Continue shopping

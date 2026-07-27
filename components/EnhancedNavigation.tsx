@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BadgeDollarSign, BadgePercent, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, Landmark, LayoutDashboard, LogOut, MessageCircle, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { BadgeDollarSign, BadgePercent, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, Landmark, LayoutDashboard, LogOut, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth/authContext';
 import { db } from '@/lib/firebase/config';
@@ -49,7 +49,6 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   earnings: BadgeDollarSign,
   offers: BadgePercent,
   payouts: Landmark,
-  messages: MessageCircle,
   admin: ShieldCheck,
   operations: BriefcaseBusiness,
   analytics: BarChart3,
@@ -85,7 +84,6 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/member/investments',
         matchPrefixes: ['/member/investments', '/member-benefits', '/my-rewards', '/member-voting', '/member-transparency'],
       },
-      { id: 'messages', label: 'Messages', icon: 'Messages', href: '/messages', matchPrefixes: ['/messages'] },
     ],
   },
   [USER_ROLES.INSTITUTIONAL_BUYER]: {
@@ -133,7 +131,6 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/wholesale/compliance',
         matchPrefixes: ['/wholesale/compliance', '/wholesale/settings'],
       },
-      { id: 'messages', label: 'Messages', icon: 'Messages', href: '/messages', matchPrefixes: ['/messages'] },
     ],
   },
   [USER_ROLES.SELLER]: {

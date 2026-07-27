@@ -148,7 +148,7 @@ export default function OrdersPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push(isWholesale ? '/wholesale/products' : '/products')}
+            onClick={() => router.push(isWholesale ? '/wholesale/products' : '/member-products')}
             className="px-6 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
             style={{
               backgroundColor: AppColors.primary,
@@ -314,7 +314,7 @@ export default function OrdersPage() {
                   </p>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-6">
-                    {order.items?.slice(0, 4).map((item: any, idx: number) => (
+                    {order.items?.slice(0, 4).map((item, idx) => (
                       <div
                         key={idx}
                         className="rounded-lg overflow-hidden relative group"

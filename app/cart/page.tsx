@@ -121,11 +121,11 @@ export default function CartPage() {
           updatedAt: new Date(),
         });
         setIsLoading(false);
-      } catch (err) {
+      } catch {
         setError('Failed to load cart');
         setIsLoading(false);
       }
-    }, (err) => {
+    }, () => {
       refreshCart();
     });
 
@@ -340,7 +340,7 @@ export default function CartPage() {
               Explore our products and add items to get started
             </p>
             <button
-              onClick={() => router.push(currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/products' : '/products')}
+              onClick={() => router.push(currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/products' : '/member-products')}
               className="px-8 py-3 rounded-lg text-white font-semibold"
               style={{
                 backgroundColor: AppColors.primary,
@@ -606,7 +606,7 @@ export default function CartPage() {
                 >Save as Quote Draft</button>}
 
                 <button
-                  onClick={() => router.push(currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/products' : '/products')}
+                  onClick={() => router.push(currentRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/products' : '/member-products')}
                   className="w-full mt-3 py-3 rounded-lg font-semibold border-2 transition-all"
                   style={{
                     borderColor: AppColors.primary,

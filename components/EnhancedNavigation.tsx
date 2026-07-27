@@ -194,13 +194,6 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/seller/payout-profile',
         matchPrefixes: ['/seller/payout-profile'],
       },
-      {
-        id: 'messages',
-        label: 'Messages',
-        icon: 'Messages',
-        href: '/messages',
-        matchPrefixes: ['/messages'],
-      },
     ],
   },
 };

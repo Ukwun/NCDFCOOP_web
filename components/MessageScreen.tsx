@@ -8,6 +8,7 @@ import {
   Conversation,
   Message,
   sendMessage,
+  subscribeConversation,
   subscribeConversationMessages,
   subscribeUserConversations,
 } from '@/lib/services/messageService';
@@ -35,9 +36,7 @@ export default function MessageScreen() {
     setLoading(true);
     return subscribeUserConversations(user.uid, (rows) => {
       setConversations(rows);
-      setSelectedChat((current) =>
-        current && rows.some((row) => row.id === current) ? current : rows[0]?.id || '',
-      );
+      setSelectedChat((current) => current || rows[0]?.id || '');
       setError('');
       setLoading(false);
     }, () => {
@@ -45,6 +44,27 @@ export default function MessageScreen() {
       setLoading(false);
     });
   }, [user?.uid]);
+
+  useEffect(() => {
+    if (!selectedChat || conversations.some((conversation) => conversation.id === selectedChat)) {
+      return;
+    }
+    return subscribeConversation(selectedChat, (conversation) => {
+      if (!conversation) {
+        setError('This inquiry conversation is no longer available.');
+        return;
+      }
+      setConversations((current) => [
+        conversation,
+        ...current.filter((item) => item.id !== conversation.id),
+      ]);
+      setError('');
+      setLoading(false);
+    }, () => {
+      setError('This inquiry conversation could not be loaded. Please return to inquiries and try again.');
+      setLoading(false);
+    });
+  }, [conversations, selectedChat]);
 
   useEffect(() => {
     if (!selectedChat) {

@@ -1,8 +1,10 @@
 import { randomBytes } from "crypto";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase/admin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { verifyRequestIdentity } from "@/lib/server/requestAuth";
+import { USER_ROLES } from "@/lib/constants/database";
+import operationsConfig from "@/operations.config.json";
 
 const PENDING_ROLE = "pending_role";
 
@@ -25,6 +27,42 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
     const userRef = db.collection("users").doc(identity.uid);
     const memberRef = db.collection("members").doc(identity.uid);
+    const configuredOwnerEmail = String(
+      process.env.INITIAL_SUPER_ADMIN_EMAIL ||
+        operationsConfig.initialSuperAdminEmail ||
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    const isConfiguredOwner =
+      identity.emailVerified &&
+      !!configuredOwnerEmail &&
+      email === configuredOwnerEmail;
+    let tokenRefreshRequired = false;
+
+    if (
+      isConfiguredOwner &&
+      !identity.operationalRoles.includes(USER_ROLES.SUPER_ADMIN)
+    ) {
+      const auth = getAdminAuth();
+      const authUser = await auth.getUser(identity.uid);
+      const claims = authUser.customClaims || {};
+      const operationalRoles = Array.from(
+        new Set([
+          ...(Array.isArray(claims.operationalRoles)
+            ? claims.operationalRoles.filter(
+                (role): role is string => typeof role === "string",
+              )
+            : []),
+          USER_ROLES.SUPER_ADMIN,
+        ]),
+      );
+      await auth.setCustomUserClaims(identity.uid, {
+        ...claims,
+        operationalRoles,
+      });
+      tokenRefreshRequired = true;
+    }
 
     await db.runTransaction(async (transaction) => {
       const [userSnapshot, memberSnapshot] = await Promise.all([
@@ -38,12 +76,16 @@ export async function POST(request: NextRequest) {
           id: identity.uid,
           email,
           name,
-          roles: [],
-          selectedRole: PENDING_ROLE,
-          membershipType: PENDING_ROLE,
-          roleSelectionComplete: false,
+          roles: isConfiguredOwner ? [USER_ROLES.SUPER_ADMIN] : [],
+          selectedRole: isConfiguredOwner
+            ? USER_ROLES.SUPER_ADMIN
+            : PENDING_ROLE,
+          membershipType: isConfiguredOwner
+            ? USER_ROLES.SUPER_ADMIN
+            : PENDING_ROLE,
+          roleSelectionComplete: isConfiguredOwner,
           onboardingCompleted,
-          membershipStatus: "pending",
+          membershipStatus: isConfiguredOwner ? "inactive" : "pending",
           memberTier: "bronze",
           createdAt: now,
           updatedAt: now,
@@ -51,7 +93,27 @@ export async function POST(request: NextRequest) {
           phone: "",
           address: "",
           isActive: true,
+          ...(isConfiguredOwner
+            ? {
+                isOperationalStaff: true,
+                staffStatus: "active",
+              }
+            : {}),
         });
+      } else if (isConfiguredOwner) {
+        transaction.set(
+          userRef,
+          {
+            email,
+            roles: FieldValue.arrayUnion(USER_ROLES.SUPER_ADMIN),
+            selectedRole: USER_ROLES.SUPER_ADMIN,
+            roleSelectionComplete: true,
+            isOperationalStaff: true,
+            staffStatus: "active",
+            updatedAt: now,
+          },
+          { merge: true },
+        );
       }
 
       if (!memberSnapshot.exists) {
@@ -71,7 +133,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    return NextResponse.json({ success: true, userId: identity.uid });
+    return NextResponse.json({
+      success: true,
+      userId: identity.uid,
+      tokenRefreshRequired,
+    });
   } catch (error) {
     console.error("Profile provisioning failed:", error);
     return NextResponse.json(

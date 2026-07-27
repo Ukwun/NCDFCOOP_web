@@ -81,7 +81,7 @@ const LOCAL_ONBOARDING_KEY = "ncdfcoop_onboarding_completed";
 const LOCAL_ROLE_OVERRIDE_KEY = "selectedRoleOverride";
 const PENDING_ROLE = "pending_role";
 const PROFILE_REQUEST_TIMEOUT_MS = 12_000;
-const profileProvisioningRequests = new Map<string, Promise<void>>();
+const profileProvisioningRequests = new Map<string, Promise<boolean>>();
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
   return Promise.race([
@@ -95,7 +95,7 @@ function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: stri
 async function requestCanonicalProfile(
   currentUser: User,
   name?: string,
-): Promise<void> {
+): Promise<boolean> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -112,7 +112,10 @@ async function requestCanonicalProfile(
         }),
         signal: AbortSignal.timeout(PROFILE_REQUEST_TIMEOUT_MS),
       });
-      if (response.ok) return;
+      if (response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        return payload?.tokenRefreshRequired === true;
+      }
       const payload = await response.json().catch(() => ({}));
       const error = new Error(payload?.error || "Profile provisioning failed.");
       if (response.status >= 400 && response.status < 500 && response.status !== 401) {
@@ -130,7 +133,7 @@ async function requestCanonicalProfile(
   throw lastError || new Error("Profile provisioning failed.");
 }
 
-function provisionCanonicalProfile(currentUser: User, name?: string): Promise<void> {
+function provisionCanonicalProfile(currentUser: User, name?: string): Promise<boolean> {
   const existing = profileProvisioningRequests.get(currentUser.uid);
   if (existing) return existing;
   const request = requestCanonicalProfile(currentUser, name).finally(() => {
@@ -255,27 +258,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<string> => {
     if (!db) throw new Error("Firebase not initialized");
 
+    const tokenRefreshRequired = await provisionCanonicalProfile(currentUser);
+    if (tokenRefreshRequired) {
+      await currentUser.getIdToken(true);
+    }
+
     const userRef = doc(db, COLLECTIONS.USERS, currentUser.uid);
-    let snapshot = await withTimeout(
+    const snapshot = await withTimeout(
       getDoc(userRef),
       10_000,
       "Your profile is taking too long to load. Check your connection and retry.",
     );
-    let profile = snapshot.data();
+    const profile = snapshot.data();
+    if (!profile) throw new Error("Your profile could not be loaded after creation.");
 
-    const createdProfile = !profile;
-    if (!profile) {
-      await provisionCanonicalProfile(currentUser);
-      snapshot = await withTimeout(
-        getDoc(userRef),
-        10_000,
-        "Your profile was created but could not be loaded. Please sign in again.",
-      );
-      profile = snapshot.data();
-      if (!profile) throw new Error("Your profile could not be loaded after creation.");
-    }
-
-    if (createdProfile && referralCode) {
+    if (referralCode) {
       try {
         await attributeReferral(currentUser, referralCode);
       } catch (referralError) {

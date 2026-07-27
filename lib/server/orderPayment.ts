@@ -1,9 +1,10 @@
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase/admin';
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { getAdminDb } from "@/lib/firebase/admin";
 import {
   getMembershipTier,
+  highestMembershipTier,
   membershipTierForSpend,
-} from '@/lib/membership/tiers';
+} from "@/lib/membership/tiers";
 
 function money(value: unknown): number {
   const numeric = Number(value);
@@ -16,72 +17,84 @@ export async function completeOrderPayment(input: {
   providerStatus: string;
 }): Promise<{ orderId: string; userId: string; alreadyCompleted: boolean }> {
   const db = getAdminDb();
-  const transactionRef = db.collection('transactions').doc(input.transactionRef);
+  const transactionRef = db
+    .collection("transactions")
+    .doc(input.transactionRef);
 
   return db.runTransaction(async (transaction) => {
     const transactionSnapshot = await transaction.get(transactionRef);
     if (!transactionSnapshot.exists) {
-      throw new Error('TRANSACTION_NOT_FOUND');
+      throw new Error("TRANSACTION_NOT_FOUND");
     }
 
     const payment = transactionSnapshot.data() || {};
-    const orderId = String(payment.orderId || '');
-    const userId = String(payment.userId || '');
-    if (!orderId || !userId) throw new Error('TRANSACTION_INVALID');
+    const orderId = String(payment.orderId || "");
+    const userId = String(payment.userId || "");
+    if (!orderId || !userId) throw new Error("TRANSACTION_INVALID");
 
-    const orderRef = db.collection('orders').doc(orderId);
-    const memberRef = db.collection('members').doc(userId);
-    const userRef = db.collection('users').doc(userId);
+    const orderRef = db.collection("orders").doc(orderId);
+    const memberRef = db.collection("members").doc(userId);
+    const userRef = db.collection("users").doc(userId);
     const [orderSnapshot, memberSnapshot] = await Promise.all([
       transaction.get(orderRef),
       transaction.get(memberRef),
     ]);
 
-    if (!orderSnapshot.exists) throw new Error('ORDER_NOT_FOUND');
+    if (!orderSnapshot.exists) throw new Error("ORDER_NOT_FOUND");
     const order = orderSnapshot.data() || {};
-    if (order.paymentStatus === 'completed') {
+    if (order.paymentStatus === "completed") {
       return { orderId, userId, alreadyCompleted: true };
     }
 
-    const attributionRef = db.collection('referralAttributions').doc(userId);
+    const attributionRef = db.collection("referralAttributions").doc(userId);
     const attributionSnapshot = await transaction.get(attributionRef);
     const attribution = attributionSnapshot.data() || {};
-    const referrerId = String(attribution.referrerId || '');
-    const referrerMemberRef = referrerId ? db.collection('members').doc(referrerId) : null;
+    const referrerId = String(attribution.referrerId || "");
+    const referrerMemberRef = referrerId
+      ? db.collection("members").doc(referrerId)
+      : null;
     const referralRecordRef = referrerId
-      ? db.collection('members').doc(referrerId).collection('referrals').doc(userId)
+      ? db
+          .collection("members")
+          .doc(referrerId)
+          .collection("referrals")
+          .doc(userId)
       : null;
     if (referrerMemberRef) await transaction.get(referrerMemberRef);
 
     const now = Timestamp.now();
     transaction.update(transactionRef, {
-      status: 'completed',
+      status: "completed",
       providerTransactionId: String(input.providerTransactionId),
       providerStatus: input.providerStatus,
       completedAt: now,
       updatedAt: now,
     });
     transaction.update(orderRef, {
-      paymentStatus: 'completed',
-      status: 'confirmed',
+      paymentStatus: "completed",
+      status: "confirmed",
       transactionRef: input.transactionRef,
       paidAt: now,
       updatedAt: now,
     });
 
-    if (order.buyerType === 'member') {
+    if (order.buyerType === "member") {
       const currentMember = memberSnapshot.data() || {};
       const currentSpent = money(
-        currentMember.totalSpent ?? currentMember.totalPurchases ?? 0
+        currentMember.totalSpent ?? currentMember.totalPurchases ?? 0,
       );
       const orderAmount = money(order.totalAmount);
       const nextSpent = money(currentSpent + orderAmount);
       const earningTier = getMembershipTier(
-        currentMember.tier || order.memberTier || 'bronze'
+        currentMember.tier || order.memberTier || "bronze",
       );
       const pointsEarned =
         Math.floor(orderAmount / 100) * earningTier.pointsPerHundredNaira;
-      const tier = membershipTierForSpend(nextSpent).id;
+      const earnedTier = membershipTierForSpend(nextSpent).id;
+      const tier = highestMembershipTier(
+        currentMember.membershipPlanTier,
+        earnedTier,
+      ).id;
 
       transaction.set(
         memberRef,
@@ -98,56 +111,76 @@ export async function completeOrderPayment(input: {
           updatedAt: now,
           ...(memberSnapshot.exists ? {} : { memberSince: now }),
         },
-        { merge: true }
+        { merge: true },
       );
       transaction.set(
         userRef,
         { memberTier: tier, updatedAt: now },
-        { merge: true }
+        { merge: true },
       );
 
-      const referralPoints = Math.max(0, Math.floor(Number(attribution.rewardPoints || 2500)));
-      const qualifiesReferral = attributionSnapshot.exists &&
-        attribution.status === 'pending' &&
-        !!referrerMemberRef && !!referralRecordRef &&
+      const referralPoints = Math.max(
+        0,
+        Math.floor(Number(attribution.rewardPoints || 2500)),
+      );
+      const qualifiesReferral =
+        attributionSnapshot.exists &&
+        attribution.status === "pending" &&
+        !!referrerMemberRef &&
+        !!referralRecordRef &&
         Number(currentMember.ordersCount || 0) === 0 &&
         orderAmount >= money(attribution.qualificationMinimum || 5000) &&
         referralPoints > 0;
 
       if (qualifiesReferral && referrerMemberRef && referralRecordRef) {
-        transaction.set(referrerMemberRef, {
-          loyaltyPoints: FieldValue.increment(referralPoints),
-          rewardsPoints: FieldValue.increment(referralPoints),
-          lifetimePoints: FieldValue.increment(referralPoints),
-          completedReferralCount: FieldValue.increment(1),
-          updatedAt: now,
-        }, { merge: true });
+        transaction.set(
+          referrerMemberRef,
+          {
+            loyaltyPoints: FieldValue.increment(referralPoints),
+            rewardsPoints: FieldValue.increment(referralPoints),
+            lifetimePoints: FieldValue.increment(referralPoints),
+            completedReferralCount: FieldValue.increment(1),
+            updatedAt: now,
+          },
+          { merge: true },
+        );
         transaction.update(attributionRef, {
-          status: 'completed', qualifyingOrderId: orderId,
-          qualifiedPurchaseAmount: orderAmount, awardedPoints: referralPoints,
-          completedAt: now, updatedAt: now,
+          status: "completed",
+          qualifyingOrderId: orderId,
+          qualifiedPurchaseAmount: orderAmount,
+          awardedPoints: referralPoints,
+          completedAt: now,
+          updatedAt: now,
         });
-        transaction.set(referralRecordRef, {
-          status: 'completed', qualifyingOrderId: orderId,
-          bonusEarned: referralPoints, awardedPoints: referralPoints,
-          completedAt: now, updatedAt: now,
-        }, { merge: true });
-        transaction.set(db.collection('notifications').doc(), {
+        transaction.set(
+          referralRecordRef,
+          {
+            status: "completed",
+            qualifyingOrderId: orderId,
+            bonusEarned: referralPoints,
+            awardedPoints: referralPoints,
+            completedAt: now,
+            updatedAt: now,
+          },
+          { merge: true },
+        );
+        transaction.set(db.collection("notifications").doc(), {
           userId: referrerId,
-          title: 'Referral reward earned',
+          title: "Referral reward earned",
           message: `${referralPoints.toLocaleString()} reward points were added after your referral completed a qualifying purchase.`,
-          type: 'reward', read: false,
+          type: "reward",
+          read: false,
           data: { referredUserId: userId, orderId, points: referralPoints },
           createdAt: now,
         });
       }
     }
 
-    transaction.set(db.collection('notifications').doc(), {
+    transaction.set(db.collection("notifications").doc(), {
       userId,
-      title: 'Payment confirmed',
+      title: "Payment confirmed",
       message: `Payment for order #${orderId} has been confirmed.`,
-      type: 'payment',
+      type: "payment",
       read: false,
       data: { orderId, transactionRef: input.transactionRef },
       createdAt: now,
@@ -163,27 +196,34 @@ export async function failOrderPayment(input: {
   reason?: string;
 }): Promise<void> {
   const db = getAdminDb();
-  const paymentRef = db.collection('transactions').doc(input.transactionRef);
+  const paymentRef = db.collection("transactions").doc(input.transactionRef);
 
   await db.runTransaction(async (transaction) => {
     const paymentSnapshot = await transaction.get(paymentRef);
     if (!paymentSnapshot.exists) return;
 
     const payment = paymentSnapshot.data() || {};
-    const orderRef = db.collection('orders').doc(String(payment.orderId || ''));
+    const orderRef = db.collection("orders").doc(String(payment.orderId || ""));
     const orderSnapshot = await transaction.get(orderRef);
     if (!orderSnapshot.exists) return;
 
     const order = orderSnapshot.data() || {};
-    if (order.paymentStatus === 'completed' || order.inventoryReleased === true) {
+    if (
+      order.paymentStatus === "completed" ||
+      order.inventoryReleased === true
+    ) {
       return;
     }
 
     const productReads = await Promise.all(
-      (Array.isArray(order.items) ? order.items : []).map(async (item: any) => {
-        const ref = db.collection('products').doc(String(item.productId || ''));
-        return { item, ref, snapshot: await transaction.get(ref) };
-      })
+      (Array.isArray(order.items) ? order.items : []).map(
+        async (item: Record<string, unknown>) => {
+          const ref = db
+            .collection("products")
+            .doc(String(item.productId || ""));
+          return { item, ref, snapshot: await transaction.get(ref) };
+        },
+      ),
     );
     const now = Timestamp.now();
 
@@ -195,18 +235,18 @@ export async function failOrderPayment(input: {
       });
     });
     transaction.update(paymentRef, {
-      status: 'failed',
+      status: "failed",
       providerTransactionId: input.providerTransactionId
         ? String(input.providerTransactionId)
-        : '',
-      failureReason: input.reason || 'Payment failed',
+        : "",
+      failureReason: input.reason || "Payment failed",
       updatedAt: now,
     });
     transaction.update(orderRef, {
-      paymentStatus: 'failed',
-      status: 'cancelled',
+      paymentStatus: "failed",
+      status: "cancelled",
       inventoryReleased: true,
-      failureReason: input.reason || 'Payment failed',
+      failureReason: input.reason || "Payment failed",
       updatedAt: now,
     });
   });

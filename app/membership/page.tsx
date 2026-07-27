@@ -1,261 +1,264 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Check,
+  CircleHelp,
+  Crown,
+  Gem,
+  Medal,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { useMembershipPricing } from "@/lib/hooks/useMembershipPricing";
+import type { MembershipTier } from "@/lib/membership/tiers";
 
+const TIER_STYLES: Record<
+  MembershipTier,
+  { icon: typeof Medal; gradient: string; accent: string }
+> = {
+  bronze: {
+    icon: Medal,
+    gradient: "from-amber-950 via-amber-900 to-orange-800",
+    accent: "text-amber-300",
+  },
+  silver: {
+    icon: BadgeCheck,
+    gradient: "from-slate-700 via-slate-600 to-slate-500",
+    accent: "text-slate-100",
+  },
+  gold: {
+    icon: Crown,
+    gradient: "from-yellow-950 via-amber-700 to-yellow-500",
+    accent: "text-yellow-200",
+  },
+  platinum: {
+    icon: Gem,
+    gradient: "from-violet-950 via-purple-800 to-fuchsia-700",
+    accent: "text-fuchsia-200",
+  },
+};
+
+const FAQ = [
+  {
+    question: "Are the displayed prices current?",
+    answer:
+      "Yes. The prices come from the server-owned commerce settings and refresh automatically. Your payment intent locks the displayed tier and amount before Flutterwave opens.",
+  },
+  {
+    question: "Can a normal account change these prices?",
+    answer:
+      "No. Membership pricing can only be changed through the authenticated super-admin endpoint. Every change is recorded in the activity log.",
+  },
+  {
+    question: "How do rewards points work?",
+    answer:
+      "Points are awarded on completed payments per ₦100 spent: Bronze earns 1, Silver 2, Gold 3, and Platinum 4.",
+  },
+  {
+    question: "Can purchase activity improve my tier?",
+    answer:
+      "Yes. Qualifying spend can move you upward. The system will not move you below the tier activated by your membership payment.",
+  },
+];
+
+function formatNaira(amount: number) {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 export default function MembershipPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('benefits');
-
-  const membershipTiers = [
-    {
-      name: 'Bronze',
-      emoji: '🥉',
-      color: '#8B6914',
-      minSpend: '₦0',
-      maxSpend: '₦199,999',
-      benefits: [
-        'Member discount: 5%',
-        'Rewards: 1 point per ₦100 paid',
-        'Monthly newsletter',
-        'Access to community events',
-        'Priority customer support',
-      ],
-      features: [
-        'Voting rights',
-        'Dividend payments (if profitable)',
-        'Product pre-orders',
-      ],
-    },
-    {
-      name: 'Silver',
-      emoji: '🥈',
-      color: '#A9A9A9',
-      minSpend: '₦200,000',
-      maxSpend: '₦499,999',
-      benefits: [
-        'Member discount: 10%',
-        'Double rewards: 2 points per ₦100 paid',
-        'Exclusive deals every week',
-        'Free shipping on orders > ₦5,000',
-        '24/7 member support line',
-      ],
-      features: [
-        'All Bronze benefits',
-        'Eligible for credit line',
-        'Sponsor 1 referral bonus',
-      ],
-    },
-    {
-      name: 'Gold',
-      emoji: '🥇',
-      color: '#C9A227',
-      minSpend: '₦500,000',
-      maxSpend: '₦999,999',
-      benefits: [
-        'Member discount: 15%',
-        'Triple rewards: 3 points per ₦100 paid',
-        'Weekly exclusive member deals',
-        'Free shipping on all orders',
-        'Dedicated account manager',
-      ],
-      features: [
-        'All Silver benefits',
-        'Premium credit line',
-        'Sponsor up to 5 referrals',
-        'Invite to quarterly member meetups',
-      ],
-    },
-    {
-      name: 'Platinum',
-      emoji: '💎',
-      color: '#9D4EDD',
-      minSpend: '₦1,000,000+',
-      maxSpend: 'Unlimited',
-      benefits: [
-        'Member discount: 20%',
-        'Quad rewards: 4 points per ₦100 paid',
-        'Daily exclusive deals',
-        'Free shipping worldwide',
-        'VIP concierge service',
-      ],
-      features: [
-        'All Gold benefits',
-        'Premium VIP credit line',
-        'Unlimited referrals with rewards',
-        'Monthly VIP events & merchant meetings',
-        'Quarterly dividend bonus',
-      ],
-    },
-  ];
+  const [activeTab, setActiveTab] = useState<"tiers" | "faq">("tiers");
+  const { tiers, loading, error, refresh } = useMembershipPricing();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-3 mb-4">
-            <button
-              onClick={() => router.back()}
-              className="text-2xl hover:scale-110 transition-transform"
-            >
-              ←
-            </button>
-            <div className="flex-1">
-              <div className="inline-block px-3 py-1 bg-[#0B6B3A] text-white text-xs font-semibold rounded-full">
-                🎯 MEMBERSHIP INFO
-              </div>
-            </div>
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950 dark:text-white">
+      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Go back"
+            className="grid min-h-11 min-w-11 place-items-center rounded-xl border border-slate-200 transition hover:-translate-x-0.5 hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/10"
+          >
+            <ArrowLeft size={19} />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-400">
+              Live membership plans
+            </p>
+            <h1 className="truncate text-xl font-black sm:text-2xl">
+              NCDFCOOP Membership
+            </h1>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-            NCDFCOOP Membership
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Join thousands of members enjoying cooperative benefits, exclusive deals, and rewards
-          </p>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            aria-label="Refresh membership prices"
+            className="grid min-h-11 min-w-11 place-items-center rounded-xl border border-slate-200 transition hover:-translate-y-0.5 hover:bg-slate-100 disabled:opacity-60 dark:border-white/10 dark:hover:bg-white/10"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        {/* Tabs */}
-        <div className="flex gap-3 border-b border-gray-200 dark:border-gray-700">
-          {[
-            { id: 'benefits', label: '💎 Membership Tiers' },
-            { id: 'faq', label: '❓ FAQ' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 font-semibold transition-colors border-b-2 ${
-                activeTab === tab.id
-                  ? 'text-[#0B6B3A] border-[#0B6B3A]'
-                  : 'text-gray-600 dark:text-gray-400 border-transparent hover:text-gray-900 dark:hover:text-gray-300'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-7 sm:px-6 sm:py-10">
+        <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-800 p-6 text-white shadow-2xl sm:p-9">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold">
+              <Sparkles size={14} /> Cooperative ownership, practical benefits
+            </span>
+            <h2 className="mt-5 text-3xl font-black tracking-tight sm:text-5xl">
+              Choose the membership level that fits you.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-emerald-100 sm:text-base">
+              Every price is supplied by the live server. Payment amounts are
+              verified independently before benefits are activated.
+            </p>
+          </div>
+        </section>
+
+        {error && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100"
+          >
+            {error} The last verified default prices remain visible while the
+            system retries.
+          </div>
+        )}
+
+        <div className="flex gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <button
+            type="button"
+            onClick={() => setActiveTab("tiers")}
+            className={`min-h-11 flex-1 rounded-xl px-4 text-sm font-bold transition ${
+              activeTab === "tiers"
+                ? "bg-emerald-700 text-white shadow-lg"
+                : "hover:bg-slate-100 dark:hover:bg-white/10"
+            }`}
+          >
+            Membership tiers
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("faq")}
+            className={`min-h-11 flex-1 rounded-xl px-4 text-sm font-bold transition ${
+              activeTab === "faq"
+                ? "bg-emerald-700 text-white shadow-lg"
+                : "hover:bg-slate-100 dark:hover:bg-white/10"
+            }`}
+          >
+            How it works
+          </button>
         </div>
 
-        {/* Tiers Section */}
-        {activeTab === 'benefits' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {membershipTiers.map((tier) => (
-                <div
-                  key={tier.name}
-                  className="rounded-lg overflow-hidden shadow-lg transform transition-transform hover:scale-105"
-                  style={{ backgroundColor: tier.color, color: 'white' }}
+        {activeTab === "tiers" ? (
+          <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {tiers.map((tier) => {
+              const style = TIER_STYLES[tier.id];
+              const Icon = style.icon;
+              return (
+                <article
+                  key={tier.id}
+                  className={`group flex min-h-full flex-col overflow-hidden rounded-3xl bg-gradient-to-br ${style.gradient} text-white shadow-xl transition duration-300 hover:-translate-y-1.5 hover:shadow-2xl motion-reduce:transform-none`}
                 >
-                  {/* Tier Header */}
-                  <div className="p-6 text-center border-b border-white border-opacity-20">
-                    <div className="text-4xl mb-2">{tier.emoji}</div>
-                    <h3 className="text-2xl font-bold">{tier.name}</h3>
-                    <p className="text-sm opacity-90 mt-2">Spending: {tier.minSpend} - {tier.maxSpend}</p>
+                  <div className="border-b border-white/10 p-6">
+                    <Icon className={style.accent} size={30} />
+                    <h3 className="mt-4 text-2xl font-black">{tier.name}</h3>
+                    <p className="mt-2 text-3xl font-black">
+                      {formatNaira(tier.subscriptionPrice)}
+                    </p>
+                    <p className="mt-1 text-xs text-white/70">
+                      One-time membership activation
+                    </p>
                   </div>
-
-                  {/* Benefits */}
-                  <div className="p-6">
-                    <h4 className="text-sm font-bold mb-3 opacity-90">Benefits</h4>
-                    <ul className="space-y-2 mb-6">
-                      {tier.benefits.map((benefit, idx) => (
-                        <li key={idx} className="text-sm flex gap-2">
-                          <span>✓</span>
-                          <span>{benefit}</span>
-                        </li>
-                      ))}
+                  <div className="flex flex-1 flex-col p-6">
+                    <ul className="space-y-3 text-sm text-white/90">
+                      <li className="flex gap-2">
+                        <Check size={17} className="shrink-0" />
+                        {tier.discountPercentage}% member discount
+                      </li>
+                      <li className="flex gap-2">
+                        <Check size={17} className="shrink-0" />
+                        {tier.pointsPerHundredNaira} reward point
+                        {tier.pointsPerHundredNaira === 1 ? "" : "s"} per ₦100
+                      </li>
+                      <li className="flex gap-2">
+                        <Check size={17} className="shrink-0" />
+                        {tier.supportLabel}
+                      </li>
+                      <li className="flex gap-2">
+                        <Check size={17} className="shrink-0" />
+                        {tier.freeShippingThreshold === 0
+                          ? "Free shipping benefit"
+                          : `Free shipping from ${formatNaira(tier.freeShippingThreshold)}`}
+                      </li>
                     </ul>
-
-                    <h4 className="text-sm font-bold mb-3 opacity-90 border-t border-white border-opacity-20 pt-4">
-                      Features
-                    </h4>
-                    <ul className="space-y-2">
-                      {tier.features.map((feature, idx) => (
-                        <li key={idx} className="text-sm flex gap-2">
-                          <span>⭐</span>
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(`/membership/payment?tier=${tier.id}`)
+                      }
+                      className="mt-7 min-h-12 w-full rounded-xl bg-white px-4 font-black text-slate-950 transition group-hover:scale-[1.02] hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-white/70 motion-reduce:transform-none"
+                    >
+                      Choose {tier.name}
+                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Progress Info */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100 mb-3">
-                📈 How Tiers Work
-              </h3>
-              <p className="text-sm text-blue-800 dark:text-blue-200 mb-4">
-                Your tier is automatically determined by your total spending in the last 12 months. As you spend more, you unlock better benefits and higher discounts. All tier advancements are instant!
-              </p>
-              <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-                <p>💡 <strong>Tip:</strong> Refer friends to earn bonus points and reach higher tiers faster</p>
-                <p>💡 <strong>Tip:</strong> Your tier resets annually on January 1st based on your previous year spending</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-
-        {/* FAQ Section */}
-        {activeTab === 'faq' && (
-          <div className="space-y-4 max-w-3xl">
-            {[
-              {
-                q: 'How much does it cost to become a member?',
-                a: 'Membership activation is a one-time ₦5,000 payment. Your benefits activate only after the payment is verified by our server.',
-              },
-              {
-                q: 'Can I change my membership type later?',
-                a: 'Yes! You can switch between Regular Member, Wholesale Buyer, or Seller status at any time. Just contact our support team or visit your account settings.',
-              },
-              {
-                q: 'How are rewards points calculated?',
-                a: 'Points are awarded on completed payments per ₦100 spent: Bronze (1), Silver (2), Gold (3), and Platinum (4).',
-              },
-              {
-                q: 'What if I don\'t meet the spending requirement for my tier?',
-                a: 'Tiers are based on spending in the past 12 months. If you drop below a tier threshold, you\'ll automatically move to the lower tier the next month. You can always work towards the higher tier again!',
-              },
-              {
-                q: 'Are member discounts stackable?',
-                a: 'Member discounts are applied automatically to your purchases. Some promotions may not stack, but we always apply the best discount available to you.',
-              },
-              {
-                q: 'How do referrals work?',
-                a: 'Share your unique referral link with friends. When they sign up and make their first purchase, you both get bonus rewards points! Higher tiers can sponsor more referrals.',
-              },
-            ].map((item, idx) => (
-              <div key={idx} className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
-                <h4 className="font-bold text-gray-900 dark:text-white mb-2">{item.q}</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{item.a}</p>
-              </div>
+                </article>
+              );
+            })}
+          </section>
+        ) : (
+          <section className="grid gap-4 lg:grid-cols-2">
+            {FAQ.map((item) => (
+              <article
+                key={item.question}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-white/[0.04]"
+              >
+                <h3 className="flex items-start gap-2 font-black">
+                  <CircleHelp
+                    size={19}
+                    className="mt-0.5 shrink-0 text-emerald-600"
+                  />
+                  {item.question}
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                  {item.answer}
+                </p>
+              </article>
             ))}
-          </div>
+          </section>
         )}
 
-        {/* CTA */}
-        <div className="bg-gradient-to-r from-[#0B6B3A] to-[#095234] rounded-lg p-8 text-white text-center">
-          <h3 className="text-2xl font-bold mb-3">Ready to Join NCDFCOOP?</h3>
-          <p className="mb-6">Start earning rewards today and become part of Nigeria's most trusted cooperative commerce platform</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => router.push('/membership/payment')}
-              className="bg-yellow-400 text-[#0B6B3A] hover:bg-yellow-300 font-bold py-3 px-8 rounded-lg transition-colors"
-            >
-              Become a Member (₦5,000)
-            </button>
-            <button
-              onClick={() => router.push('/home')}
-              className="border-2 border-white text-white hover:bg-white hover:bg-opacity-10 font-bold py-3 px-8 rounded-lg transition-colors"
-            >
-              Continue Shopping
-            </button>
+        <section className="flex flex-col gap-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-6 sm:flex-row sm:items-center sm:justify-between dark:border-emerald-400/20 dark:bg-emerald-500/10">
+          <div>
+            <h2 className="flex items-center gap-2 text-xl font-black">
+              <ShieldCheck className="text-emerald-700 dark:text-emerald-400" />
+              Server-verified membership activation
+            </h2>
+            <p className="mt-1 text-sm text-emerald-900/75 dark:text-emerald-100/75">
+              The browser cannot activate membership by itself. Flutterwave
+              verification and the locked payment intent must agree.
+            </p>
           </div>
-        </div>
+          <button
+            type="button"
+            onClick={() => router.push("/home")}
+            className="min-h-11 shrink-0 rounded-xl border border-emerald-700 px-5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-700 hover:text-white dark:border-emerald-400 dark:text-emerald-300"
+          >
+            Continue shopping
+          </button>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

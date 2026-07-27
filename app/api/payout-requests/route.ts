@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   if (payoutProfile.changedAfterVerification) flags.push('bank_account_changed');
   const now = Timestamp.now(); const ref = db.collection('payoutRequests').doc();
   await db.runTransaction(async (tx) => {
-    tx.set(ref, { sellerId: user!.uid, amount, currency: 'NGN', status: flags.length ? 'exception_review' : 'pending_approval', exceptionFlags: flags, approvalIds: [], requiredApprovals: flags.length ? 2 : 1, payoutProfileSnapshot: { bankName: payoutProfile.bankName || '', accountName: payoutProfile.accountName || '', accountLast4: payoutProfile.accountLast4 || '' }, createdAt: now, updatedAt: now });
+    tx.set(ref, { sellerId: user!.uid, amount, currency: 'NGN', status: flags.length ? 'exception_review' : 'pending_approval', exceptionFlags: flags, approvalIds: [], requiredApprovals: flags.length ? 2 : 1, payoutProfileSnapshot: { bankName: payoutProfile.bankName || '', accountName: payoutProfile.accountName || '', accountNumber: payoutProfile.accountNumber || '', accountLast4: payoutProfile.accountLast4 || '' }, createdAt: now, updatedAt: now });
     tx.set(db.collection('sellerBalances').doc(user!.uid), { available: FieldValue.increment(-amount), pendingPayout: FieldValue.increment(amount), updatedAt: now }, { merge: true });
     tx.set(db.collection('sellerLedgerEntries').doc(), { sellerId: user!.uid, type: 'payout_reserved', amount: -amount, payoutRequestId: ref.id, createdAt: now });
   });

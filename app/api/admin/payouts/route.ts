@@ -18,8 +18,13 @@ export async function PATCH(request: NextRequest) {
     }
     const db = getAdminDb();
     const profileRef = db.collection('payoutProfiles').doc(sellerId);
-    if (!(await profileRef.get()).exists) {
+    const profile = await profileRef.get();
+    if (!profile.exists) {
       return NextResponse.json({ error: 'Payout profile not found.' }, { status: 404 });
+    }
+    const details = profile.data() || {};
+    if (reviewStatus === 'verified' && (!/^\d{10}$/.test(String(details.accountNumber || '')) || !details.bankName || !details.accountName)) {
+      return NextResponse.json({ error: 'This payout profile is incomplete and cannot be verified.' }, { status: 409 });
     }
     await db.runTransaction(async (transaction) => {
       transaction.update(profileRef, { reviewStatus, reviewedBy: user.uid,

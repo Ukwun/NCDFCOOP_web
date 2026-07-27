@@ -218,7 +218,7 @@ export default function SellerProductEditPage() {
                     rows={6}
                     maxLength={5_000}
                     required
-                    className="mt-2 w-full rounded-xl border border-slate-300 bg-transparent px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-white/15"
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 placeholder:text-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-white/20 dark:bg-white dark:text-slate-950"
                   />
                 </label>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -312,7 +312,7 @@ function Field({
         maxLength={maxLength}
         onChange={(event) => onChange(event.target.value)}
         required
-        className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-white/15"
+        className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-slate-950 placeholder:text-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 dark:border-white/20 dark:bg-white dark:text-slate-950"
       />
     </label>
   );

@@ -14,6 +14,7 @@ import { addToCart } from '@/lib/services/cartService';
 import { createInquiry } from '@/lib/services/inquiryService';
 import { createNotification } from '@/lib/services/notificationService';
 import { resolveProductImage } from '@/lib/utils/productImage';
+import { applyOfferPrice, getActiveProductOffer } from '@/lib/utils/productOffer';
 
 export default function WholesaleProductsPage() {
   const { user } = useAuth();
@@ -52,7 +53,9 @@ export default function WholesaleProductsPage() {
     try {
       setBusyId(product.id); setNotice('');
       const quantity = Math.max(1, product.minOrderQuantity || product.minOrder || 1);
-      await addToCart(user.uid, product.id, product.name, product.wholesalePrice || product.price, resolveProductImage(product.thumbnail || product.images?.[0]), quantity);
+      const basePrice = product.wholesalePrice || product.price;
+      const offer = getActiveProductOffer(product, USER_ROLES.INSTITUTIONAL_BUYER);
+      await addToCart(user.uid, product.id, product.name, offer ? applyOfferPrice(basePrice, offer.discountPercentage) : basePrice, resolveProductImage(product.thumbnail || product.images?.[0]), quantity);
       setNotice(`${product.name} added at its minimum order quantity (${quantity}).`);
     } catch (error) { setNotice(error instanceof Error ? error.message : 'Unable to add this product.'); }
     finally { setBusyId(''); }
@@ -89,11 +92,13 @@ export default function WholesaleProductsPage() {
         {loading ? <div className="grid gap-4 py-6 sm:grid-cols-2 xl:grid-cols-3">{[1,2,3,4,5,6].map((item) => <div key={item} className="h-96 animate-pulse rounded-2xl bg-white"/>)}</div> :
         <div className="grid gap-4 py-6 sm:grid-cols-2 xl:grid-cols-3">{filtered.map((product) => {
           const moq = Math.max(1, product.minOrderQuantity || product.minOrder || 1);
-          const price = product.wholesalePrice || product.price;
+          const basePrice = product.wholesalePrice || product.price;
+          const offer = getActiveProductOffer(product, USER_ROLES.INSTITUTIONAL_BUYER);
+          const price = offer ? applyOfferPrice(basePrice, offer.discountPercentage) : basePrice;
           return <article key={product.id} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
-            <Link href={`/products/${product.id}`} className="relative block h-48 overflow-hidden bg-slate-100"><Image src={resolveProductImage(product.thumbnail || product.images?.[0])} alt={product.name} fill className="object-cover transition duration-500 group-hover:scale-105"/><span className="absolute left-3 top-3 rounded-full bg-slate-950/80 px-2.5 py-1 text-xs font-bold text-white">MOQ {moq} {product.unit || 'units'}</span></Link>
+            <Link href={`/products/${product.id}`} className="relative block h-48 overflow-hidden bg-slate-100"><Image src={resolveProductImage(product.thumbnail || product.images?.[0])} alt={product.name} fill className="object-cover transition duration-500 group-hover:scale-105"/><span className="absolute left-3 top-3 rounded-full bg-slate-950/80 px-2.5 py-1 text-xs font-bold text-white">MOQ {moq} {product.unit || 'units'}</span>{offer && <span className="absolute right-3 top-3 rounded-full bg-rose-600 px-2.5 py-1 text-xs font-black text-white">-{offer.discountPercentage}%</span>}</Link>
             <div className="p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{product.category}</p><Link href={`/products/${product.id}`} className="mt-1 block text-lg font-bold leading-tight hover:text-emerald-700">{product.name}</Link></div><span className="text-right text-lg font-black">₦{price.toLocaleString()}<small className="block text-[10px] font-medium text-slate-400">per {product.unit || 'unit'}</small></span></div>
-              <p className="mt-3 line-clamp-2 text-sm text-slate-500">{product.description}</p>
+              {offer && <p className="mt-2 text-xs font-black text-rose-600">{offer.title} · limited-time wholesale deal</p>}<p className="mt-3 line-clamp-2 text-sm text-slate-500">{product.description}</p>
               <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]"><span className="rounded-lg bg-emerald-50 p-2 text-emerald-800"><BadgeCheck size={14}/>{product.sellerVerified ? 'Verified' : 'Review due'}</span><span className="rounded-lg bg-blue-50 p-2 text-blue-800"><Clock3 size={14}/>{product.slaDays || 5}-day SLA</span><span className="rounded-lg bg-violet-50 p-2 text-violet-800"><ShieldCheck size={14}/>{product.certifications?.length || 0} certs</span></div>
               <p className="mt-3 text-xs text-slate-500">Supplier: <strong className="text-slate-700">{product.sellerName || 'NCDFCOOP Direct'}</strong></p>
               {product.bulkPrices?.length ? <div className="mt-3 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">Best tier: ₦{Math.min(...product.bulkPrices.map((tier) => tier.price)).toLocaleString()} from {Math.max(...product.bulkPrices.map((tier) => tier.minQuantity))} units</div> : null}

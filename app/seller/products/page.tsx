@@ -44,6 +44,13 @@ interface SellerProduct {
   requiresReview?: boolean;
   isActive?: boolean;
   rejectionReason?: string;
+  type?: "retail" | "wholesale" | "both";
+  activeOffer?: {
+    id: string;
+    title: string;
+    discountPercentage: number;
+    status: "active" | "scheduled" | "inactive";
+  };
 }
 
 export default function SellerProductsPage() {
@@ -530,6 +537,14 @@ export default function SellerProductsPage() {
                             >
                               {product.unit || "unit"}
                             </p>
+                            <p className="text-xs font-medium capitalize text-slate-500">
+                              {product.type || "retail"} listing · {product.stock} {product.unit || "units"} available
+                            </p>
+                            {product.activeOffer?.status !== "inactive" && product.activeOffer && (
+                              <span className="mt-1 inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+                                {product.activeOffer.title} · -{product.activeOffer.discountPercentage}%
+                              </span>
+                            )}
                             <span
                               className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
                                 product.status === "live"

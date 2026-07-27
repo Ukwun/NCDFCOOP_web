@@ -4,6 +4,7 @@
 import { useAuth } from '@/lib/auth/authContext';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useSellerProducts } from '@/lib/hooks/useSellerProducts';
 import { ProductPopularity } from '@/lib/services/analyticsService';
 
@@ -50,7 +51,8 @@ export default function SellerDashboardHomeScreen() {
     wholesaleRevenue: recentOrders
       .filter((o) => o.buyerType === 'wholesale')
       .reduce((sum, o) => sum + sellerNetForOrder(o), 0),
-    rating: 4.8,
+    rating: products.reduce((sum, product) => sum + product.rating * product.reviews, 0)
+      / Math.max(1, products.reduce((sum, product) => sum + product.reviews, 0)),
   };
 
   // Fetch seller analytics
@@ -379,8 +381,8 @@ export default function SellerDashboardHomeScreen() {
                 <div className="p-4 sm:p-6">
                   <div className="flex items-start gap-4">
                     {/* Product Image */}
-                    <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center text-3xl sm:text-4xl">
-                      {product.image}
+                    <div className="relative flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 overflow-hidden bg-gray-100 dark:bg-gray-700 rounded-lg">
+                      {product.image ? <Image src={product.image} alt={product.name} fill sizes="80px" className="object-cover"/> : <div className="flex h-full items-center justify-center text-xs text-slate-400">No image</div>}
                     </div>
 
                     {/* Product Info */}

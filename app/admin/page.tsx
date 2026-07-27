@@ -33,6 +33,7 @@ type Overview = {
     sellerEmail: string;
     bankName: string;
     accountName: string;
+    accountNumber: string;
     accountLast4: string;
     reviewStatus: string;
   }>;
@@ -55,6 +56,7 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
+  const [revealedPayoutId, setRevealedPayoutId] = useState("");
 
   const api = useCallback(async (url: string, init?: RequestInit) => {
     const token = await auth?.currentUser?.getIdToken();
@@ -439,7 +441,9 @@ export default function AdminPage() {
                           {profile.accountName || profile.sellerEmail}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {profile.bankName} · •••• {profile.accountLast4}
+                          {profile.bankName} · {revealedPayoutId === profile.sellerId
+                            ? profile.accountNumber
+                            : `••••••${profile.accountLast4}`}
                         </p>
                       </div>
                       <span className="rounded-full bg-white/10 px-2 py-1 text-[11px] capitalize">
@@ -447,6 +451,18 @@ export default function AdminPage() {
                       </span>
                     </div>
                     <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() =>
+                          setRevealedPayoutId((current) =>
+                            current === profile.sellerId ? "" : profile.sellerId,
+                          )
+                        }
+                        className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-white/10"
+                      >
+                        {revealedPayoutId === profile.sellerId
+                          ? "Hide account"
+                          : "Reveal account"}
+                      </button>
                       <button
                         disabled={workingId === profile.sellerId}
                         onClick={() =>

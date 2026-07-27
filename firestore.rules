@@ -317,6 +317,7 @@ service cloud.firestore {
       // are temporarily unavailable; clients can never self-publish live.
       allow create: if isSeller() &&
         request.resource.data.sellerId == request.auth.uid &&
+        request.resource.data.sellerEmail == request.auth.token.email &&
         request.resource.data.status in ['draft', 'pending'] &&
         request.resource.data.isActive == false &&
         request.resource.data.isFeatured == false &&
@@ -354,7 +355,7 @@ service cloud.firestore {
           'name', 'description', 'category', 'type', 'price', 'retailPrice',
           'wholesalePrice', 'originalPrice', 'discount', 'minOrderQuantity',
           'stock', 'unit', 'maxOrder', 'status', 'images', 'thumbnail',
-          'sellerId', 'sellerName', 'sellerVerified', 'ownershipType',
+          'sellerId', 'sellerEmail', 'sellerName', 'sellerVerified', 'ownershipType',
           'rating', 'reviews', 'isFeatured', 'isActive', 'requiresReview',
           'createdAt', 'updatedAt', 'publishedAt'
         ]);

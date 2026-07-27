@@ -150,6 +150,9 @@ export default function AddProductPage() {
     if (!formData.stock.trim() || stockValue <= 0)
       currentErrors.stock = "Stock quantity must be greater than zero";
     if (!formData.unit) currentErrors.unit = "Please choose a unit measure";
+    if (publish && !formData.thumbnail.trim() && formData.images.length === 0) {
+      currentErrors.thumbnail = "Upload a real product image before submitting for review";
+    }
     if (
       formData.productType !== "retail" &&
       (!formData.wholesalePrice.trim() || wholesalePriceValue <= 0)
@@ -207,18 +210,19 @@ export default function AddProductPage() {
           formData.productType !== "retail" ? finalWholesaleMinOrderValue : 1,
         stock: finalStockValue,
         unit: formData.unit,
-        maxOrder: 100,
+        maxOrder: Math.max(finalStockValue, 1),
         status: publish ? "pending" : "draft",
         images: formData.images.length > 0
           ? Array.from(new Set(formData.images))
           : formData.thumbnail
             ? [formData.thumbnail]
-            : ["/images/Groceries1.png"],
-        thumbnail: formData.thumbnail || "/images/Groceries1.png",
+            : [],
+        thumbnail: formData.thumbnail,
         sellerId: user.uid,
+        sellerEmail: user.email || "",
         sellerName: user.displayName || "Seller",
         ownershipType: "seller",
-        rating: 4.5,
+        rating: 0,
         reviews: 0,
         isFeatured: false,
         isActive: false,
@@ -964,6 +968,9 @@ export default function AddProductPage() {
                 )}
                 {uploadError && (
                   <p className="text-red-600 text-sm mt-2">{uploadError}</p>
+                )}
+                {fieldErrors.thumbnail && (
+                  <p className="mt-2 text-sm font-medium text-red-600">{fieldErrors.thumbnail}</p>
                 )}
               </div>
 

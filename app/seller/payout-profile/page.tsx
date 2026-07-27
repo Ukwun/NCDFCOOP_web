@@ -15,6 +15,7 @@ export default function SellerPayoutProfile() {
   const [accountNumber, setAccountNumber] = useState('');
   const [status, setStatus] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [savedPayout, setSavedPayout] = useState<{ bankName: string; accountName: string; accountLast4: string; reviewStatus: string } | null>(null);
 
   useEffect(() => {
@@ -34,6 +35,9 @@ export default function SellerPayoutProfile() {
         }
       } catch (err) {
         console.error('Failed to load payout profile:', err);
+        setStatus('Your saved bank details could not be loaded. Please retry.');
+      } finally {
+        setIsLoading(false);
       }
     }
 
@@ -91,15 +95,19 @@ export default function SellerPayoutProfile() {
             <input
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700"
+              autoComplete="organization"
+              className="w-full px-4 py-3 rounded-lg border bg-white text-slate-950 placeholder:text-slate-400 dark:bg-white dark:text-slate-950"
               placeholder="First Bank Nigeria"
             />
 
             <label className="text-sm">Account Number</label>
             <input
               value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700"
+              onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              inputMode="numeric"
+              maxLength={10}
+              autoComplete="off"
+              className="w-full px-4 py-3 rounded-lg border bg-white text-slate-950 placeholder:text-slate-400 dark:bg-white dark:text-slate-950"
               placeholder="3136996240"
             />
 
@@ -107,14 +115,15 @@ export default function SellerPayoutProfile() {
             <input
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border bg-white dark:bg-gray-700"
+              autoComplete="name"
+              className="w-full px-4 py-3 rounded-lg border bg-white text-slate-950 placeholder:text-slate-400 dark:bg-white dark:text-slate-950"
               placeholder="Name exactly as shown by your bank"
             />
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || isLoading}
                 className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
               >
                 {isSaving ? 'Saving securely…' : 'Save Payout Profile'}

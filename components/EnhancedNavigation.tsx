@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BadgeDollarSign, BadgePercent, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, Landmark, LayoutDashboard, LogOut, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { BadgeDollarSign, BadgePercent, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, Landmark, LayoutDashboard, LogOut, MessageCircle, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth/authContext';
 import { db } from '@/lib/firebase/config';
@@ -49,6 +49,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   earnings: BadgeDollarSign,
   offers: BadgePercent,
   payouts: Landmark,
+  messages: MessageCircle,
   admin: ShieldCheck,
   operations: BriefcaseBusiness,
   analytics: BarChart3,
@@ -84,6 +85,7 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/member/investments',
         matchPrefixes: ['/member/investments', '/member-benefits', '/my-rewards', '/member-voting', '/member-transparency'],
       },
+      { id: 'messages', label: 'Messages', icon: 'Messages', href: '/messages', matchPrefixes: ['/messages'] },
     ],
   },
   [USER_ROLES.INSTITUTIONAL_BUYER]: {
@@ -131,6 +133,7 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/wholesale/compliance',
         matchPrefixes: ['/wholesale/compliance', '/wholesale/settings'],
       },
+      { id: 'messages', label: 'Messages', icon: 'Messages', href: '/messages', matchPrefixes: ['/messages'] },
     ],
   },
   [USER_ROLES.SELLER]: {
@@ -191,6 +194,7 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         href: '/seller/payout-profile',
         matchPrefixes: ['/seller/payout-profile'],
       },
+      { id: 'messages', label: 'Messages', icon: 'Messages', href: '/messages', matchPrefixes: ['/messages'] },
     ],
   },
 };
@@ -249,6 +253,7 @@ export default function EnhancedNavigation() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const roleSwitcherRef = useRef<HTMLDivElement | null>(null);
   const roleSwitcherButtonRef = useRef<HTMLButtonElement | null>(null);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
@@ -317,6 +322,28 @@ export default function EnhancedNavigation() {
         window.removeEventListener(CART_CHANGED_EVENT, handleCartChanged);
       }
     };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid || !db) {
+      setUnreadMessageCount(0);
+      return;
+    }
+    const conversationQuery = query(
+      collection(db, COLLECTIONS.CONVERSATIONS),
+      where('participants', 'array-contains', user.uid),
+    );
+    return onSnapshot(
+      conversationQuery,
+      (snapshot) => {
+        const total = snapshot.docs.reduce((sum, item) => {
+          const counts = item.data().unreadCounts as Record<string, unknown> | undefined;
+          return sum + Math.max(0, Number(counts?.[user.uid] || 0));
+        }, 0);
+        setUnreadMessageCount(total);
+      },
+      () => setUnreadMessageCount(0),
+    );
   }, [user?.uid]);
 
   useEffect(() => {
@@ -448,6 +475,11 @@ export default function EnhancedNavigation() {
                   >
                     <RoleNavIcon id={item.id} />
                     <span className="text-sm font-medium">{item.label}</span>
+                    {item.id === 'messages' && unreadMessageCount > 0 && (
+                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
+                        {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -679,7 +711,14 @@ export default function EnhancedNavigation() {
                 style={{ minWidth: `max(4.5rem, ${100 / mobileItemCount}%)` }}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <RoleNavIcon id={item.id} size={19} />
+                <span className="relative">
+                  <RoleNavIcon id={item.id} size={19} />
+                  {item.id === 'messages' && unreadMessageCount > 0 && (
+                    <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-black text-white">
+                      {unreadMessageCount > 99 ? '99+' : unreadMessageCount}
+                    </span>
+                  )}
+                </span>
                 <span className="text-xs font-medium mt-1 text-center">{item.label}</span>
               </Link>
             );

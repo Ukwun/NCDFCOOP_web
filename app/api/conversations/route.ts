@@ -39,10 +39,15 @@ export async function POST(request: NextRequest) {
           lastMessage: String(data.message || 'Conversation opened').slice(0, 500),
           lastMessageTime: now,
           unreadCount: 0,
+          unreadCounts: {
+            [buyerId]: 0,
+            [sellerId]: 0,
+          },
           isArchived: false,
           createdAt: now,
         });
       } else {
+        const existingCounts = existing.data()?.unreadCounts || {};
         transaction.set(conversationRef, {
           participants: [buyerId, sellerId],
           participantNames: {
@@ -53,6 +58,10 @@ export async function POST(request: NextRequest) {
           productId: String(data.productId || ''),
           productName: String(data.productName || 'Product inquiry'),
           isArchived: false,
+          unreadCounts: {
+            [buyerId]: Math.max(0, Number(existingCounts[buyerId] || 0)),
+            [sellerId]: Math.max(0, Number(existingCounts[sellerId] || 0)),
+          },
         }, { merge: true });
       }
       transaction.update(inquiryRef, { conversationId, updatedAt: now });

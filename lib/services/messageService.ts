@@ -7,6 +7,7 @@ import {
   collection,
   doc,
   DocumentSnapshot,
+  increment,
   getDocs,
   query,
   where,
@@ -37,6 +38,7 @@ export interface Conversation {
   lastMessage: string;
   lastMessageTime: Timestamp;
   unreadCount: number;
+  unreadCounts?: Record<string, number>;
   isArchived: boolean;
   participantNames?: Record<string, string>;
   inquiryId?: string;
@@ -69,6 +71,7 @@ export async function sendMessage(
     batch.update(doc(db, COLLECTIONS.CONVERSATIONS, conversationId), {
       lastMessage: content,
       lastMessageTime: timestamp,
+      [`unreadCounts.${recipientId}`]: increment(1),
     });
     await batch.commit();
 
@@ -77,6 +80,15 @@ export async function sendMessage(
     console.error('Error sending message:', error);
     throw error;
   }
+}
+
+export async function markConversationRead(
+  conversationId: string,
+  userId: string,
+): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.CONVERSATIONS, conversationId), {
+    [`unreadCounts.${userId}`]: 0,
+  });
 }
 
 export function subscribeUserConversations(

@@ -232,7 +232,7 @@ export default function SellerProductsPage() {
       currentPath="/seller/products"
       requiredRoles={[USER_ROLES.SELLER]}
     >
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="bg-gray-50 dark:bg-gray-900">
         {/* Header */}
         <div
           className="py-8 border-b"

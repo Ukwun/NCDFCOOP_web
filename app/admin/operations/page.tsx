@@ -63,6 +63,12 @@ type Payout = {
   approvalIds?: string[];
   requiredApprovals?: number;
   exceptionFlags?: string[];
+  payoutProfileSnapshot?: {
+    bankName?: string;
+    accountName?: string;
+    accountNumber?: string;
+    accountLast4?: string;
+  };
 };
 
 type ApiResponse = {
@@ -98,6 +104,7 @@ export default function OperationsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [workingKey, setWorkingKey] = useState("");
+  const [payoutReferences, setPayoutReferences] = useState<Record<string, string>>({});
 
   const isSuper = user?.roles?.includes("super_admin") === true;
   const canViewDisputes =
@@ -737,40 +744,109 @@ export default function OperationsPage() {
                       {(payout.approvalIds || []).length}/
                       {payout.requiredApprovals || 1}
                     </p>
+                    <p className="mt-1 text-xs text-emerald-200">
+                      {payout.payoutProfileSnapshot?.accountName || "Verified seller"} ·{" "}
+                      {payout.payoutProfileSnapshot?.bankName || "Bank"} ·{" "}
+                      {payout.payoutProfileSnapshot?.accountNumber ||
+                        `••••${payout.payoutProfileSnapshot?.accountLast4 || ""}`}
+                    </p>
                     {!!payout.exceptionFlags?.length && (
                       <p className="text-xs text-rose-300">
                         {payout.exceptionFlags.join(", ")}
                       </p>
                     )}
-                    <div className="mt-3 flex gap-2">
-                      <ActionButton
-                        label="Approve"
-                        working={workingKey === `${payout.id}:approve`}
-                        onClick={() =>
-                          void act(
-                            "/api/payout-requests",
-                            { payoutRequestId: payout.id, action: "approve" },
-                            `${payout.id}:approve`,
-                          )
-                        }
-                        tone="emerald"
-                      />
-                      <ActionButton
-                        label="Reject"
-                        working={workingKey === `${payout.id}:reject`}
-                        onClick={() =>
-                          void act(
-                            "/api/payout-requests",
-                            {
-                              payoutRequestId: payout.id,
-                              action: "reject",
-                              reason: "Rejected by finance review",
-                            },
-                            `${payout.id}:reject`,
-                          )
-                        }
-                        tone="rose"
-                      />
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {["pending_approval", "exception_review"].includes(
+                        payout.status || "",
+                      ) && (
+                        <>
+                          <ActionButton
+                            label="Approve"
+                            working={workingKey === `${payout.id}:approve`}
+                            onClick={() =>
+                              void act(
+                                "/api/payout-requests",
+                                { payoutRequestId: payout.id, action: "approve" },
+                                `${payout.id}:approve`,
+                              )
+                            }
+                            tone="emerald"
+                          />
+                          <ActionButton
+                            label="Reject"
+                            working={workingKey === `${payout.id}:reject`}
+                            onClick={() =>
+                              void act(
+                                "/api/payout-requests",
+                                {
+                                  payoutRequestId: payout.id,
+                                  action: "reject",
+                                  reason: "Rejected by finance review",
+                                },
+                                `${payout.id}:reject`,
+                              )
+                            }
+                            tone="rose"
+                          />
+                        </>
+                      )}
+                      {payout.status === "approved" && (
+                        <ActionButton
+                          label="Start bank transfer"
+                          working={workingKey === `${payout.id}:processing`}
+                          onClick={() =>
+                            void act(
+                              "/api/payout-requests",
+                              {
+                                payoutRequestId: payout.id,
+                                action: "mark_processing",
+                              },
+                              `${payout.id}:processing`,
+                            )
+                          }
+                          tone="sky"
+                        />
+                      )}
+                      {payout.status === "processing" && (
+                        <>
+                          <input
+                            value={payoutReferences[payout.id] || ""}
+                            onChange={(event) =>
+                              setPayoutReferences((current) => ({
+                                ...current,
+                                [payout.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Bank transfer reference"
+                            className="min-h-9 rounded-lg border border-white/15 bg-white/10 px-3 text-xs text-white outline-none placeholder:text-slate-500"
+                          />
+                          <ActionButton
+                            label="Mark paid"
+                            working={workingKey === `${payout.id}:paid`}
+                            onClick={() => {
+                              const externalReference = (
+                                payoutReferences[payout.id] || ""
+                              ).trim();
+                              if (!externalReference) {
+                                setError(
+                                  "Enter the bank transfer reference before marking this payout paid.",
+                                );
+                                return;
+                              }
+                              void act(
+                                "/api/payout-requests",
+                                {
+                                  payoutRequestId: payout.id,
+                                  action: "mark_paid",
+                                  externalReference,
+                                },
+                                `${payout.id}:paid`,
+                              );
+                            }}
+                            tone="emerald"
+                          />
+                        </>
+                      )}
                     </div>
                   </article>
                 ))}

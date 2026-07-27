@@ -5,15 +5,16 @@
 
 import {
   collection,
-  addDoc,
   doc,
-  getDoc,
   getDocs,
   query,
   where,
   Timestamp,
   updateDoc,
   deleteDoc,
+  onSnapshot,
+  Unsubscribe,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
@@ -36,6 +37,10 @@ export interface Conversation {
   lastMessageTime: Timestamp;
   unreadCount: number;
   isArchived: boolean;
+  participantNames?: Record<string, string>;
+  inquiryId?: string;
+  productId?: string;
+  productName?: string;
 }
 
 /**
@@ -48,27 +53,63 @@ export async function sendMessage(
   content: string
 ): Promise<string> {
   try {
-    const messageRef = await addDoc(collection(db, COLLECTIONS.MESSAGES), {
+    const messageRef = doc(collection(db, COLLECTIONS.MESSAGES));
+    const timestamp = Timestamp.now();
+    const batch = writeBatch(db);
+    batch.set(messageRef, {
       conversationId,
       senderId,
       recipientId,
       content,
       status: 'sent',
-      timestamp: Timestamp.now(),
+      timestamp,
       attachments: [],
     });
-
-    // Update conversation
-    await updateDoc(doc(db, COLLECTIONS.CONVERSATIONS, conversationId), {
+    batch.update(doc(db, COLLECTIONS.CONVERSATIONS, conversationId), {
       lastMessage: content,
-      lastMessageTime: Timestamp.now(),
+      lastMessageTime: timestamp,
     });
+    await batch.commit();
 
     return messageRef.id;
   } catch (error) {
     console.error('Error sending message:', error);
     throw error;
   }
+}
+
+export function subscribeUserConversations(
+  userId: string,
+  onData: (conversations: Conversation[]) => void,
+  onError?: (error: unknown) => void,
+): Unsubscribe {
+  const conversationsQuery = query(
+    collection(db, COLLECTIONS.CONVERSATIONS),
+    where('participants', 'array-contains', userId),
+  );
+  return onSnapshot(conversationsQuery, (snapshot) => {
+    const rows = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() } as Conversation))
+      .sort((a, b) => (b.lastMessageTime?.toMillis?.() || 0) - (a.lastMessageTime?.toMillis?.() || 0));
+    onData(rows);
+  }, onError);
+}
+
+export function subscribeConversationMessages(
+  conversationId: string,
+  onData: (messages: Message[]) => void,
+  onError?: (error: unknown) => void,
+): Unsubscribe {
+  const messagesQuery = query(
+    collection(db, COLLECTIONS.MESSAGES),
+    where('conversationId', '==', conversationId),
+  );
+  return onSnapshot(messagesQuery, (snapshot) => {
+    const rows = snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() } as Message))
+      .sort((a, b) => (a.timestamp?.toMillis?.() || 0) - (b.timestamp?.toMillis?.() || 0));
+    onData(rows);
+  }, onError);
 }
 
 /**

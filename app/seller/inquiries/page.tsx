@@ -13,6 +13,7 @@ import {
   subscribeSellerInquiries,
   updateInquiryStatus,
 } from '@/lib/services/inquiryService';
+import { openInquiryConversation } from '@/lib/services/conversationService';
 
 export default function SellerInquiriesPage() {
   const router = useRouter();
@@ -103,6 +104,8 @@ export default function SellerInquiriesPage() {
           inquiryId: inquiry.id,
           productId: inquiry.productId,
           link: '/inquiries',
+          sellerId: user?.uid || inquiry.sellerId,
+          buyerId: inquiry.buyerId,
         },
       });
 
@@ -138,6 +141,8 @@ export default function SellerInquiriesPage() {
           inquiryId: selectedInquiry.id,
           productId: selectedInquiry.productId,
           link: '/inquiries',
+          sellerId: user?.uid || selectedInquiry.sellerId,
+          buyerId: selectedInquiry.buyerId,
         },
       });
 
@@ -147,6 +152,18 @@ export default function SellerInquiriesPage() {
     } catch (err) {
       console.error('Error sending quote:', err);
       toast.error('The quote was not sent yet. Please retry.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const openBuyerChat = async (inquiry: InquiryRecord) => {
+    try {
+      setIsSaving(true);
+      const conversationId = await openInquiryConversation(inquiry.id);
+      router.push(`/messages?conversation=${encodeURIComponent(conversationId)}`);
+    } catch (chatError) {
+      toast.error(chatError instanceof Error ? chatError.message : 'The conversation could not be opened.');
     } finally {
       setIsSaving(false);
     }
@@ -260,7 +277,7 @@ export default function SellerInquiriesPage() {
 
                 {inquiry.message ? (
                   <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm text-gray-700 dark:text-gray-300">"{inquiry.message}"</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">&ldquo;{inquiry.message}&rdquo;</p>
                   </div>
                 ) : null}
 
@@ -294,7 +311,8 @@ export default function SellerInquiriesPage() {
                   ) : null}
 
                   <button
-                    onClick={() => router.push('/notifications')}
+                    onClick={() => void openBuyerChat(inquiry)}
+                    disabled={isSaving}
                     className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Contact Buyer →

@@ -8,7 +8,6 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth/authContext';
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
-import RoleIntentSearch from '@/components/RoleIntentSearch';
 import { useFavorites } from '@/lib/hooks';
 import { getCartItemCount, CART_CHANGED_EVENT } from '@/lib/services/cartService';
 import { getRoleLandingPath } from '@/lib/auth/roleRouting';
@@ -48,6 +47,9 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   'wholesale-orders': BriefcaseBusiness,
   products: Boxes,
   earnings: BadgeDollarSign,
+  admin: ShieldCheck,
+  operations: BriefcaseBusiness,
+  analytics: BarChart3,
 };
 
 function RoleNavIcon({ id, size = 17 }: { id: string; size?: number }) {
@@ -176,6 +178,32 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
     ],
   },
 };
+
+const OPERATIONAL_NAVIGATION_MODE: RoleNavMode = {
+  modeLabel: 'Operations Mode',
+  modeDescriptor: 'Permission-scoped platform operations.',
+  accentClasses: {
+    chip: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
+    active: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
+    modeBar: 'bg-gradient-to-r from-violet-950 via-violet-800 to-indigo-700',
+  },
+  items: [
+    { id: 'admin', label: 'Admin', icon: 'Admin', href: '/admin', exactMatch: true },
+    { id: 'operations', label: 'Operations', icon: 'Operations', href: '/admin/operations', matchPrefixes: ['/admin/operations'] },
+    { id: 'analytics', label: 'Analytics', icon: 'Analytics', href: '/analytics', matchPrefixes: ['/analytics'] },
+  ],
+};
+
+const OPERATIONAL_ROLES: ReadonlySet<string> = new Set([
+  USER_ROLES.ADMIN,
+  USER_ROLES.SUPER_ADMIN,
+  USER_ROLES.STAFF,
+  USER_ROLES.OPERATOR,
+  USER_ROLES.SUPPORT_AGENT,
+  USER_ROLES.DISPUTE_OFFICER,
+  USER_ROLES.FINANCE_OPERATOR,
+  USER_ROLES.RISK_OFFICER,
+]);
 
 function formatRoleLabel(role: string): string {
   if (role === USER_ROLES.INSTITUTIONAL_BUYER) {
@@ -354,31 +382,49 @@ export default function EnhancedNavigation() {
   };
 
   const normalizedRole = currentRole || USER_ROLES.MEMBER;
-  const navMode = ROLE_NAVIGATION_MODES[normalizedRole] || ROLE_NAVIGATION_MODES[USER_ROLES.MEMBER];
-  const navigationItems = navMode.items;
+  const navMode = ROLE_NAVIGATION_MODES[normalizedRole]
+    || (OPERATIONAL_ROLES.has(normalizedRole) ? OPERATIONAL_NAVIGATION_MODE : ROLE_NAVIGATION_MODES[USER_ROLES.MEMBER]);
+  const navigationItems = OPERATIONAL_ROLES.has(normalizedRole)
+    ? normalizedRole === USER_ROLES.ADMIN || normalizedRole === USER_ROLES.SUPER_ADMIN
+      ? navMode.items
+      : normalizedRole === USER_ROLES.STAFF || normalizedRole === USER_ROLES.OPERATOR
+        ? navMode.items.filter((item) => item.id === 'analytics')
+        : navMode.items.filter((item) => item.id === 'operations')
+    : navMode.items;
   const hasMultipleRoles = !!user?.roles && user.roles.length > 1;
+  const isBuyerRole = normalizedRole === USER_ROLES.MEMBER || normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER;
+  const mobileItemCount = navigationItems.length + (isBuyerRole ? 2 : 0);
   const accountName = user.displayName?.trim() || user.email?.split('@')[0] || formatRoleLabel(normalizedRole);
 
   return (
     <>
       {/* Top Navigation Bar */}
-      <nav className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <nav className="fixed inset-x-0 top-0 z-40 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur-xl dark:border-gray-700 dark:bg-gray-800/95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex h-14 items-center justify-between">
             {/* Logo/Brand */}
-            <Link href={normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER ? '/wholesale/profile' : normalizedRole === USER_ROLES.SELLER ? '/seller' : '/home'} className="flex items-center gap-2 font-bold text-lg text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
-              <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-12 w-auto" style={{ maxHeight: '3rem' }} />
+            <Link href={getRoleLandingPath(normalizedRole)} className="group relative block h-12 w-32 shrink-0 overflow-hidden rounded-lg sm:w-40" aria-label="NCDFCOOP home">
+              <span
+                role="img"
+                aria-label="NCDFCOOP Logo"
+                className="absolute inset-0 bg-white bg-no-repeat transition-transform duration-300 group-hover:scale-[1.03]"
+                style={{
+                  backgroundImage: "url('/images/logo/NCDFCOOPLOGO.png')",
+                  backgroundPosition: 'center 47%',
+                  backgroundSize: 'cover',
+                }}
+              />
             </Link>
 
             {/* Center Navigation - Hidden on mobile */}
-            <div className="hidden md:flex items-center gap-6">
+            <div className="hidden items-center gap-1 lg:flex">
               {navigationItems.map((item) => {
                 const isActive = pathname ? isRouteActive(pathname, item) : false;
                 return (
                   <Link
                     key={item.id}
                     href={item.href}
-                    className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 transition-all duration-200 ${
                       isActive
                         ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
@@ -392,8 +438,8 @@ export default function EnhancedNavigation() {
             </div>
 
             {/* Right Actions */}
-            <div className="flex items-center gap-3">
-              {normalizedRole !== USER_ROLES.SELLER && (
+            <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+              {isBuyerRole && (
                 <>
                   <Link
                     href="/favorites"
@@ -442,7 +488,7 @@ export default function EnhancedNavigation() {
                   {/* Role Switcher Dropdown */}
                   {showRoleSwitcher && (
                     <div
-                      className="absolute right-20 top-16 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 min-w-max z-50 transition duration-200 ease-out transform origin-top-right"
+                      className="absolute right-0 top-10 z-50 min-w-max origin-top-right rounded-lg border border-gray-200 bg-white py-2 shadow-lg transition duration-200 ease-out dark:border-gray-700 dark:bg-gray-800"
                     >
                       {user.roles.map((role) => (
                         <button
@@ -478,7 +524,7 @@ export default function EnhancedNavigation() {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-emerald-800 text-white shadow-sm ring-2 ring-emerald-100 dark:ring-emerald-900/50">
                     <UserRound size={17} strokeWidth={2.25} aria-hidden="true" />
                   </span>
-                  <span className="max-w-[72px] truncate text-left text-xs font-semibold sm:max-w-[150px] sm:text-sm">{accountName}</span>
+                  <span className="hidden max-w-[150px] truncate text-left text-sm font-semibold sm:block">{accountName}</span>
                 </Link>
                 <button
                   ref={accountButtonRef}
@@ -523,25 +569,12 @@ export default function EnhancedNavigation() {
           </div>
         </div>
 
-        <div className="border-t border-gray-100 dark:border-gray-700/70">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <RoleIntentSearch currentRole={normalizedRole} />
-          </div>
-        </div>
-
-        <div className={`${navMode.accentClasses.modeBar} text-white border-t border-white/10`}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[10px] sm:text-[11px] uppercase tracking-[0.24em] opacity-75">NCDF Primary Navigation</p>
-              <p className="text-sm font-semibold">{navMode.modeLabel}</p>
-            </div>
-            <p className="text-xs sm:text-sm opacity-90">{navMode.modeDescriptor}</p>
-          </div>
-        </div>
       </nav>
 
+      <div className="h-14" aria-hidden="true" />
+
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-gray-700 dark:bg-gray-800 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-gray-700 dark:bg-gray-800 lg:hidden">
         {hasMultipleRoles && (
           <div className="border-b border-gray-200 dark:border-gray-700 px-3 py-2">
             <button
@@ -576,41 +609,45 @@ export default function EnhancedNavigation() {
         )}
 
         <div className="flex justify-start overflow-x-auto">
-          <Link
-            href="/favorites"
-            className="flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors text-gray-600 dark:text-gray-400"
-            style={{ minWidth: `max(4.5rem, ${100 / (navigationItems.length + 2)}%)` }}
-            aria-label="Open favorites"
-            aria-current={pathname === '/favorites' ? 'page' : undefined}
-          >
-            <span className="relative">
-              <Heart size={18} />
-              {favoritesCount > 0 && (
-                <span className="absolute -top-2 -right-3 min-w-[16px] h-[16px] px-1 rounded-full bg-red-600 text-white text-[9px] font-semibold flex items-center justify-center">
-                  {favoritesCount > 99 ? '99+' : favoritesCount}
+          {isBuyerRole && (
+            <>
+              <Link
+                href="/favorites"
+                className="flex min-h-14 flex-1 flex-col items-center justify-center px-1 py-2 text-gray-600 transition-colors dark:text-gray-400"
+                style={{ minWidth: `max(4.5rem, ${100 / mobileItemCount}%)` }}
+                aria-label="Open favorites"
+                aria-current={pathname === '/favorites' ? 'page' : undefined}
+              >
+                <span className="relative">
+                  <Heart size={18} />
+                  {favoritesCount > 0 && (
+                    <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-semibold text-white">
+                      {favoritesCount > 99 ? '99+' : favoritesCount}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span className="text-xs font-medium mt-1 text-center">Favorites</span>
-          </Link>
+                <span className="mt-1 text-center text-xs font-medium">Favorites</span>
+              </Link>
 
-          <Link
-            href={normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER && cartCount > 0 ? '/checkout' : '/cart'}
-            className="flex-1 flex flex-col items-center justify-center py-2 px-1 min-h-14 transition-colors text-gray-600 dark:text-gray-400"
-            style={{ minWidth: `max(4.5rem, ${100 / (navigationItems.length + 2)}%)` }}
-            aria-label="Open cart"
-            aria-current={pathname === '/cart' || pathname === '/checkout' ? 'page' : undefined}
-          >
-            <span className="relative">
-              <ShoppingCart size={18} />
-              {cartCount > 0 && (
-                <span className="absolute -top-2 -right-3 min-w-[16px] h-[16px] px-1 rounded-full bg-blue-600 text-white text-[9px] font-semibold flex items-center justify-center">
-                  {cartCount > 99 ? '99+' : cartCount}
+              <Link
+                href={normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER && cartCount > 0 ? '/checkout' : '/cart'}
+                className="flex min-h-14 flex-1 flex-col items-center justify-center px-1 py-2 text-gray-600 transition-colors dark:text-gray-400"
+                style={{ minWidth: `max(4.5rem, ${100 / mobileItemCount}%)` }}
+                aria-label="Open cart"
+                aria-current={pathname === '/cart' || pathname === '/checkout' ? 'page' : undefined}
+              >
+                <span className="relative">
+                  <ShoppingCart size={18} />
+                  {cartCount > 0 && (
+                    <span className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-semibold text-white">
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span className="text-xs font-medium mt-1 text-center">Cart</span>
-          </Link>
+                <span className="mt-1 text-center text-xs font-medium">Cart</span>
+              </Link>
+            </>
+          )}
 
           {navigationItems.map((item) => {
             const isActive = pathname ? isRouteActive(pathname, item) : false;
@@ -623,7 +660,7 @@ export default function EnhancedNavigation() {
                     ? navMode.accentClasses.active
                     : 'text-gray-600 dark:text-gray-400'
                 }`}
-                style={{ minWidth: `max(4.5rem, ${100 / (navigationItems.length + 2)}%)` }}
+                style={{ minWidth: `max(4.5rem, ${100 / mobileItemCount}%)` }}
                 aria-current={isActive ? 'page' : undefined}
               >
                 <RoleNavIcon id={item.id} size={19} />
@@ -635,7 +672,7 @@ export default function EnhancedNavigation() {
       </nav>
 
       {/* Mobile Spacer */}
-      <div className="h-[calc(4rem+env(safe-area-inset-bottom))] md:hidden" aria-hidden="true"></div>
+      <div className="h-[calc(4rem+env(safe-area-inset-bottom))] lg:hidden" aria-hidden="true"></div>
     </>
   );
 }

@@ -49,6 +49,27 @@
 
 .formContainer {
   animation: slideUp 0.6s ease-out forwards;
+  color: #1f2937;
+}
+
+.formContainer input,
+.formContainer textarea,
+.formContainer select {
+  background-color: #ffffff;
+  color: #1f2937;
+  color-scheme: light;
+}
+
+.formContainer input::placeholder,
+.formContainer textarea::placeholder {
+  color: #94a3b8;
+}
+
+.formContainer input:focus,
+.formContainer textarea:focus,
+.formContainer select:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12);
 }
 
 .formGroup {
@@ -193,6 +214,10 @@
 
 .successCheckmark {
   animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.successModal {
+  animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .backButton {

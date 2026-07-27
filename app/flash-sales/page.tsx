@@ -36,7 +36,7 @@ export default function FlashSalesPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-orange-50 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-orange-950/30 dark:text-white">
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
+      <header className="sticky top-14 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6">
           <button onClick={() => router.back()} aria-label="Go back" className="grid h-11 w-11 place-items-center rounded-full border border-slate-200 transition hover:-translate-x-0.5 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/10"><ArrowLeft size={20}/></button>
           <div><p className="text-xs font-black uppercase tracking-[0.22em] text-orange-600">Live offers</p><h1 className="text-2xl font-black sm:text-3xl">Flash sales</h1></div>

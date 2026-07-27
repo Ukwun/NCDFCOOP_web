@@ -5,8 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
 import { UtilityLiveData } from '@/lib/hooks/useUtilityLiveData';
+import { getRoleLandingPath } from '@/lib/auth/roleRouting';
 
 type UtilityRole = 'member' | 'institutional_buyer' | 'seller';
+const SWITCHABLE_COMMERCE_ROLES: ReadonlySet<string> = new Set([
+  USER_ROLES.MEMBER,
+  USER_ROLES.INSTITUTIONAL_BUYER,
+  USER_ROLES.SELLER,
+]);
 
 interface GlobalUtilityLayerProps {
   role: UtilityRole;
@@ -57,6 +63,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary, liveData }: Globa
   const router = useRouter();
   const { user, currentRole, switchRole } = useAuth();
   const [switchingRole, setSwitchingRole] = useState(false);
+  const [roleSwitchError, setRoleSwitchError] = useState('');
 
   const userName = user?.displayName || user?.email?.split('@')[0] || 'User';
 
@@ -109,24 +116,24 @@ export default function GlobalUtilityLayer({ role, kpiSummary, liveData }: Globa
           actionRoute: '/notifications',
         },
         {
-          id: 'team-management',
-          title: 'Team Management',
-          description: 'Control buyer roles, permissions, and access flows.',
-          status: `${liveData?.teamSize ?? 0} Team Members`,
-          actionLabel: 'Manage Team',
-          actionRoute: '/settings',
+          id: 'buyer-profile',
+          title: 'Buyer Profile',
+          description: 'Review the identity and organization details tied to this account.',
+          status: `KYC: ${String(liveData?.kycStatus || 'unknown').toUpperCase()}`,
+          actionLabel: 'Review Profile',
+          actionRoute: '/account',
         },
       ];
     }
 
     return [
-      {
-        id: 'leads',
-        title: 'Leads',
-        description: 'Inbound demand signals and buyer interest snapshots.',
-        status: 'Live lead feed available',
-        actionLabel: 'View Leads',
-        actionRoute: '/seller/orders',
+        {
+          id: 'leads',
+          title: 'Leads',
+          description: 'Inbound demand signals and buyer interest snapshots.',
+          status: `${liveData?.institutionalAlertCount ?? 0} Active Demand Alerts`,
+          actionLabel: 'View Leads',
+          actionRoute: '/seller/orders',
       },
       {
         id: 'sales-alerts',
@@ -137,31 +144,33 @@ export default function GlobalUtilityLayer({ role, kpiSummary, liveData }: Globa
         actionRoute: '/notifications',
       },
       {
-        id: 'commission',
-        title: 'Commission Updates',
-        description: 'Settlement progress, payout windows, and reconciliations.',
-        status: 'Settlement feed active',
-        actionLabel: 'View Settlement',
-        actionRoute: '/seller',
-      },
+          id: 'commission',
+          title: 'Commission Updates',
+          description: 'Settlement progress, payout windows, and reconciliations.',
+          status: `KYC: ${String(liveData?.kycStatus || 'unknown').toUpperCase()}`,
+          actionLabel: 'View Settlement',
+          actionRoute: '/seller/earnings',
+        },
     ];
   }, [liveData, role]);
 
   const drift = riskBadge(liveData?.complianceDriftLevel);
+  const switchTarget = user?.roles?.find((assignedRole) =>
+    assignedRole !== currentRole
+    && SWITCHABLE_COMMERCE_ROLES.has(assignedRole),
+  );
 
   const handleQuickRoleSwitch = async () => {
-    if (switchingRole) return;
-
-    const nextRole =
-      role === USER_ROLES.MEMBER ? USER_ROLES.INSTITUTIONAL_BUYER : USER_ROLES.MEMBER;
+    if (switchingRole || !switchTarget) return;
 
     try {
       setSwitchingRole(true);
-      await switchRole(nextRole);
-      router.push('/home');
+      setRoleSwitchError('');
+      await switchRole(switchTarget);
+      router.push(getRoleLandingPath(switchTarget));
     } catch (error) {
       console.error('Role switch failed:', error);
-      router.push('/role-selection');
+      setRoleSwitchError('This assigned role could not be activated. Refresh your account session and try again.');
     } finally {
       setSwitchingRole(false);
     }
@@ -195,8 +204,8 @@ export default function GlobalUtilityLayer({ role, kpiSummary, liveData }: Globa
               <span className="utility-badge">{liveData?.unreadNotificationCount}</span>
             )}
           </button>
-          <button onClick={handleQuickRoleSwitch} className="utility-btn" disabled={switchingRole}>
-            {switchingRole ? 'Switching...' : 'Role Switcher'}
+          <button onClick={handleQuickRoleSwitch} className="utility-btn" disabled={switchingRole || !switchTarget}>
+            {switchingRole ? 'Switching...' : switchTarget ? `Switch to ${titleCase(switchTarget)}` : 'Single Role Account'}
           </button>
           <button onClick={() => router.push('/member-transparency')} className="utility-btn">Help Center</button>
           <button onClick={() => router.push('/member-transparency')} className="utility-btn utility-badge-wrap">
@@ -208,6 +217,7 @@ export default function GlobalUtilityLayer({ role, kpiSummary, liveData }: Globa
           </button>
           <button onClick={() => router.push('/settings')} className="utility-btn">Settings</button>
         </div>
+        {roleSwitchError && <p className="mt-3 text-sm font-medium text-red-700 dark:text-red-300">{roleSwitchError}</p>}
       </div>
 
       <div className="px-4 sm:px-6 py-5 grid grid-cols-1 md:grid-cols-3 gap-4">

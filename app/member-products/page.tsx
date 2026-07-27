@@ -34,7 +34,8 @@ export default function MemberProductsPage() {
       if (sort === 'price-low') return a.price - b.price;
       if (sort === 'price-high') return b.price - a.price;
       if (sort === 'discount') return (b.discount || 0) - (a.discount || 0);
-      const millis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
+      const millis = (value: Product['createdAt']) =>
+        value instanceof Date ? value.getTime() : value?.toMillis() || 0;
       return millis(b.createdAt) - millis(a.createdAt);
     }), [category, products, sort]);
 
@@ -43,7 +44,7 @@ export default function MemberProductsPage() {
       <main className="min-h-screen bg-slate-50 pb-16 dark:bg-slate-950">
         <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3"><button onClick={() => router.back()} aria-label="Go back" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 transition hover:-translate-x-0.5 dark:border-slate-700"><ArrowLeft size={19}/></button><span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900"><BadgePercent size={14}/> MEMBER PRICING</span></div>
+            <div className="flex items-center gap-3"><button onClick={() => router.push('/home')} aria-label="Return to member dashboard" className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 transition hover:-translate-x-0.5 dark:border-slate-700"><ArrowLeft size={19}/></button><span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-900"><BadgePercent size={14}/> MEMBER PRICING</span></div>
             <h1 className="mt-4 text-3xl font-black text-slate-950 dark:text-white">Live member marketplace</h1>
             <p className="mt-2 text-sm text-slate-500">Only active products from the real marketplace appear here. Eligible member discounts are calculated from your account tier.</p>
           </div>

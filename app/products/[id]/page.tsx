@@ -21,26 +21,12 @@ import { ownershipBadgeClasses, ownershipLabel, resolveProductOwnership } from '
 import { applyMemberDiscount } from '@/lib/membership/tiers';
 import { resolveProductImage } from '@/lib/utils/productImage';
 
-const REVIEW_SNIPPETS = [
-  {
-    name: 'Amina S.',
-    role: 'Verified buyer',
-    rating: 5,
-    body: 'The page feels like a real marketplace listing. It was easy to compare details, see the seller, and move straight into checkout.',
-  },
-  {
-    name: 'Musa O.',
-    role: 'Wholesale customer',
-    rating: 5,
-    body: 'The purchase actions are functional and the quantity control works the way buyers expect on a live commerce page.',
-  },
-  {
-    name: 'Ngozi E.',
-    role: 'Repeat customer',
-    rating: 4,
-    body: 'Clear pricing, visible stock, and enough trust signals to make a quick buying decision without leaving the page.',
-  },
-];
+const REVIEW_SNIPPETS: Array<{
+  name: string;
+  role: string;
+  rating: number;
+  body: string;
+}> = [];
 
 function formatMoney(value: number | undefined): string {
   return `₦${(value || 0).toLocaleString()}`;
@@ -102,28 +88,12 @@ function getProductSearchTerms(product: Product): string[] {
 }
 
 function RatingBars({ rating, reviews }: { rating: number; reviews: number }) {
-  const stars = Math.max(0, Math.min(5, Math.round(rating)));
-  const base = Math.max(35, Math.min(95, stars * 16 + 12));
-
-  const bars = [base, Math.max(25, base - 12), Math.max(15, base - 24), Math.max(8, base - 34), Math.max(4, base - 44)];
-
   return (
-    <div className="space-y-3">
-      <div className="flex items-end gap-3 mb-4">
-        <div className="text-4xl font-bold text-gray-900 dark:text-white">{rating.toFixed(1)}</div>
-        <div className="text-sm text-gray-500 dark:text-gray-400 pb-1">from {reviews} reviews</div>
+    <div className="rounded-2xl bg-amber-50 px-5 py-4 text-right dark:bg-amber-950/30">
+      <div className="text-3xl font-bold text-gray-900 dark:text-white">{reviews > 0 ? rating.toFixed(1) : '—'}</div>
+      <div className="text-sm text-gray-500 dark:text-gray-400">
+        {reviews > 0 ? `from ${reviews.toLocaleString()} verified review${reviews === 1 ? '' : 's'}` : 'No verified reviews'}
       </div>
-      {['5', '4', '3', '2', '1'].map((label, index) => (
-        <div key={label} className="flex items-center gap-3 text-sm">
-          <span className="w-4 text-gray-500 dark:text-gray-400">{label}</span>
-          <div className="flex-1 h-2 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${bars[index]}%`, backgroundColor: index === 0 ? '#F59E0B' : '#60A5FA' }}
-            />
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -147,8 +117,7 @@ export default function ProductDetailPage() {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [inquiryQuantity, setInquiryQuantity] = useState(0);
+  const [inquiryQuantity, setInquiryQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [isBuying, setIsBuying] = useState(false);
   const [isSendingInquiry, setIsSendingInquiry] = useState(false);
@@ -157,10 +126,10 @@ export default function ProductDetailPage() {
   const isWholesaleUnavailable = currentRole === USER_ROLES.INSTITUTIONAL_BUYER && product?.type === 'retail';
 
   useEffect(() => {
-    if (isWholesaleUnavailable && product) {
+    if (product) {
       setInquiryQuantity(Math.max(1, product.minOrderQuantity || product.minOrder || 1));
     }
-  }, [isWholesaleUnavailable, product]);
+  }, [product]);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews'>('description');
   const [mostSearchedRecommendations, setMostSearchedRecommendations] = useState<ProductRecommendation[]>([]);
   const [selectedBundleIds, setSelectedBundleIds] = useState<Set<string>>(new Set());
@@ -255,11 +224,15 @@ export default function ProductDetailPage() {
   const wholesaleMode = product ? isWholesaleBuyer && (product.type === 'wholesale' || product.type === 'both') : false;
   const minOrderQuantity = product && wholesaleMode ? Math.max(1, product.minOrderQuantity || 1) : 1;
   const displayPrice = product ? getEffectivePrice(product, currentRole) : 0;
+  const productListPath = currentRole === USER_ROLES.SELLER
+    ? '/seller/products'
+    : currentRole === USER_ROLES.INSTITUTIONAL_BUYER
+      ? '/wholesale/products'
+      : '/member-products';
 
   useEffect(() => {
     setSelectedImage(0);
-    setQuantity(product ? minOrderQuantity : 1);
-  }, [productId, product?.id, minOrderQuantity]);
+  }, [productId, product?.id]);
 
   const safeImages = useMemo(() => getSafeImages(product), [product]);
   const ownershipType = useMemo(() => (product ? resolveProductOwnership(product) : 'seller'), [product]);
@@ -390,8 +363,7 @@ export default function ProductDetailPage() {
 
     try {
       setIsAdding(true);
-      const quantityToAdd = Math.max(minOrderQuantity, quantity);
-      setQuantity(quantityToAdd);
+      const quantityToAdd = minOrderQuantity;
       const added = await addProductToCart(product, quantityToAdd);
       if (!added) return;
       toast.success(`${product.name} added to cart`);
@@ -412,8 +384,7 @@ export default function ProductDetailPage() {
 
     try {
       setIsBuying(true);
-      const quantityToAdd = Math.max(minOrderQuantity, quantity);
-      setQuantity(quantityToAdd);
+      const quantityToAdd = minOrderQuantity;
       const added = await addProductToCart(product, quantityToAdd);
       if (!added) return;
       router.push('/checkout');
@@ -666,7 +637,7 @@ export default function ProductDetailPage() {
             The detail view is unavailable. Return to the catalog and open another product.
           </p>
           <button
-            onClick={() => router.push('/products')}
+            onClick={() => router.push(productListPath)}
             className="px-6 py-3 rounded-lg text-white font-semibold"
             style={{ backgroundColor: AppColors.primary }}
           >
@@ -682,11 +653,11 @@ export default function ProductDetailPage() {
       <div className="border-b border-gray-200/80 dark:border-gray-800 bg-white/90 dark:bg-gray-950/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-300 flex-wrap">
-            <button onClick={() => router.push('/home')} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            <button onClick={() => router.push(currentRole === USER_ROLES.SELLER ? '/seller' : '/home')} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               Home
             </button>
             <span>/</span>
-            <button onClick={() => router.push('/products')} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            <button onClick={() => router.push(productListPath)} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               Products
             </button>
             <span>/</span>
@@ -695,13 +666,13 @@ export default function ProductDetailPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push(productListPath)}
               className="px-4 py-2 rounded-full border text-sm font-semibold text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
             >
               Back
             </button>
             <button
-              onClick={() => router.push('/products')}
+              onClick={() => router.push(productListPath)}
               className="px-4 py-2 rounded-full text-sm font-semibold text-white transition-colors"
               style={{ backgroundColor: AppColors.primary }}
             >
@@ -790,7 +761,7 @@ export default function ProductDetailPage() {
 
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Sold by</p>
               <button
-                onClick={() => router.push('/products')}
+                  onClick={() => router.push(productListPath)}
                 className="text-base font-semibold text-blue-700 dark:text-blue-400 hover:underline text-left"
               >
                 {product.sellerName || 'NCDFCOOP'}
@@ -840,38 +811,11 @@ export default function ProductDetailPage() {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-2 mb-5">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity</span>
-                  {wholesaleMode && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Min order {minOrderQuantity} {product.unit || 'item'}</span>
-                  )}
+              {wholesaleMode && (
+                <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-100">
+                  Wholesale checkout starts at the seller&apos;s minimum order of {minOrderQuantity} {product.unit || 'items'}.
                 </div>
-                <div className="flex items-center border border-gray-300 dark:border-gray-700 rounded-2xl overflow-hidden w-fit">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-11 h-11 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                    aria-label="Decrease quantity"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min={minOrderQuantity}
-                    max={product.maxOrder || 999}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(minOrderQuantity, parseInt(e.target.value) || minOrderQuantity))}
-                    className="w-20 h-11 text-center outline-none bg-transparent text-gray-900 dark:text-white"
-                  />
-                  <button
-                    onClick={() => setQuantity(Math.min(product.maxOrder || 999, quantity + 1))}
-                    className="w-11 h-11 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                    aria-label="Increase quantity"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+              )}
 
               {isWholesaleUnavailable && <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><p className="font-bold">Not available in the wholesale catalog</p><p className="mt-1 text-sm text-amber-800">This listing is retail-only. You can ask the seller to quote an institutional quantity without adding it to checkout.</p><button onClick={() => void handleSendInquiry()} className="mt-3 rounded-xl bg-amber-900 px-4 py-2 text-sm font-bold text-white">Request from seller</button></div>}
               <div className="space-y-3">
@@ -907,46 +851,9 @@ export default function ProductDetailPage() {
 
               <div className="mt-6 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 sm:p-5 space-y-4">
                 <div>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Quantity</p>
-                  <div className="flex items-center border border-gray-300 dark:border-gray-700 rounded-xl overflow-hidden w-fit">
-                    <button
-                      onClick={() => setInquiryQuantity(Math.max(0, inquiryQuantity - 1))}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                      aria-label="Decrease inquiry quantity"
-                    >
-                      -
-                    </button>
-                    <input
-                      type="number"
-                      min="0"
-                      max={product.maxOrder || 999}
-                      value={inquiryQuantity}
-                      onChange={(e) => setInquiryQuantity(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-16 h-10 text-center outline-none bg-transparent text-gray-900 dark:text-white"
-                    />
-                    <button
-                      onClick={() => setInquiryQuantity(Math.min(product.maxOrder || 999, inquiryQuantity + 1))}
-                      className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800"
-                      aria-label="Increase inquiry quantity"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Supplier's customization ability</p>
-                  <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                    <li>Drawing-based customization</li>
-                    <li>Sample-based customization</li>
-                    <li>Full customization</li>
-                  </ul>
-                </div>
-
-                <div>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Shipping</p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Shipping fee and delivery date to be negotiated. Chat with supplier now for more details.
+                    Delivery cost and timing are confirmed from the live order destination before payment.
                   </p>
                 </div>
 
@@ -1103,7 +1010,7 @@ export default function ProductDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Product Insights</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Tabbed product content for description, specs, and reviews.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Product information, specifications, and verified review activity.</p>
             </div>
             <div className="flex items-center gap-2 rounded-2xl bg-gray-100 dark:bg-gray-800 p-1">
               <button
@@ -1189,7 +1096,7 @@ export default function ProductDetailPage() {
               <div className="rounded-2xl border border-amber-100 dark:border-amber-900/40 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 p-5">
                 <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-200 mb-3">Buying Tip</h3>
                 <p className="text-sm text-amber-800 dark:text-amber-100/90 leading-6">
-                  This tab mirrors a realistic marketplace specification panel. Buyers can inspect details quickly before taking action from the sticky purchase panel.
+                  Confirm the category, seller, unit, availability, and minimum-order requirements before continuing to checkout.
                 </p>
               </div>
             </div>
@@ -1200,12 +1107,19 @@ export default function ProductDetailPage() {
               <div className="flex items-center justify-between gap-3 mb-5">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Reviews</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">A realistic review block with rating breakdown and buyer comments.</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Only verified purchase activity contributes to this product review total.</p>
                 </div>
                 <RatingBars rating={rating} reviews={reviewCount} />
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
+                {REVIEW_SNIPPETS.length === 0 && (
+                  <div className="col-span-full rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800/70 dark:text-gray-300">
+                    {reviewCount > 0
+                      ? `${reviewCount.toLocaleString()} verified review${reviewCount === 1 ? '' : 's'} are included in the live aggregate above.`
+                      : 'No verified buyer reviews have been submitted for this product yet.'}
+                  </div>
+                )}
                 {REVIEW_SNIPPETS.map((review) => (
                   <article key={review.name} className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/70 p-4">
                     <div className="flex items-center justify-between gap-3 mb-2">
@@ -1227,9 +1141,9 @@ export default function ProductDetailPage() {
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Similar Products</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Scroll horizontally through related products like a real marketplace page.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Related live listings from the current marketplace catalog.</p>
             </div>
-            <button onClick={() => router.push('/products')} className="text-sm font-semibold text-blue-700 dark:text-blue-400 hover:underline">
+            <button onClick={() => router.push(productListPath)} className="text-sm font-semibold text-blue-700 dark:text-blue-400 hover:underline">
               Open catalog
             </button>
           </div>

@@ -80,11 +80,11 @@ export default function MembershipPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950 dark:text-white">
-      <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
+      <header className="sticky top-14 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push("/home")}
             aria-label="Go back"
             className="grid min-h-11 min-w-11 place-items-center rounded-xl border border-slate-200 transition hover:-translate-x-0.5 hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/10"
           >

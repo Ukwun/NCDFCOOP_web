@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
     const conversationRef = db.collection('conversations').doc(conversationId);
     await db.runTransaction(async (transaction) => {
       const existing = await transaction.get(conversationRef);
+      const now = Timestamp.now();
       if (!existing.exists) {
-        const now = Timestamp.now();
         transaction.set(conversationRef, {
           participants: [buyerId, sellerId],
           participantNames: {
@@ -42,8 +42,20 @@ export async function POST(request: NextRequest) {
           isArchived: false,
           createdAt: now,
         });
-        transaction.update(inquiryRef, { conversationId, updatedAt: now });
+      } else {
+        transaction.set(conversationRef, {
+          participants: [buyerId, sellerId],
+          participantNames: {
+            [buyerId]: String(data.buyerName || 'Buyer'),
+            [sellerId]: String(data.sellerName || 'Seller'),
+          },
+          inquiryId,
+          productId: String(data.productId || ''),
+          productName: String(data.productName || 'Product inquiry'),
+          isArchived: false,
+        }, { merge: true });
       }
+      transaction.update(inquiryRef, { conversationId, updatedAt: now });
     });
     return NextResponse.json({ success: true, conversationId });
   } catch (error) {

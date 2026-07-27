@@ -6,6 +6,7 @@
 import {
   collection,
   doc,
+  DocumentSnapshot,
   getDocs,
   query,
   where,
@@ -93,6 +94,20 @@ export function subscribeUserConversations(
       .sort((a, b) => (b.lastMessageTime?.toMillis?.() || 0) - (a.lastMessageTime?.toMillis?.() || 0));
     onData(rows);
   }, onError);
+}
+
+export function subscribeConversation(
+  conversationId: string,
+  onData: (conversation: Conversation | null) => void,
+  onError?: (error: unknown) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, COLLECTIONS.CONVERSATIONS, conversationId),
+    (snapshot: DocumentSnapshot) => {
+      onData(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } as Conversation : null);
+    },
+    onError,
+  );
 }
 
 export function subscribeConversationMessages(

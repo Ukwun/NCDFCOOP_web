@@ -1,17 +1,26 @@
-'use client';
+"use client";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth/authContext';
-import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import { COLLECTIONS, USER_ROLES } from '@/lib/constants/database';
-import { AppColors, AppTextStyles } from '@/lib/theme';
-import Image from 'next/image';
-
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth/authContext";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  Timestamp,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import { COLLECTIONS, USER_ROLES } from "@/lib/constants/database";
+import { AppColors, AppTextStyles } from "@/lib/theme";
+import Image from "next/image";
 
 interface SellerProduct {
   id: string;
@@ -28,14 +37,16 @@ interface SellerProduct {
   reviews: number;
   discount?: number;
   unit?: string;
-  status?: 'draft' | 'pending' | 'live';
+  status?: "draft" | "pending" | "live" | "rejected";
   requiresReview?: boolean;
   isActive?: boolean;
+  rejectionReason?: string;
 }
 
 export default function SellerProductsPage() {
   const router = useRouter();
   const { user, loading, currentRole } = useAuth();
+  const userId = user?.uid;
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +55,9 @@ export default function SellerProductsPage() {
 
   // Keep inventory live so saves and moderation changes appear immediately.
   useEffect(() => {
-    if (!loading && user && currentRole === USER_ROLES.SELLER) {
+    if (!loading && userId && currentRole === USER_ROLES.SELLER) {
       if (!db) {
-        setError('Database not initialized. Please refresh the page.');
+        setError("Database not initialized. Please refresh the page.");
         setIsLoading(false);
         return;
       }
@@ -54,34 +65,38 @@ export default function SellerProductsPage() {
       setIsLoading(true);
       const sellerProducts = query(
         collection(db, COLLECTIONS.PRODUCTS),
-        where('sellerId', '==', user.uid)
+        where("sellerId", "==", userId),
       );
       return onSnapshot(
         sellerProducts,
         (snapshot) => {
-          setProducts(snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as SellerProduct)));
+          setProducts(
+            snapshot.docs.map(
+              (item) => ({ id: item.id, ...item.data() }) as SellerProduct,
+            ),
+          );
           setError(null);
           setIsLoading(false);
         },
         (snapshotError) => {
-          console.error('Error watching products:', snapshotError);
-          setError('Failed to load products');
+          console.error("Error watching products:", snapshotError);
+          setError("Failed to load products");
           setIsLoading(false);
-        }
+        },
       );
-    } else if (!loading && !user) {
-      router.push('/signin');
-    } else if (!loading && user && currentRole !== USER_ROLES.SELLER) {
-      router.push('/home');
+    } else if (!loading && !userId) {
+      router.push("/signin");
+    } else if (!loading && userId && currentRole !== USER_ROLES.SELLER) {
+      router.push("/home");
     }
-  }, [user?.uid, loading, currentRole, router]);
+  }, [userId, loading, currentRole, router]);
 
   const fetchSellerProducts = async () => {
     if (!user) return;
 
     if (!db) {
       setProducts([]);
-      setError('Database not initialized. Please refresh the page.');
+      setError("Database not initialized. Please refresh the page.");
       setIsLoading(false);
       return;
     }
@@ -92,19 +107,22 @@ export default function SellerProductsPage() {
 
       const q = query(
         collection(db, COLLECTIONS.PRODUCTS),
-        where('sellerId', '==', user.uid)
+        where("sellerId", "==", user.uid),
       );
 
       const querySnapshot = await getDocs(q);
-      const fetchedProducts = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      } as SellerProduct));
+      const fetchedProducts = querySnapshot.docs.map(
+        (doc) =>
+          ({
+            id: doc.id,
+            ...doc.data(),
+          }) as SellerProduct,
+      );
 
       setProducts(fetchedProducts);
     } catch (err) {
-      console.error('Error fetching products:', err);
-      setError('Failed to load products');
+      console.error("Error fetching products:", err);
+      setError("Failed to load products");
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +130,7 @@ export default function SellerProductsPage() {
 
   const handleUpdateStock = async (productId: string, newStock: number) => {
     if (!db) {
-      setError('Database not initialized. Please refresh the page.');
+      setError("Database not initialized. Please refresh the page.");
       return;
     }
 
@@ -122,16 +140,16 @@ export default function SellerProductsPage() {
       setEditingId(null);
       fetchSellerProducts();
     } catch (err) {
-      console.error('Error updating stock:', err);
-      setError('Failed to update stock');
+      console.error("Error updating stock:", err);
+      setError("Failed to update stock");
     }
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    if (!confirm("Are you sure you want to delete this product?")) return;
 
     if (!db) {
-      setError('Database not initialized. Please refresh the page.');
+      setError("Database not initialized. Please refresh the page.");
       return;
     }
 
@@ -139,8 +157,8 @@ export default function SellerProductsPage() {
       await deleteDoc(doc(db, COLLECTIONS.PRODUCTS, productId));
       fetchSellerProducts();
     } catch (err) {
-      console.error('Error deleting product:', err);
-      setError('Failed to delete product');
+      console.error("Error deleting product:", err);
+      setError("Failed to delete product");
     }
   };
 
@@ -149,15 +167,17 @@ export default function SellerProductsPage() {
     try {
       setError(null);
       await updateDoc(doc(db, COLLECTIONS.PRODUCTS, productId), {
-        status: 'live',
-        isActive: true,
-        requiresReview: false,
-        publishedAt: Timestamp.now(),
+        status: "pending",
+        isActive: false,
+        requiresReview: true,
         updatedAt: Timestamp.now(),
       });
+      await fetchSellerProducts();
     } catch (publishError) {
-      console.error('Error publishing product:', publishError);
-      setError('We could not publish this product. Refresh your session and try again.');
+      console.error("Error publishing product:", publishError);
+      setError(
+        "We could not submit this product for review. Refresh your session and try again.",
+      );
     }
   };
 
@@ -183,13 +203,13 @@ export default function SellerProductsPage() {
   // Calculate statistics
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
-  const totalValue = products.reduce(
-    (sum, p) => sum + p.price * p.stock,
-    0
-  );
+  const totalValue = products.reduce((sum, p) => sum + p.price * p.stock, 0);
 
   return (
-    <ProtectedRoute currentPath="/seller/products" requiredRoles={[USER_ROLES.SELLER]}>
+    <ProtectedRoute
+      currentPath="/seller/products"
+      requiredRoles={[USER_ROLES.SELLER]}
+    >
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
         <div
@@ -199,36 +219,36 @@ export default function SellerProductsPage() {
             borderColor: AppColors.border,
           }}
         >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <div>
-            <h1
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <div>
+              <h1
+                style={{
+                  ...AppTextStyles.h1,
+                  color: AppColors.textPrimary,
+                }}
+              >
+                My Products
+              </h1>
+              <p
+                style={{
+                  ...AppTextStyles.bodyLarge,
+                  color: AppColors.textSecondary,
+                }}
+              >
+                Manage your product listings and inventory
+              </p>
+            </div>
+            <button
+              onClick={() => router.push("/seller/products/add")}
+              className="px-6 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
               style={{
-                ...AppTextStyles.h1,
-                color: AppColors.textPrimary,
+                backgroundColor: AppColors.primary,
               }}
             >
-              My Products
-            </h1>
-            <p
-              style={{
-                ...AppTextStyles.bodyLarge,
-                color: AppColors.textSecondary,
-              }}
-            >
-              Manage your product listings and inventory
-            </p>
+              ➕ Add New Product
+            </button>
           </div>
-          <button
-            onClick={() => router.push('/seller/products/add')}
-            className="px-6 py-3 rounded-lg text-white font-bold transition-all hover:shadow-lg"
-            style={{
-              backgroundColor: AppColors.primary,
-            }}
-          >
-            ➕ Add New Product
-          </button>
         </div>
-      </div>
       </div>
 
       {/* Statistics */}
@@ -305,7 +325,7 @@ export default function SellerProductsPage() {
             <p
               style={{
                 ...AppTextStyles.h2,
-                color: '#48BB78',
+                color: "#48BB78",
               }}
             >
               ₦{totalValue.toLocaleString()}
@@ -323,7 +343,11 @@ export default function SellerProductsPage() {
         <div className="order-3 mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
           <p className="font-bold">Your seller publishing access is active.</p>
           <p className="mt-1">
-            Published retail listings appear for members, wholesale listings appear in the bulk catalog, and products marked both appear in both marketplaces. Identity verification adds a trust badge and is required for payout clearance, but it does not block product publishing.
+            Published retail listings appear for members, wholesale listings
+            appear in the bulk catalog, and products marked both appear in both
+            marketplaces. Identity verification adds a trust badge and is
+            required for payout clearance, but it does not block product
+            publishing.
           </p>
         </div>
 
@@ -373,19 +397,49 @@ export default function SellerProductsPage() {
                       borderBottom: `2px solid ${AppColors.border}`,
                     }}
                   >
-                    <th style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }} className="px-6 py-4 text-left">
+                    <th
+                      style={{
+                        ...AppTextStyles.labelLarge,
+                        color: AppColors.textPrimary,
+                      }}
+                      className="px-6 py-4 text-left"
+                    >
                       Product
                     </th>
-                    <th style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }} className="px-6 py-4 text-left">
+                    <th
+                      style={{
+                        ...AppTextStyles.labelLarge,
+                        color: AppColors.textPrimary,
+                      }}
+                      className="px-6 py-4 text-left"
+                    >
                       Category
                     </th>
-                    <th style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }} className="px-6 py-4 text-right">
+                    <th
+                      style={{
+                        ...AppTextStyles.labelLarge,
+                        color: AppColors.textPrimary,
+                      }}
+                      className="px-6 py-4 text-right"
+                    >
                       Price
                     </th>
-                    <th style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }} className="px-6 py-4 text-center">
+                    <th
+                      style={{
+                        ...AppTextStyles.labelLarge,
+                        color: AppColors.textPrimary,
+                      }}
+                      className="px-6 py-4 text-center"
+                    >
                       Stock
                     </th>
-                    <th style={{ ...AppTextStyles.labelLarge, color: AppColors.textPrimary }} className="px-6 py-4 text-right">
+                    <th
+                      style={{
+                        ...AppTextStyles.labelLarge,
+                        color: AppColors.textPrimary,
+                      }}
+                      className="px-6 py-4 text-right"
+                    >
                       Actions
                     </th>
                   </tr>
@@ -401,7 +455,10 @@ export default function SellerProductsPage() {
                     >
                       {/* Product Name */}
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity duration-200" onClick={() => router.push(`/products/${product.id}`)}>
+                        <div
+                          className="flex items-center gap-4 cursor-pointer hover:opacity-80 transition-opacity duration-200"
+                          onClick={() => router.push(`/products/${product.id}`)}
+                        >
                           {product.thumbnail && (
                             <Image
                               src={product.thumbnail}
@@ -426,16 +483,24 @@ export default function SellerProductsPage() {
                                 color: AppColors.textSecondary,
                               }}
                             >
-                              {product.unit || 'unit'}
+                              {product.unit || "unit"}
                             </p>
-                            <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                              product.status === 'live'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : product.status === 'draft'
-                                  ? 'bg-slate-100 text-slate-700'
-                                  : 'bg-amber-100 text-amber-800'
-                            }`}>
-                              {product.status === 'live' ? 'Live' : product.status === 'draft' ? 'Draft' : 'Ready to publish'}
+                            <span
+                              className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                product.status === "live"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : product.status === "draft"
+                                    ? "bg-slate-100 text-slate-700"
+                                    : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {product.status === "live"
+                                ? "Live"
+                                : product.status === "draft"
+                                  ? "Draft"
+                                  : product.status === "rejected"
+                                    ? "Needs changes"
+                                    : "Awaiting review"}
                             </span>
                           </div>
                         </div>
@@ -447,7 +512,7 @@ export default function SellerProductsPage() {
                           style={{
                             ...AppTextStyles.bodyMedium,
                             color: AppColors.textSecondary,
-                            textTransform: 'capitalize',
+                            textTransform: "capitalize",
                           }}
                         >
                           {product.category}
@@ -469,7 +534,7 @@ export default function SellerProductsPage() {
                             <p
                               style={{
                                 ...AppTextStyles.bodySmall,
-                                color: '#E53E3E',
+                                color: "#E53E3E",
                               }}
                             >
                               -{product.discount}%
@@ -485,7 +550,9 @@ export default function SellerProductsPage() {
                             <input
                               type="number"
                               value={editStock}
-                              onChange={(e) => setEditStock(parseInt(e.target.value))}
+                              onChange={(e) =>
+                                setEditStock(parseInt(e.target.value))
+                              }
                               className="w-16 px-2 py-1 border rounded text-center"
                               style={{ borderColor: AppColors.primary }}
                             />
@@ -512,13 +579,13 @@ export default function SellerProductsPage() {
                                 ...AppTextStyles.labelLarge,
                                 color:
                                   product.stock > 10
-                                    ? '#48BB78'
+                                    ? "#48BB78"
                                     : product.stock > 0
-                                    ? '#D69E2E'
-                                    : '#E53E3E',
+                                      ? "#D69E2E"
+                                      : "#E53E3E",
                               }}
                             >
-                              {product.stock} {product.unit || 'pcs'}
+                              {product.stock} {product.unit || "pcs"}
                             </p>
                             <p
                               style={{
@@ -535,19 +602,19 @@ export default function SellerProductsPage() {
                       {/* Actions */}
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          {product.status !== 'live' && (
+                          {product.status === "draft" && (
                             <button
-                              onClick={() => void handlePublishProduct(product.id)}
+                              onClick={() =>
+                                void handlePublishProduct(product.id)
+                              }
                               className="rounded bg-emerald-700 px-3 py-1 text-sm font-semibold text-white transition hover:bg-emerald-800 active:scale-95"
                             >
-                              Publish
+                              Submit for review
                             </button>
                           )}
                           <button
                             onClick={() =>
-                              router.push(
-                                `/seller/products/${product.id}/edit`
-                              )
+                              router.push(`/seller/products/${product.id}/edit`)
                             }
                             className="px-3 py-1 rounded text-sm font-semibold transition-all duration-200 hover:bg-blue-50 active:scale-95"
                             style={{
@@ -562,7 +629,7 @@ export default function SellerProductsPage() {
                             onClick={() => handleDeleteProduct(product.id)}
                             className="px-3 py-1 rounded text-sm font-semibold transition-all duration-200 hover:bg-red-600 active:scale-95 text-white"
                             style={{
-                              backgroundColor: '#E53E3E',
+                              backgroundColor: "#E53E3E",
                             }}
                           >
                             🗑️ Delete

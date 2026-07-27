@@ -85,7 +85,7 @@ export default function MembershipPage() {
               Live membership plans
             </p>
             <h1 className="truncate text-xl font-black sm:text-2xl">
-              NCDFCOOP Membership
+              CoopX Membership
             </h1>
           </div>
         </div>

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const payload = await request.json().catch(() => ({}));
     const requestedName = String(payload?.name || "").trim().slice(0, 120);
     const email = String(identity.email || "").trim().toLowerCase();
-    const name = requestedName || email.split("@")[0] || "NCDF COOP User";
+    const name = requestedName || email.split("@")[0] || "CoopX User";
     const onboardingCompleted = payload?.onboardingCompleted === true;
     const db = getAdminDb();
     const userRef = db.collection("users").doc(identity.uid);

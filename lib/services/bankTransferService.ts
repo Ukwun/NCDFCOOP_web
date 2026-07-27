@@ -47,7 +47,7 @@ export interface BankAccountDetails {
 
 const NCDF_BANK_DETAILS: BankAccountDetails = {
   bankName: 'First Bank Nigeria',
-  accountName: 'NCDFCOOP Commerce Limited',
+  accountName: 'CoopX Commerce Limited',
   accountNumber: '3136996240',
   sortCode: '011',
   description: 'First Bank of Nigeria - Use this account for bank transfers',

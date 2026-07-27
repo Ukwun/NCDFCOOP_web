@@ -443,7 +443,9 @@ export default function EnhancedNavigation() {
     : navMode.items;
   const desktopNavigationItems =
     normalizedRole === USER_ROLES.SELLER
-      ? navigationItems.filter((item) => item.id !== 'messages')
+      ? navigationItems.filter(
+          (item) => item.id !== 'messages' && item.id !== 'withdrawals',
+        )
       : navigationItems;
   const hasMultipleRoles = !!user?.roles && user.roles.length > 1;
   const isBuyerRole = normalizedRole === USER_ROLES.MEMBER || normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER;
@@ -457,17 +459,17 @@ export default function EnhancedNavigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 items-center justify-between">
             {/* Logo/Brand */}
-            <Link href={getRoleLandingPath(normalizedRole)} className="group relative block h-12 w-32 shrink-0 overflow-hidden rounded-lg sm:w-40" aria-label="NCDFCOOP home">
-              <span
-                role="img"
-                aria-label="NCDFCOOP Logo"
-                className="absolute inset-0 bg-white bg-no-repeat transition-transform duration-300 group-hover:scale-[1.03]"
-                style={{
-                  backgroundImage: "url('/images/logo/NCDFCOOPLOGO.png')",
-                  backgroundPosition: 'center 47%',
-                  backgroundSize: 'cover',
-                }}
-              />
+            <Link
+              href={getRoleLandingPath(normalizedRole)}
+              className="group flex h-12 shrink-0 items-center gap-2 rounded-xl px-2 transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 dark:hover:bg-emerald-950/40"
+              aria-label="CoopX home"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-700 to-teal-500 text-lg font-black text-white shadow-sm transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105">
+                C
+              </span>
+              <span className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
+                Coop<span className="text-emerald-700 dark:text-emerald-400">X</span>
+              </span>
             </Link>
 
             {/* Center Navigation - Hidden on mobile */}

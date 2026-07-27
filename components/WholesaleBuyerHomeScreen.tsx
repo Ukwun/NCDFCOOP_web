@@ -218,7 +218,7 @@ export default function WholesaleBuyerHomeScreen() {
       try {
         const product = wholesaleProducts.find((p) => p.id === quoteDraft.productId);
         const sellerId = product?.sellerId || '';
-        const sellerName = product?.sellerName || 'NCDFCOOP Seller';
+        const sellerName = product?.sellerName || 'CoopX Seller';
         const buyerName = user.displayName || user.email || 'Buyer';
         const quantity = Number(quoteDraft.quantity) || 1;
         const budget = Number(quoteDraft.targetPrice) || 0;

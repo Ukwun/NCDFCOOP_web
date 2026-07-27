@@ -134,8 +134,8 @@ export default function ProductCard({
             }}
           />
         ) : (
-          <div className="flex items-center justify-center w-full h-full">
-            <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-16 w-auto" />
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="rounded-2xl bg-emerald-700 px-5 py-3 text-2xl font-black text-white" aria-label="CoopX">CoopX</span>
           </div>
         )}
 
@@ -187,8 +187,8 @@ export default function ProductCard({
               color: AppColors.textSecondary,
             }}
           >
-            <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="inline h-4 w-auto align-middle mr-1" style={{marginRight: '4px'}} />
-            {product.sellerName || 'NCDFCOOP'}
+            <span className="font-black text-emerald-700" aria-hidden="true">C</span>
+            {product.sellerName || 'CoopX'}
           </div>
         </div>
 

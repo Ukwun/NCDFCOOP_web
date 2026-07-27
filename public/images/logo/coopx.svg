@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">CoopX</title>
+  <desc id="description">A green CoopX lettermark</desc>
+  <defs>
+    <linearGradient id="brand" x1="64" y1="64" x2="448" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#047857"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#brand)"/>
+  <path fill="#fff" d="M260 112c52 0 97 21 128 55l-53 47c-20-21-45-32-75-32-52 0-90 39-90 90s38 90 90 90c30 0 55-11 75-32l53 47c-31 34-76 55-128 55-96 0-172-70-172-160s76-160 172-160Z"/>
+  <path fill="#D1FAE5" d="m323 226 37 45 37-45h52l-63 75 67 83h-54l-40-51-41 51h-52l67-82-63-76h53Z"/>
+</svg>

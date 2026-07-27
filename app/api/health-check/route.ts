@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   if (!deep) {
     return NextResponse.json({
       status: clientReady ? 'ok' : 'error',
-      service: 'NCDFCOOP Commerce',
+      service: 'CoopX',
       firebaseClient,
       timestamp: new Date().toISOString(),
     }, { status: clientReady ? 200 : 500, headers: { 'Cache-Control': 'no-store' } });
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     status: commerceReady ? 'ready' : 'degraded',
-    service: 'NCDFCOOP Commerce',
+    service: 'CoopX',
     dependencies,
     ...(adminError ? { blocker: 'Firebase Admin is unavailable to server-side commerce routes.' } : {}),
     timestamp: new Date().toISOString(),

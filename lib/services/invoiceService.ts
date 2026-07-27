@@ -257,7 +257,7 @@ export function generateHTMLInvoice(invoice: Invoice): string {
   <div class="invoice-container">
     <div class="header">
       <div class="company-info">
-        <h1>🛒 NCDFCOOP</h1>
+        <h1>🛒 CoopX</h1>
         <p>Commerce Platform</p>
         <p>Email: support@ncdfcoop.com</p>
         <p>Phone: +234-xxx-xxx-xxxx</p>

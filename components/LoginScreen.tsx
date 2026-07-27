@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/authContext";
 import { validateLoginData } from "@/lib/validation/inputValidation";
 import { trackActivity } from "@/lib/analytics/activityTracker";
+import Logo from "@/components/Logo";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -33,9 +34,10 @@ export default function LoginScreen() {
       const destination = await login(email, password);
       await trackActivity("login", {});
       router.replace(destination);
-    } catch (err: any) {
-      setGeneralError(authError || err.message || "Login failed");
-      await trackActivity("login_failed", { reason: err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setGeneralError(authError || message);
+      await trackActivity("login_failed", { reason: message });
     } finally {
       setLoading(false);
     }
@@ -46,11 +48,7 @@ export default function LoginScreen() {
       <div className="w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img
-              src="/images/logo/NCDFCOOPLOGO.png"
-              alt="NCDFCOOP Logo"
-              className="h-20 w-auto mx-auto"
-            />
+            <Logo size="large" href="/" />
           </div>
           <p className="text-gray-600 dark:text-gray-400">Member Login</p>
         </div>
@@ -122,7 +120,7 @@ export default function LoginScreen() {
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/signup"
             className="text-blue-600 dark:text-blue-400 hover:underline font-medium"

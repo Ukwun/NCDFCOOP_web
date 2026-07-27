@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
               <p>If you have any questions about your order, please contact our customer support team.</p>
             </div>
             <div class="footer">
-              <p>&copy; 2026 NCDF COOP. All rights reserved.</p>
+              <p>&copy; 2026 CoopX. All rights reserved.</p>
               <p>These are automated messages. Do not reply to this email.</p>
             </div>
           </div>
@@ -148,7 +148,7 @@ If you have questions, contact our customer support.
 
     await sendTransactionalEmail({
       to: user.email,
-      subject: `Order Confirmation #${orderDetails.orderId} - NCDF COOP`,
+      subject: `Order Confirmation #${orderDetails.orderId} - CoopX`,
       html,
       text,
     });

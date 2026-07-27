@@ -54,12 +54,12 @@ function getSafeImages(product: Product | null): string[] {
   const images = (product.images || []).filter(Boolean).map(resolveProductImage);
   if (images.length > 0) return images;
   if (product.thumbnail) return [resolveProductImage(product.thumbnail)];
-  return ['/images/logo/NCDFCOOPLOGO.png'];
+  return ['/images/logo/coopx.svg'];
 }
 
 function getImageForIndex(product: Product | null, index: number): string {
   const images = getSafeImages(product);
-  return images[index] || images[0] || '/images/logo/NCDFCOOPLOGO.png';
+  return images[index] || images[0] || '/images/logo/coopx.svg';
 }
 
 function hasValidPrice(product: Product, currentRole?: string): boolean {
@@ -515,7 +515,7 @@ export default function ProductDetailPage() {
     }
 
     const sellerId = product.sellerId || '';
-    const sellerName = product.sellerName || 'NCDFCOOP Seller';
+    const sellerName = product.sellerName || 'CoopX Seller';
     const buyerName = user.displayName || user.email || 'Buyer';
 
     try {
@@ -587,7 +587,7 @@ export default function ProductDetailPage() {
     }
 
     const sellerId = product.sellerId || '';
-    const sellerName = product.sellerName || 'NCDFCOOP Seller';
+    const sellerName = product.sellerName || 'CoopX Seller';
     const buyerName = user.displayName || user.email || 'Buyer';
 
     try {
@@ -787,7 +787,7 @@ export default function ProductDetailPage() {
                   onClick={() => router.push(productListPath)}
                 className="text-base font-semibold text-blue-700 dark:text-blue-400 hover:underline text-left"
               >
-                {product.sellerName || 'NCDFCOOP'}
+                {product.sellerName || 'CoopX'}
               </button>
 
               <div className="mt-4 mb-4 flex items-start justify-between gap-3">
@@ -968,13 +968,13 @@ export default function ProductDetailPage() {
                 </div>
 
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">NCDFCOOP order protection</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">CoopX order protection</p>
                   <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                     <p>
                       <span className="font-semibold text-gray-900 dark:text-white">Secure payments</span> - Every payment is secured with strict SSL encryption and PCI DSS data protection protocols.
                     </p>
                     <p>
-                      <span className="font-semibold text-gray-900 dark:text-white">Money-back protection</span> - Claim a refund if your order does not ship, is missing, or arrives with product issues. Protection applies to transactions completed within NCDFCOOP checkout.
+                      <span className="font-semibold text-gray-900 dark:text-white">Money-back protection</span> - Claim a refund if your order does not ship, is missing, or arrives with product issues. Protection applies to transactions completed within CoopX checkout.
                     </p>
                   </div>
                 </div>
@@ -990,7 +990,7 @@ export default function ProductDetailPage() {
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-500 dark:text-gray-400">Seller</span>
-                  <span className="text-gray-900 dark:text-white font-medium text-right">{product.sellerName || 'NCDFCOOP'}</span>
+                  <span className="text-gray-900 dark:text-white font-medium text-right">{product.sellerName || 'CoopX'}</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-500 dark:text-gray-400">Unit</span>
@@ -1160,7 +1160,7 @@ export default function ProductDetailPage() {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Technical Specs</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between gap-4"><span className="text-gray-500 dark:text-gray-400">Category</span><span className="text-gray-900 dark:text-white font-medium text-right">{product.category}</span></div>
-                  <div className="flex justify-between gap-4"><span className="text-gray-500 dark:text-gray-400">Seller</span><span className="text-gray-900 dark:text-white font-medium text-right">{product.sellerName || 'NCDFCOOP'}</span></div>
+                  <div className="flex justify-between gap-4"><span className="text-gray-500 dark:text-gray-400">Seller</span><span className="text-gray-900 dark:text-white font-medium text-right">{product.sellerName || 'CoopX'}</span></div>
                   <div className="flex justify-between gap-4"><span className="text-gray-500 dark:text-gray-400">Unit</span><span className="text-gray-900 dark:text-white font-medium text-right">{product.unit || 'item'}</span></div>
                   <div className="flex justify-between gap-4"><span className="text-gray-500 dark:text-gray-400">Availability</span><span className="text-gray-900 dark:text-white font-medium text-right">{product.stock > 0 ? 'In stock' : 'Out of stock'}</span></div>
                   <div className="flex justify-between gap-4"><span className="text-gray-500 dark:text-gray-400">Ownership</span><span className="text-gray-900 dark:text-white font-medium text-right">{ownershipLabel(ownershipType)}</span></div>
@@ -1239,7 +1239,7 @@ export default function ProductDetailPage() {
                       </div>
                     </div>
                     <div className="p-4">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{related.sellerName || 'NCDFCOOP'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{related.sellerName || 'CoopX'}</p>
                       <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">{related.name}</h3>
                       <p className="text-sm font-bold text-blue-700 dark:text-blue-300 mb-1">{formatMoney(getEffectivePrice(related, currentRole))}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">{related.stock} in stock</p>
@@ -1307,7 +1307,7 @@ export default function ProductDetailPage() {
                       <div className="absolute top-3 left-3 text-[10px] font-bold px-2 py-1 rounded-full bg-white/95 text-gray-900">Most searched</div>
                     </div>
                     <div className="p-4">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{popular.sellerName || 'NCDFCOOP'}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{popular.sellerName || 'CoopX'}</p>
                       <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 mb-2">{popular.name}</h3>
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className="font-bold text-blue-700 dark:text-blue-300">{formatMoney(getEffectivePrice(popular, currentRole))}</span>

@@ -375,7 +375,7 @@ export async function POST(request: NextRequest) {
             ? {
                 expiresAt: Timestamp.fromMillis(now.toMillis() + 48 * 3_600_000),
                 bankName: 'First Bank Nigeria',
-                accountName: 'NCDFCOOP Commerce Limited',
+                accountName: 'CoopX Commerce Limited',
                 accountNumber: '3136996240',
               }
             : {}),

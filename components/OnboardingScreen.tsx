@@ -16,7 +16,7 @@ const slides: OnboardingSlide[] = [
   {
     id: 1,
     image: '/images/onboarding/community.jpg',
-    title: 'Welcome to NCDFCOOP',
+    title: 'Welcome to CoopX',
     description: 'Join millions of members saving, shopping, and building wealth together',
   },
   {

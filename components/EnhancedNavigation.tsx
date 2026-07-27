@@ -441,6 +441,10 @@ export default function EnhancedNavigation() {
         ? navMode.items.filter((item) => item.id === 'analytics')
         : navMode.items.filter((item) => item.id === 'operations')
     : navMode.items;
+  const desktopNavigationItems =
+    normalizedRole === USER_ROLES.SELLER
+      ? navigationItems.filter((item) => item.id !== 'messages')
+      : navigationItems;
   const hasMultipleRoles = !!user?.roles && user.roles.length > 1;
   const isBuyerRole = normalizedRole === USER_ROLES.MEMBER || normalizedRole === USER_ROLES.INSTITUTIONAL_BUYER;
   const mobileItemCount = navigationItems.length + (isBuyerRole ? 2 : 0);
@@ -468,7 +472,7 @@ export default function EnhancedNavigation() {
 
             {/* Center Navigation - Hidden on mobile */}
             <div className="hidden items-center gap-1 lg:flex">
-              {navigationItems.map((item) => {
+              {desktopNavigationItems.map((item) => {
                 const isActive = pathname ? isRouteActive(pathname, item) : false;
                 return (
                   <Link

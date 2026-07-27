@@ -6,6 +6,10 @@ import {
   verifyFlutterwaveTransaction,
 } from '@/lib/server/flutterwave';
 import { completeMembershipPayment } from '@/lib/server/membershipPayment';
+import {
+  matchesExpectedPaystackPayment,
+  verifyPaystackTransaction,
+} from '@/lib/server/paystack';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +19,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { transactionId, reference } = await request.json();
-    if (!transactionId || !reference) {
+    if (!reference) {
       return NextResponse.json(
-        { error: 'Transaction details are required.' },
+        { error: 'Transaction reference is required.' },
         { status: 400 }
       );
     }
@@ -34,20 +38,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment intent not found.' }, { status: 404 });
     }
 
-    const payment = await verifyFlutterwaveTransaction(transactionId);
-    if (
-      !matchesExpectedPayment(payment, {
+    if (intent.paymentMethod === 'paystack') {
+      const payment = await verifyPaystackTransaction(String(reference));
+      if (!matchesExpectedPaystackPayment(payment, {
         reference: String(reference),
         amount: Number(intent.amount),
         currency: String(intent.currency || 'NGN'),
-      })
-    ) {
+      })) {
+        return NextResponse.json(
+          { error: 'Payment details did not match this membership.' },
+          { status: 409 },
+        );
+      }
+      const completion = await completeMembershipPayment({
+        reference: String(reference),
+        providerTransactionId: payment.id,
+        providerStatus: payment.status,
+      });
+      return NextResponse.json({
+        success: true,
+        membershipCode: completion.membershipCode,
+        message: 'Membership activated successfully.',
+      });
+    }
+
+    if (!transactionId) {
       return NextResponse.json(
-        { error: 'Payment details did not match this membership.' },
-        { status: 409 }
+        { error: 'Flutterwave transaction details are required.' },
+        { status: 400 },
       );
     }
 
+    const payment = await verifyFlutterwaveTransaction(transactionId);
+    if (!matchesExpectedPayment(payment, {
+      reference: String(reference),
+      amount: Number(intent.amount),
+      currency: String(intent.currency || 'NGN'),
+    })) {
+      return NextResponse.json(
+        { error: 'Payment details did not match this membership.' },
+        { status: 409 },
+      );
+    }
     const completion = await completeMembershipPayment({
       reference: String(reference),
       providerTransactionId: payment.id,
@@ -59,8 +91,11 @@ export async function POST(request: NextRequest) {
       membershipCode: completion.membershipCode,
       message: 'Membership activated successfully.',
     });
-  } catch (error: any) {
-    console.error('Membership verification failed:', error?.message);
+  } catch (error: unknown) {
+    console.error(
+      'Membership verification failed:',
+      error instanceof Error ? error.message : 'Unknown error',
+    );
     return NextResponse.json(
       { error: 'We could not verify the membership payment.' },
       { status: 502 }

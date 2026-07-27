@@ -20,6 +20,20 @@ function formatNaira(amount: number): string {
   }).format(amount);
 }
 
+function isTrustedPaystackCheckout(value?: string): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "checkout.paystack.com" ||
+        url.hostname.endsWith(".checkout.paystack.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function MembershipPaymentPage() {
   const { user, loading: authLoading, refreshUserData } = useAuth();
   const userId = user?.uid;
@@ -35,12 +49,16 @@ export default function MembershipPaymentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [authWaitExpired, setAuthWaitExpired] = useState(false);
   const [liveNow, setLiveNow] = useState<string>("--:--:--");
   const [paymentIntent, setPaymentIntent] = useState<{
     reference: string;
     amount: number;
     currency: string;
     membershipTier: string;
+    paymentProvider: "paystack" | "flutterwave";
+    paymentEnvironment: "test" | "live";
+    authorizationUrl?: string;
   } | null>(null);
   const [prepareAttempt, setPrepareAttempt] = useState(0);
 
@@ -62,7 +80,16 @@ export default function MembershipPaymentPage() {
   }, []);
 
   useEffect(() => {
-    if (authLoading || !userId || !user) return;
+    if (!authLoading) {
+      setAuthWaitExpired(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setAuthWaitExpired(true), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [authLoading]);
+
+  useEffect(() => {
+    if (authLoading || !userId) return;
 
     let cancelled = false;
     const preparePayment = async () => {
@@ -91,6 +118,9 @@ export default function MembershipPaymentPage() {
           amount?: number;
           currency?: string;
           membershipTier?: string;
+          paymentProvider?: "paystack" | "flutterwave";
+          paymentEnvironment?: "test" | "live";
+          authorizationUrl?: string;
           error?: string;
         };
         if (!response.ok)
@@ -99,7 +129,9 @@ export default function MembershipPaymentPage() {
           !payload.reference ||
           !payload.amount ||
           !payload.currency ||
-          !payload.membershipTier
+          !payload.membershipTier ||
+          !payload.paymentProvider ||
+          !payload.paymentEnvironment
         ) {
           throw new Error("The membership payment response was incomplete.");
         }
@@ -109,6 +141,9 @@ export default function MembershipPaymentPage() {
             amount: payload.amount,
             currency: payload.currency,
             membershipTier: payload.membershipTier,
+            paymentProvider: payload.paymentProvider,
+            paymentEnvironment: payload.paymentEnvironment,
+            authorizationUrl: payload.authorizationUrl,
           });
         }
       } catch (intentError: unknown) {
@@ -133,14 +168,39 @@ export default function MembershipPaymentPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, prepareAttempt, selectedTier, user, userId]);
+  }, [authLoading, prepareAttempt, selectedTier, userId]);
 
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white px-4 py-10">
         <div role="status" className="mx-auto max-w-lg rounded-2xl border border-emerald-100 bg-white p-8 text-center shadow-sm">
-          <span className="mx-auto block h-9 w-9 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" />
+          {!authWaitExpired && (
+            <span className="mx-auto block h-9 w-9 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-700" />
+          )}
           <h1 className="mt-4 text-xl font-bold text-gray-900">Opening secure membership payment</h1>
+          {authWaitExpired && (
+            <>
+              <p className="mt-3 text-sm font-medium text-amber-800">
+                Your account session is taking longer than expected. You do not
+                need to remain on this loading screen.
+              </p>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white"
+                >
+                  Retry session
+                </button>
+                <Link
+                  href={`/signin?next=${encodeURIComponent(`/membership/payment?tier=${selectedTier}`)}`}
+                  className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-bold text-slate-700"
+                >
+                  Sign in again
+                </Link>
+              </div>
+            </>
+          )}
           <p className="mt-2 text-sm text-gray-600">Confirming your signed-in account…</p>
         </div>
       </div>
@@ -183,7 +243,7 @@ export default function MembershipPaymentPage() {
           </div>
 
           <Link
-            href="/signin?next=/membership/payment"
+            href={`/signin?next=${encodeURIComponent(`/membership/payment?tier=${selectedTier}`)}`}
             className="mt-6 block w-full rounded-xl bg-emerald-700 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-emerald-800"
           >
             Sign In To Continue
@@ -196,6 +256,20 @@ export default function MembershipPaymentPage() {
   const flutterwavePublicKey =
     process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY ||
     process.env.NEXT_PUBLIC_FLUTTERWAVE_KEY;
+  const validFlutterwavePublicKey =
+    /^FLWPUBK_(TEST|LIVE)-/i.test(flutterwavePublicKey || "");
+
+  const openPaystackCheckout = () => {
+    const authorizationUrl = paymentIntent?.authorizationUrl;
+    if (!isTrustedPaystackCheckout(authorizationUrl)) {
+      setError(
+        "The secure checkout link is invalid. Select Retry secure payment to create a new session.",
+      );
+      setPaymentIntent(null);
+      return;
+    }
+    window.location.assign(authorizationUrl!);
+  };
 
   const onPaymentSuccess = async (paymentResponse: {
     transaction_id?: string | number;
@@ -320,10 +394,17 @@ export default function MembershipPaymentPage() {
             </div>
           ) : null}
 
-          {!flutterwavePublicKey ? (
+          {paymentIntent?.paymentEnvironment === "test" && (
+            <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+              Test payment mode is active. Real cards will not be charged.
+            </div>
+          )}
+
+          {paymentIntent?.paymentProvider === "flutterwave" &&
+          !validFlutterwavePublicKey ? (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              Payment is temporarily unavailable because Flutterwave is not
-              configured.
+              Payment is unavailable because the configured checkout key does
+              not belong to Flutterwave.
             </div>
           ) : !paymentIntent ? (
             <button
@@ -333,6 +414,15 @@ export default function MembershipPaymentPage() {
               className="mt-5 w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-wait disabled:bg-gray-300 disabled:text-gray-600"
             >
               {loading ? "Preparing secure payment…" : "Retry secure payment"}
+            </button>
+          ) : paymentIntent.paymentProvider === "paystack" ? (
+            <button
+              type="button"
+              onClick={openPaystackCheckout}
+              disabled={loading}
+              className="mt-5 w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {`Pay ${formatNaira(paymentIntent.amount)} Securely`}
             </button>
           ) : (
             <FlutterWaveButton

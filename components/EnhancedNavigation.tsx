@@ -181,6 +181,13 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         matchPrefixes: ['/seller/earnings'],
       },
       {
+        id: 'withdrawals',
+        label: 'Withdraw Funds',
+        icon: 'Payouts',
+        href: '/seller/withdrawals',
+        matchPrefixes: ['/seller/withdrawals'],
+      },
+      {
         id: 'offers',
         label: 'Offers',
         icon: 'Offers',
@@ -189,7 +196,7 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
       },
       {
         id: 'payouts',
-        label: 'Bank Account',
+        label: 'Bank Accounts',
         icon: 'Payouts',
         href: '/seller/payout-profile',
         matchPrefixes: ['/seller/payout-profile'],
@@ -209,7 +216,7 @@ const OPERATIONAL_NAVIGATION_MODE: RoleNavMode = {
   },
   items: [
     { id: 'admin', label: 'Admin', icon: 'Admin', href: '/admin', exactMatch: true },
-    { id: 'operations', label: 'Operations', icon: 'Operations', href: '/admin/operations', matchPrefixes: ['/admin/operations'] },
+    { id: 'operations', label: 'Approvals & Operations', icon: 'Operations', href: '/admin/operations', matchPrefixes: ['/admin/operations'] },
     { id: 'analytics', label: 'Analytics', icon: 'Analytics', href: '/analytics', matchPrefixes: ['/analytics'] },
   ],
 };

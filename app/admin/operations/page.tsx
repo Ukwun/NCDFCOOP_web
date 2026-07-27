@@ -60,6 +60,7 @@ type Payout = {
   amount?: number;
   status?: string;
   sellerId?: string;
+  sellerEmail?: string;
   approvalIds?: string[];
   requiredApprovals?: number;
   exceptionFlags?: string[];
@@ -727,7 +728,10 @@ export default function OperationsPage() {
             )}
 
             {canViewPayouts && (
-              <Queue title="Payouts" empty="No payout requests waiting.">
+              <Queue
+                title="Seller withdrawal requests"
+                empty="No seller withdrawal requests waiting."
+              >
                 {payouts.map((payout) => (
                   <article
                     key={payout.id}
@@ -740,7 +744,7 @@ export default function OperationsPage() {
                       </span>
                     </div>
                     <p className="text-xs text-slate-400">
-                      Seller {payout.sellerId} · approvals{" "}
+                      Seller {payout.sellerEmail || payout.sellerId} · approvals{" "}
                       {(payout.approvalIds || []).length}/
                       {payout.requiredApprovals || 1}
                     </p>

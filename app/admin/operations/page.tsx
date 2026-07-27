@@ -1,33 +1,614 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  BadgeCheck,
+  CircleDollarSign,
+  RefreshCw,
+  ShieldCheck,
+  UserCog,
+  Users,
+} from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { auth } from '@/lib/firebase/config';
 import { useAuth } from '@/lib/auth/authContext';
 
-const ROLES = ['support_agent', 'dispute_officer', 'finance_operator', 'risk_officer', 'admin', 'super_admin'];
+const ROLES = [
+  'support_agent',
+  'dispute_officer',
+  'finance_operator',
+  'risk_officer',
+  'admin',
+  'super_admin',
+] as const;
+const ASSIGNABLE_ROLES = ROLES.filter((role) => role !== 'super_admin');
 
-export default function OperationsPage() {
-  const { user } = useAuth(); const [disputes, setDisputes] = useState<any[]>([]); const [payouts, setPayouts] = useState<any[]>([]); const [error, setError] = useState(''); const [email, setEmail] = useState(''); const [staffRole, setStaffRole] = useState('support_agent'); const [commission, setCommission] = useState('10'); const [savingCommission, setSavingCommission] = useState(false);
-  const call = useCallback(async (url: string, init?: RequestInit) => { const token = await auth?.currentUser?.getIdToken(); const response = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init?.headers || {}) } }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Operation failed'); return data; }, []);
-  const load = useCallback(async () => { try { setError(''); const [d, p, settings] = await Promise.allSettled([call('/api/disputes'), call('/api/payout-requests'), call('/api/admin/commerce-settings')]); if (d.status === 'fulfilled') setDisputes(d.value.disputes || []); if (p.status === 'fulfilled') setPayouts(p.value.requests || []); if (settings.status === 'fulfilled') setCommission(String(settings.value.sellerCommissionPercent)); } catch (e: any) { setError(e.message); } }, [call]);
-  useEffect(() => { void load(); const timer = setInterval(() => void load(), 15000); return () => clearInterval(timer); }, [load]);
-  const act = async (url: string, body: any) => { try { setError(''); await call(url, { method: 'PATCH', body: JSON.stringify(body) }); await load(); } catch (e: any) { setError(e.message); } };
-  const invite = async () => { try { const result = await call('/api/admin/staff', { method: 'POST', body: JSON.stringify({ email, role: staffRole }) }); setEmail(''); setError(result.message); } catch (e: any) { setError(e.message); } };
-  const saveCommission = async () => { try { setSavingCommission(true); setError(''); const result = await call('/api/admin/commerce-settings', { method: 'PUT', body: JSON.stringify({ sellerCommissionPercent: Number(commission) }) }); setCommission(String(result.sellerCommissionPercent)); setError(`Seller commission saved at ${result.sellerCommissionPercent}%. New orders will use this rate.`); } catch (e: any) { setError(e.message); } finally { setSavingCommission(false); } };
-  const isSuper = user?.roles?.includes('super_admin');
-  return <ProtectedRoute currentPath="/admin/operations" requiredRoles={ROLES}>
-    <main className="min-h-screen bg-slate-950 p-4 text-slate-100 sm:p-8"><div className="mx-auto max-w-7xl space-y-6">
-      <div><p className="text-xs font-bold uppercase tracking-widest text-emerald-400">Private staff workspace</p><h1 className="text-3xl font-black">Operations queues</h1><p className="text-sm text-slate-400">Refreshes every 15 seconds. Every decision is checked again by the server.</p></div>
-      {error && <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-sm">{error}</div>}
-      {isSuper && <section className="rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="font-bold">Assign verified staff by email</h2><div className="mt-3 flex flex-wrap gap-2"><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff@company.com" className="min-w-64 rounded-lg bg-slate-900 px-3 py-2"/><select value={staffRole} onChange={(e) => setStaffRole(e.target.value)} className="rounded-lg bg-slate-900 px-3 py-2">{ROLES.filter((r) => r !== 'super_admin').map((r) => <option key={r}>{r}</option>)}</select><button onClick={() => void invite()} className="rounded-lg bg-emerald-500 px-4 py-2 font-bold text-slate-950">Assign role</button></div></section>}
-      {isSuper && <section className="rounded-2xl border border-white/10 bg-white/5 p-5"><h2 className="font-bold">Seller commission</h2><p className="mt-1 text-sm text-slate-400">Percentage retained by NCDF COOP from seller merchandise on each new order. Existing orders keep their original rate.</p><div className="mt-3 flex flex-wrap items-center gap-2"><input type="number" min="0" max="30" step="0.1" value={commission} onChange={(e) => setCommission(e.target.value)} className="w-28 rounded-lg bg-slate-900 px-3 py-2" aria-label="Seller commission percentage"/><span className="text-sm">%</span><button onClick={() => void saveCommission()} disabled={savingCommission} className="rounded-lg bg-emerald-500 px-4 py-2 font-bold text-slate-950 disabled:opacity-60">{savingCommission ? 'Saving…' : 'Save commission'}</button></div></section>}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Queue title="Disputes" empty="No disputes waiting.">{disputes.map((d) => <article key={d.id} className="border-t border-white/10 p-4"><div className="flex justify-between"><b>Order {d.orderId}</b><span className="text-xs">{d.status}</span></div><p className="mt-2 text-sm text-slate-300">{d.reason}: {d.description}</p><p className="mt-1 text-xs text-amber-300">Held: ₦{Number(d.holdAmount || 0).toLocaleString()}</p><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => void act('/api/disputes', { disputeId: d.id, action: 'assign' })} className="rounded bg-sky-500 px-2 py-1 text-xs font-bold">Take case</button><button onClick={() => void act('/api/disputes', { disputeId: d.id, action: 'request_seller_response' })} className="rounded bg-amber-500 px-2 py-1 text-xs font-bold text-slate-950">Ask seller</button>{['full_refund','release_seller','replacement','escalated'].map((decision) => <button key={decision} onClick={() => void act('/api/disputes', { disputeId: d.id, action: 'resolve', decision, summary: decision })} className="rounded border border-white/20 px-2 py-1 text-xs">{decision.replace('_',' ')}</button>)}</div></article>)}</Queue>
-        <Queue title="Payouts" empty="No payout requests waiting.">{payouts.map((p) => <article key={p.id} className="border-t border-white/10 p-4"><div className="flex justify-between"><b>₦{Number(p.amount || 0).toLocaleString()}</b><span className="text-xs">{p.status}</span></div><p className="text-xs text-slate-400">Seller {p.sellerId} · approvals {(p.approvalIds || []).length}/{p.requiredApprovals || 1}</p><p className="text-xs text-rose-300">{(p.exceptionFlags || []).join(', ')}</p><div className="mt-3 flex gap-2"><button onClick={() => void act('/api/payout-requests', { payoutRequestId: p.id, action: 'approve' })} className="rounded bg-emerald-500 px-2 py-1 text-xs font-bold text-slate-950">Approve</button><button onClick={() => void act('/api/payout-requests', { payoutRequestId: p.id, action: 'reject', reason: 'Rejected by finance review' })} className="rounded bg-rose-500/30 px-2 py-1 text-xs">Reject</button></div></article>)}</Queue>
-      </div>
-    </div></main>
-  </ProtectedRoute>;
+const ROLE_LABELS: Record<string, string> = {
+  support_agent: 'Support agent',
+  dispute_officer: 'Dispute officer',
+  finance_operator: 'Finance operator',
+  risk_officer: 'Risk officer',
+  admin: 'Administrator',
+  super_admin: 'Super administrator',
+};
+
+type StaffMember = {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+  staffStatus: string;
+};
+
+type Dispute = {
+  id: string;
+  orderId?: string;
+  status?: string;
+  reason?: string;
+  description?: string;
+  holdAmount?: number;
+};
+
+type Payout = {
+  id: string;
+  amount?: number;
+  status?: string;
+  sellerId?: string;
+  approvalIds?: string[];
+  requiredApprovals?: number;
+  exceptionFlags?: string[];
+};
+
+type ApiResponse = {
+  disputes?: Dispute[];
+  requests?: Payout[];
+  sellerCommissionPercent?: number;
+  staff?: StaffMember[];
+  message?: string;
+};
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Operation failed.';
 }
 
-function Queue({ title, empty, children }: { title: string; empty: string; children: React.ReactNode }) { return <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"><h2 className="p-4 text-lg font-bold">{title}</h2>{children || <p className="p-4 text-sm text-slate-400">{empty}</p>}</section>; }
+export default function OperationsPage() {
+  const { user } = useAuth();
+  const [disputes, setDisputes] = useState<Dispute[]>([]);
+  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [email, setEmail] = useState('');
+  const [staffRole, setStaffRole] = useState('support_agent');
+  const [commission, setCommission] = useState('10');
+  const [loading, setLoading] = useState(true);
+  const [workingKey, setWorkingKey] = useState('');
+
+  const isSuper = user?.roles?.includes('super_admin') === true;
+
+  const call = useCallback(async (url: string, init?: RequestInit) => {
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) throw new Error('Your session expired. Sign in again.');
+
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        ...(init?.headers || {}),
+      },
+    });
+    const data = (await response.json().catch(() => ({}))) as ApiResponse & {
+      error?: string;
+    };
+    if (!response.ok) throw new Error(data.error || 'Operation failed.');
+    return data;
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    const requests: Array<Promise<ApiResponse>> = [
+      call('/api/disputes'),
+      call('/api/payout-requests'),
+      ...(isSuper
+        ? [call('/api/admin/commerce-settings'), call('/api/admin/staff')]
+        : []),
+    ];
+    const results = await Promise.allSettled(requests);
+    const failures: string[] = [];
+
+    if (results[0]?.status === 'fulfilled') {
+      setDisputes(results[0].value.disputes || []);
+    } else if (results[0]?.status === 'rejected') {
+      failures.push(results[0].reason?.message || 'Disputes could not be loaded.');
+    }
+
+    if (results[1]?.status === 'fulfilled') {
+      setPayouts(results[1].value.requests || []);
+    } else if (results[1]?.status === 'rejected') {
+      failures.push(results[1].reason?.message || 'Payouts could not be loaded.');
+    }
+
+    if (isSuper) {
+      if (results[2]?.status === 'fulfilled') {
+        setCommission(String(results[2].value.sellerCommissionPercent));
+      } else if (results[2]?.status === 'rejected') {
+        failures.push(
+          results[2].reason?.message || 'Commission settings could not be loaded.',
+        );
+      }
+      if (results[3]?.status === 'fulfilled') {
+        setStaff(results[3].value.staff || []);
+      } else if (results[3]?.status === 'rejected') {
+        failures.push(results[3].reason?.message || 'Staff roster could not be loaded.');
+      }
+    }
+
+    if (failures.length) setError(Array.from(new Set(failures)).join(' '));
+    setLoading(false);
+  }, [call, isSuper]);
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(), 15_000);
+    return () => window.clearInterval(timer);
+  }, [load]);
+
+  const act = async (url: string, body: Record<string, unknown>, key: string) => {
+    try {
+      setWorkingKey(key);
+      setError('');
+      setNotice('');
+      await call(url, { method: 'PATCH', body: JSON.stringify(body) });
+      setNotice('The operational record was updated successfully.');
+      await load();
+    } catch (operationError: unknown) {
+      setError(errorMessage(operationError));
+    } finally {
+      setWorkingKey('');
+    }
+  };
+
+  const assignRole = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError('Enter the verified email address of an existing account.');
+      return;
+    }
+
+    try {
+      setWorkingKey('assign');
+      setError('');
+      setNotice('');
+      const result = await call('/api/admin/staff', {
+        method: 'POST',
+        body: JSON.stringify({ email: normalizedEmail, role: staffRole }),
+      });
+      setEmail('');
+      setNotice(result.message);
+      await load();
+    } catch (operationError: unknown) {
+      setError(errorMessage(operationError));
+    } finally {
+      setWorkingKey('');
+    }
+  };
+
+  const revokeRole = async (staffMember: StaffMember, role: string) => {
+    const confirmed = window.confirm(
+      `Remove ${ROLE_LABELS[role] || role} access from ${staffMember.email}?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setWorkingKey(`${staffMember.id}:${role}`);
+      setError('');
+      setNotice('');
+      const result = await call('/api/admin/staff', {
+        method: 'PATCH',
+        body: JSON.stringify({ userId: staffMember.id, role }),
+      });
+      setNotice(result.message);
+      await load();
+    } catch (operationError: unknown) {
+      setError(errorMessage(operationError));
+    } finally {
+      setWorkingKey('');
+    }
+  };
+
+  const saveCommission = async () => {
+    const value = Number(commission);
+    if (!Number.isFinite(value) || value < 0 || value > 30) {
+      setError('Commission must be between 0% and 30%.');
+      return;
+    }
+
+    try {
+      setWorkingKey('commission');
+      setError('');
+      setNotice('');
+      const result = await call('/api/admin/commerce-settings', {
+        method: 'PUT',
+        body: JSON.stringify({ sellerCommissionPercent: value }),
+      });
+      setCommission(String(result.sellerCommissionPercent));
+      setNotice(
+        `Seller commission is now ${result.sellerCommissionPercent}%. New orders will use this rate.`,
+      );
+    } catch (operationError: unknown) {
+      setError(errorMessage(operationError));
+    } finally {
+      setWorkingKey('');
+    }
+  };
+
+  const activeStaff = useMemo(
+    () => staff.filter((staffMember) => staffMember.staffStatus !== 'inactive'),
+    [staff],
+  );
+
+  return (
+    <ProtectedRoute currentPath="/admin/operations" requiredRoles={[...ROLES]}>
+      <main className="min-h-screen bg-slate-950 p-4 text-slate-100 sm:p-8">
+        <div className="mx-auto max-w-7xl space-y-6">
+          <header className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 p-5 shadow-2xl sm:p-7 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">
+                Private staff workspace
+              </p>
+              <h1 className="mt-1 text-3xl font-black sm:text-4xl">
+                Operations control centre
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                Live queues refresh every 15 seconds. Permissions and every
+                operational decision are verified again by the server.
+              </p>
+            </div>
+            <button
+              onClick={() => void load()}
+              disabled={loading}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-bold transition hover:-translate-y-0.5 hover:bg-white/15 disabled:opacity-60"
+            >
+              <RefreshCw size={17} className={loading ? 'animate-spin' : ''} />
+              Refresh live data
+            </button>
+          </header>
+
+          {error && (
+            <div role="alert" className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100">
+              {error}
+            </div>
+          )}
+          {notice && (
+            <div role="status" className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+              {notice}
+            </div>
+          )}
+
+          {isSuper && (
+            <section className="grid gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 shadow-xl">
+                <div className="flex items-start gap-3">
+                  <span className="rounded-xl bg-emerald-500/15 p-2.5 text-emerald-300">
+                    <UserCog size={20} />
+                  </span>
+                  <div>
+                    <h2 className="font-bold">Assign verified operational staff</h2>
+                    <p className="text-sm text-slate-400">
+                      The account must already exist and have a verified email.
+                      The role is server-issued and reflected in active sessions.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void assignRole();
+                    }}
+                    placeholder="staff@company.com"
+                    aria-label="Staff email address"
+                    className="min-h-11 min-w-0 rounded-xl border border-white/10 bg-slate-900 px-3 outline-none transition focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/20"
+                  />
+                  <select
+                    value={staffRole}
+                    onChange={(event) => setStaffRole(event.target.value)}
+                    aria-label="Operational role"
+                    className="min-h-11 rounded-xl border border-white/10 bg-slate-900 px-3 outline-none focus:border-emerald-400/60"
+                  >
+                    {ASSIGNABLE_ROLES.map((role) => (
+                      <option key={role} value={role}>
+                        {ROLE_LABELS[role]}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => void assignRole()}
+                    disabled={workingKey === 'assign'}
+                    className="min-h-11 rounded-xl bg-emerald-400 px-5 font-bold text-slate-950 transition hover:-translate-y-0.5 hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {workingKey === 'assign' ? 'Assigning…' : 'Assign role'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 shadow-xl">
+                <div className="flex items-start gap-3">
+                  <span className="rounded-xl bg-sky-500/15 p-2.5 text-sky-300">
+                    <CircleDollarSign size={20} />
+                  </span>
+                  <div>
+                    <h2 className="font-bold">Seller commission</h2>
+                    <p className="text-sm text-slate-400">
+                      Applied to newly created orders only.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="30"
+                    step="0.1"
+                    value={commission}
+                    onChange={(event) => setCommission(event.target.value)}
+                    className="min-h-11 w-28 rounded-xl border border-white/10 bg-slate-900 px-3 outline-none focus:border-emerald-400/60"
+                    aria-label="Seller commission percentage"
+                  />
+                  <span className="text-sm">%</span>
+                  <button
+                    onClick={() => void saveCommission()}
+                    disabled={workingKey === 'commission'}
+                    className="min-h-11 flex-1 rounded-xl bg-emerald-400 px-4 font-bold text-slate-950 transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {workingKey === 'commission' ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {isSuper && (
+            <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] shadow-xl">
+              <div className="flex items-center justify-between border-b border-white/10 p-5">
+                <div className="flex items-center gap-3">
+                  <Users size={20} className="text-emerald-300" />
+                  <div>
+                    <h2 className="font-bold">Operational staff roster</h2>
+                    <p className="text-xs text-slate-400">
+                      {activeStaff.length} active account{activeStaff.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+                  <BadgeCheck size={14} /> Server verified
+                </span>
+              </div>
+              <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+                {staff.map((staffMember) => (
+                  <article
+                    key={staffMember.id}
+                    className="rounded-xl border border-white/10 bg-slate-900/70 p-4 transition hover:-translate-y-0.5 hover:border-emerald-400/25"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">
+                          {staffMember.name || staffMember.email}
+                        </p>
+                        <p className="truncate text-xs text-slate-400">
+                          {staffMember.email}
+                        </p>
+                      </div>
+                      <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${
+                        staffMember.staffStatus === 'inactive'
+                          ? 'bg-slate-700 text-slate-300'
+                          : 'bg-emerald-500/15 text-emerald-300'
+                      }`}>
+                        {staffMember.staffStatus}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {staffMember.roles
+                        .filter((role) => ROLES.includes(role as (typeof ROLES)[number]))
+                        .map((role) => (
+                          <span
+                            key={role}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs"
+                          >
+                            <ShieldCheck size={12} className="text-emerald-300" />
+                            {ROLE_LABELS[role] || role}
+                            {role !== 'super_admin' && (
+                              <button
+                                onClick={() => void revokeRole(staffMember, role)}
+                                disabled={workingKey === `${staffMember.id}:${role}`}
+                                aria-label={`Remove ${ROLE_LABELS[role] || role} from ${staffMember.email}`}
+                                className="ml-1 rounded px-1 text-slate-400 transition hover:bg-rose-500/20 hover:text-rose-300 disabled:opacity-50"
+                              >
+                                ×
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                    </div>
+                  </article>
+                ))}
+                {!loading && staff.length === 0 && (
+                  <p className="p-3 text-sm text-slate-400">
+                    No operational staff accounts have been assigned yet.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <Queue title="Disputes" empty="No disputes waiting.">
+              {disputes.map((dispute) => (
+                <article key={dispute.id} className="border-t border-white/10 p-4">
+                  <div className="flex justify-between gap-3">
+                    <b>Order {dispute.orderId}</b>
+                    <span className="text-xs capitalize">{dispute.status}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-300">
+                    {dispute.reason}: {dispute.description}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-300">
+                    Held: ₦{Number(dispute.holdAmount || 0).toLocaleString()}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <ActionButton
+                      label="Take case"
+                      working={workingKey === `${dispute.id}:assign`}
+                      onClick={() =>
+                        void act(
+                          '/api/disputes',
+                          { disputeId: dispute.id, action: 'assign' },
+                          `${dispute.id}:assign`,
+                        )
+                      }
+                      tone="sky"
+                    />
+                    <ActionButton
+                      label="Ask seller"
+                      working={workingKey === `${dispute.id}:seller`}
+                      onClick={() =>
+                        void act(
+                          '/api/disputes',
+                          { disputeId: dispute.id, action: 'request_seller_response' },
+                          `${dispute.id}:seller`,
+                        )
+                      }
+                      tone="amber"
+                    />
+                    {['full_refund', 'release_seller', 'replacement', 'escalated'].map(
+                      (decision) => (
+                        <ActionButton
+                          key={decision}
+                          label={decision.replace(/_/g, ' ')}
+                          working={workingKey === `${dispute.id}:${decision}`}
+                          onClick={() =>
+                            void act(
+                              '/api/disputes',
+                              {
+                                disputeId: dispute.id,
+                                action: 'resolve',
+                                decision,
+                                summary: decision,
+                              },
+                              `${dispute.id}:${decision}`,
+                            )
+                          }
+                        />
+                      ),
+                    )}
+                  </div>
+                </article>
+              ))}
+            </Queue>
+
+            <Queue title="Payouts" empty="No payout requests waiting.">
+              {payouts.map((payout) => (
+                <article key={payout.id} className="border-t border-white/10 p-4">
+                  <div className="flex justify-between gap-3">
+                    <b>₦{Number(payout.amount || 0).toLocaleString()}</b>
+                    <span className="text-xs capitalize">{payout.status}</span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Seller {payout.sellerId} · approvals{' '}
+                    {(payout.approvalIds || []).length}/{payout.requiredApprovals || 1}
+                  </p>
+                  {!!payout.exceptionFlags?.length && (
+                    <p className="text-xs text-rose-300">
+                      {payout.exceptionFlags.join(', ')}
+                    </p>
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    <ActionButton
+                      label="Approve"
+                      working={workingKey === `${payout.id}:approve`}
+                      onClick={() =>
+                        void act(
+                          '/api/payout-requests',
+                          { payoutRequestId: payout.id, action: 'approve' },
+                          `${payout.id}:approve`,
+                        )
+                      }
+                      tone="emerald"
+                    />
+                    <ActionButton
+                      label="Reject"
+                      working={workingKey === `${payout.id}:reject`}
+                      onClick={() =>
+                        void act(
+                          '/api/payout-requests',
+                          {
+                            payoutRequestId: payout.id,
+                            action: 'reject',
+                            reason: 'Rejected by finance review',
+                          },
+                          `${payout.id}:reject`,
+                        )
+                      }
+                      tone="rose"
+                    />
+                  </div>
+                </article>
+              ))}
+            </Queue>
+          </div>
+        </div>
+      </main>
+    </ProtectedRoute>
+  );
+}
+
+function Queue({
+  title,
+  empty,
+  children,
+}: {
+  title: string;
+  empty: string;
+  children: React.ReactNode;
+}) {
+  const hasChildren = Array.isArray(children) ? children.length > 0 : !!children;
+  return (
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] shadow-xl">
+      <h2 className="p-4 text-lg font-bold">{title}</h2>
+      {hasChildren ? children : <p className="p-4 text-sm text-slate-400">{empty}</p>}
+    </section>
+  );
+}
+
+function ActionButton({
+  label,
+  onClick,
+  working,
+  tone = 'default',
+}: {
+  label: string;
+  onClick: () => void;
+  working: boolean;
+  tone?: 'default' | 'sky' | 'amber' | 'emerald' | 'rose';
+}) {
+  const tones = {
+    default: 'border-white/20 hover:bg-white/10',
+    sky: 'border-sky-400/30 bg-sky-500/20 text-sky-100',
+    amber: 'border-amber-400/30 bg-amber-500/20 text-amber-100',
+    emerald: 'border-emerald-400/30 bg-emerald-500 text-slate-950',
+    rose: 'border-rose-400/30 bg-rose-500/25 text-rose-100',
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={working}
+      className={`min-h-9 rounded-lg border px-3 py-1 text-xs font-bold capitalize transition hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-50 ${tones[tone]}`}
+    >
+      {working ? 'Working…' : label}
+    </button>
+  );
+}

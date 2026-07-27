@@ -23,7 +23,7 @@ import {
   browserSessionPersistence,
   setPersistence,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, onSnapshot, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import {
   COLLECTIONS,
@@ -398,6 +398,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!auth || !db || !user?.uid) return;
+
+    const currentUid = user.uid;
+    const unsubscribe = onSnapshot(
+      doc(db, COLLECTIONS.USERS, currentUid),
+      async (snapshot) => {
+        const profile = snapshot.data();
+        const currentUser = auth.currentUser;
+        if (!profile || !currentUser || currentUser.uid !== currentUid) return;
+
+        const roles = Array.from(
+          new Set(
+            (Array.isArray(profile.roles) ? profile.roles : [])
+              .map(normalizeStoredRole)
+              .filter(Boolean),
+          ),
+        ) as string[];
+        const storedRole = isPendingRoleProfile(profile)
+          ? null
+          : normalizeStoredRole(profile.selectedRole) || roles[0] || null;
+        const selectedRole =
+          storedRole && roles.length > 0
+            ? getRoleOverrideFromStorage(roles) ||
+              (roles.includes(storedRole) ? storedRole : roles[0])
+            : null;
+        const selectionComplete =
+          !!profile.roleSelectionComplete && !!selectedRole;
+
+        const operationalRoles: string[] = [
+          USER_ROLES.ADMIN,
+          USER_ROLES.SUPER_ADMIN,
+          USER_ROLES.SUPPORT_AGENT,
+          USER_ROLES.DISPUTE_OFFICER,
+          USER_ROLES.FINANCE_OPERATOR,
+          USER_ROLES.RISK_OFFICER,
+        ];
+        if (roles.some((role) => operationalRoles.includes(role))) {
+          try {
+            await currentUser.getIdToken(true);
+          } catch (tokenError) {
+            console.warn("Updated staff permissions require a fresh sign-in.", tokenError);
+            setError(
+              "Your permissions changed. Sign out and sign in again if an operational action is denied.",
+            );
+          }
+        }
+
+        setUser((existingUser) => {
+          if (!existingUser || existingUser.uid !== currentUid) {
+            return existingUser;
+          }
+          return {
+            ...existingUser,
+            roles,
+            selectedRole: selectedRole || undefined,
+            currentRole: selectedRole || undefined,
+            membershipStatus:
+              profile.membershipStatus ||
+              (selectedRole === USER_ROLES.MEMBER ? "pending" : "inactive"),
+            memberTier: profile.memberTier || MEMBER_TIERS.BRONZE,
+            roleSelectionComplete: selectionComplete,
+            onboardingCompleted: !!profile.onboardingCompleted,
+          };
+        });
+        setCurrentRole(selectedRole);
+        setRoleSelectionComplete(selectionComplete);
+        setOnboardingCompleted(!!profile.onboardingCompleted);
+      },
+      (snapshotError) => {
+        console.warn("Live permission updates are temporarily unavailable.", snapshotError);
+      },
+    );
+
+    return unsubscribe;
+  }, [user?.uid]);
 
   const signup = async (
     email: string,

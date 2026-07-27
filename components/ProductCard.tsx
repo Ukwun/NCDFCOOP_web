@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Product } from '@/lib/types/product';
-import { AppColors, AppSpacing, AppTextStyles } from '@/lib/theme';
+import { AppColors, AppTextStyles } from '@/lib/theme';
 import { useFavorites, useActivityTracking } from '@/lib/hooks';
 import { useAuth } from '@/lib/auth/authContext';
 import { USER_ROLES } from '@/lib/constants/database';
@@ -17,6 +17,7 @@ import {
 import { addToCart } from '@/lib/services/cartService';
 import { resolveProductImage } from '@/lib/utils/productImage';
 import { applyMemberDiscount, getMembershipTier } from '@/lib/membership/tiers';
+import { applyOfferPrice, getActiveProductOffer } from '@/lib/utils/productOffer';
 
 interface ProductCardProps {
   product: Product;
@@ -43,11 +44,10 @@ export default function ProductCard({
     userId: user?.uid || '',
   });
 
-  const discountPercentage = product.discount || 0;
   const discountedPrice = product.price && product.price > 0
     ? product.price
     : product.originalPrice && product.originalPrice > 0
-      ? Math.max(100, Math.round(product.originalPrice * 0.85))
+      ? product.originalPrice
       : 0;
   const originalPrice = product.originalPrice || 0;
   const discountValue = originalPrice > discountedPrice ? originalPrice - discountedPrice : 0;
@@ -63,11 +63,16 @@ export default function ProductCard({
   const memberTier = getMembershipTier(user?.memberTier);
   
   // Logic: Use wholesale price if applicable
-  const displayPrice = showWholesaleInfo && product.wholesalePrice
+  const audienceBasePrice = showWholesaleInfo && product.wholesalePrice
     ? product.wholesalePrice
-    : isActiveMember
-      ? applyMemberDiscount(cartPrice, memberTier.id)
-      : cartPrice;
+    : cartPrice;
+  const activeOffer = getActiveProductOffer(product, currentRole);
+  const offerPrice = activeOffer
+    ? applyOfferPrice(audienceBasePrice, activeOffer.discountPercentage)
+    : audienceBasePrice;
+  const displayPrice = isActiveMember && !showWholesaleInfo
+    ? applyMemberDiscount(offerPrice, memberTier.id)
+    : offerPrice;
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -135,14 +140,14 @@ export default function ProductCard({
         )}
 
         {/* Discount Badge */}
-        {product.discount && product.discount > 0 && (
+        {(activeOffer || (product.discount && product.discount > 0)) && (
           <div
             className="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg"
             style={{
               backgroundColor: '#E53E3E',
             }}
           >
-            -{product.discount}%
+            -{activeOffer?.discountPercentage || product.discount}%
           </div>
         )}
 
@@ -249,6 +254,11 @@ export default function ProductCard({
 
         {/* Price Section */}
         <div className="mb-4">
+          {activeOffer && (
+            <p className="mb-1 text-xs font-black text-rose-600">
+              {activeOffer.title} · limited-time deal
+            </p>
+          )}
           <div className="flex flex-col mb-1">
             <div className="flex items-baseline gap-2">
             <span

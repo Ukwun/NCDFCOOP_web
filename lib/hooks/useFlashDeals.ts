@@ -66,25 +66,25 @@ export function useFlashDeals(): UseFlashDealsReturn {
 
           snapshot.forEach((doc) => {
             const rawData = doc.data();
-            const expiresAt = rawData.endDate?.toDate?.() || new Date();
+            const expiresAt = rawData.endDate?.toDate?.() || rawData.endAt?.toDate?.() || new Date();
             const timeLeftSeconds = Math.max(
               0,
               Math.floor((expiresAt.getTime() - now.getTime()) / 1000)
             );
             const active = timeLeftSeconds > 0;
 
-            const discountPercent = rawData.discount 
-              ? Math.round(rawData.discount * 100)
-              : 0;
+            const rawDiscount = Number(rawData.discountPercentage ?? rawData.discount ?? 0);
+            const discountPercent = rawDiscount <= 1
+              ? Math.round(rawDiscount * 100)
+              : Math.round(rawDiscount);
+            const originalPrice = Number(rawData.originalPrice || 0);
 
             dealsList.push({
               id: doc.id,
               productId: String(rawData.productId || doc.id),
-              name: rawData.title || 'Flash Deal',
-              price: Math.round(
-                (rawData.originalPrice || 0) * (1 - (rawData.discount || 0)) * 100
-              ) / 100,
-              originalPrice: rawData.originalPrice || 0,
+              name: rawData.productName || rawData.title || 'Product offer',
+              price: Math.round(originalPrice * (1 - discountPercent / 100) * 100) / 100,
+              originalPrice,
               image: rawData.imageUrl,
               timeLeftSeconds,
               timeLeftDisplay: formatTimeLeft(timeLeftSeconds),

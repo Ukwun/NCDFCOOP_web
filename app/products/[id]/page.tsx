@@ -20,6 +20,7 @@ import { USER_ROLES } from '@/lib/constants/database';
 import { ownershipBadgeClasses, ownershipLabel, resolveProductOwnership } from '@/lib/utils/productOwnership';
 import { applyMemberDiscount } from '@/lib/membership/tiers';
 import { resolveProductImage } from '@/lib/utils/productImage';
+import { applyOfferPrice, getActiveProductOffer } from '@/lib/utils/productOffer';
 
 const REVIEW_SNIPPETS: Array<{
   name: string;
@@ -43,19 +44,7 @@ function getBaseEffectivePrice(product: Product, currentRole?: string): number {
   if (Number.isFinite(raw) && raw > 0) return raw;
 
   const original = Number(product.originalPrice);
-  if (Number.isFinite(original) && original > 0) {
-    return Math.max(100, Math.round(original * 0.85));
-  }
-
-  const category = (product.category || '').toLowerCase();
-  if (category.includes('grain')) return 2400;
-  if (category.includes('rice')) return 3800;
-  if (category.includes('vegetable')) return 1200;
-  if (category.includes('oil')) return 3200;
-  if (category.includes('spice')) return 950;
-  if (category.includes('protein') || category.includes('dairy')) return 2200;
-
-  return 1500;
+  return Number.isFinite(original) && original > 0 ? original : 0;
 }
 
 function getSafeImages(product: Product | null): string[] {
@@ -104,9 +93,11 @@ export default function ProductDetailPage() {
   const { user, currentRole } = useAuth();
   const getEffectivePrice = (targetProduct: Product, role?: string) => {
     const basePrice = getBaseEffectivePrice(targetProduct, role);
+    const offer = getActiveProductOffer(targetProduct, role);
+    const offeredPrice = offer ? applyOfferPrice(basePrice, offer.discountPercentage) : basePrice;
     return role === USER_ROLES.MEMBER && user?.membershipStatus === 'active'
-      ? applyMemberDiscount(basePrice, user.memberTier)
-      : basePrice;
+      ? applyMemberDiscount(offeredPrice, user.memberTier)
+      : offeredPrice;
   };
   const { isFavorited, toggleFavorite } = useFavorites({ userId: user?.uid || '', autoFetch: true });
   const productId = params?.id as string;
@@ -321,7 +312,8 @@ export default function ProductDetailPage() {
 
   const rating = product?.rating || 0;
   const reviewCount = product?.reviews || 0;
-  const discountPercentage = product?.discount || 0;
+  const activeOffer = product ? getActiveProductOffer(product, currentRole) : null;
+  const discountPercentage = activeOffer?.discountPercentage || product?.discount || 0;
   const discountValue = product?.originalPrice ? product.originalPrice - getEffectivePrice(product, currentRole) : 0;
   const inquiryItemSubtotal = displayPrice * inquiryQuantity;
 
@@ -804,6 +796,11 @@ export default function ProductDetailPage() {
                 {discountValue > 0 && (
                   <p className="text-green-700 dark:text-green-400 font-semibold text-sm">
                     Save {formatMoney(discountValue)} ({discountPercentage}%)
+                  </p>
+                )}
+                {activeOffer && (
+                  <p className="mt-2 text-sm font-black text-rose-600 dark:text-rose-300">
+                    {activeOffer.title} · active for {activeOffer.audience === 'both' ? 'members and wholesale buyers' : `${activeOffer.audience} buyers`}
                   </p>
                 )}
                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">

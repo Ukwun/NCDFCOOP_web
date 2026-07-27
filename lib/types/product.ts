@@ -4,6 +4,16 @@ import { Timestamp } from 'firebase/firestore';
 
 export type ProductOwnershipType = 'ncdf' | 'seller';
 
+export interface ProductOffer {
+  id: string;
+  title: string;
+  discountPercentage: number;
+  audience: 'member' | 'wholesale' | 'both';
+  startAt: Date | Timestamp | string;
+  endAt: Date | Timestamp | string;
+  status: 'active' | 'scheduled' | 'inactive';
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -51,6 +61,7 @@ export interface Product {
   warranty?: string;
   returnPolicy?: string;
   shippingInfo?: ShippingInfo;
+  activeOffer?: ProductOffer;
 }
 
 export interface BulkPrice {

@@ -23,6 +23,8 @@ export interface SellerProductState {
   inquiries: number;
   createdAt: string;
   description?: string;
+  rating: number;
+  reviews: number;
 }
 
 interface UseSellerProductsReturn {
@@ -65,17 +67,19 @@ export function useSellerProducts(sellerId: string): UseSellerProductsReturn {
               id: doc.id,
               name: rawData.name || 'Unnamed Product',
               price: rawData.price || 0,
-              quantity: rawData.quantity || 0,
-              moq: rawData.moq || 1,
-              image: rawData.image,
-              category: rawData.category || 'General',
-              status: rawData.status || 'pending',
+              quantity: Number(rawData.stock || 0),
+              moq: Number(rawData.minOrderQuantity || rawData.minOrder || 1),
+              image: rawData.thumbnail || rawData.images?.[0] || '',
+              category: rawData.category || 'Uncategorized',
+              status: rawData.status === 'live' ? 'approved' : (rawData.status || 'pending'),
               rejectionReason: rawData.rejectionReason,
               inquiries: rawData.inquiries || 0,
               createdAt: rawData.createdAt?.toDate?.() 
                 ? getRelativeTime(rawData.createdAt.toDate())
                 : 'Recently added',
               description: rawData.description,
+              rating: Number(rawData.rating || 0),
+              reviews: Number(rawData.reviews || 0),
             });
           });
 

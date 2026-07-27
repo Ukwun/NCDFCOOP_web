@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
           sellerEmail: data.sellerEmail || "",
           bankName: data.bankName || "",
           accountName: data.accountName || "",
+          accountNumber: data.accountNumber || "",
           accountLast4: data.accountLast4 || "",
           reviewStatus: data.reviewStatus || "pending_verification",
           updatedAt: iso(data.updatedAt),

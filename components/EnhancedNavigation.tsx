@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BadgeDollarSign, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, LayoutDashboard, LogOut, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { BadgeDollarSign, BadgePercent, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, Landmark, LayoutDashboard, LogOut, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '@/lib/auth/authContext';
 import { db } from '@/lib/firebase/config';
@@ -47,6 +47,8 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   'wholesale-orders': BriefcaseBusiness,
   products: Boxes,
   earnings: BadgeDollarSign,
+  offers: BadgePercent,
+  payouts: Landmark,
   admin: ShieldCheck,
   operations: BriefcaseBusiness,
   analytics: BarChart3,
@@ -174,6 +176,20 @@ const ROLE_NAVIGATION_MODES: Record<string, RoleNavMode> = {
         icon: 'Ã°Å¸â€™Â°',
         href: '/seller/earnings',
         matchPrefixes: ['/seller/earnings'],
+      },
+      {
+        id: 'offers',
+        label: 'Offers',
+        icon: 'Offers',
+        href: '/seller/offers',
+        matchPrefixes: ['/seller/offers'],
+      },
+      {
+        id: 'payouts',
+        label: 'Bank Account',
+        icon: 'Payouts',
+        href: '/seller/payout-profile',
+        matchPrefixes: ['/seller/payout-profile'],
       },
     ],
   },

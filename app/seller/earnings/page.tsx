@@ -22,6 +22,8 @@ export default function SellerEarningsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [payoutAmount, setPayoutAmount] = useState('');
   const [payoutMessage, setPayoutMessage] = useState('');
+  const [payoutStatus, setPayoutStatus] = useState<'missing' | 'pending_verification' | 'verified'>('missing');
+  const [payoutBusy, setPayoutBusy] = useState(false);
   const [stats, setStats] = useState<{
     totalOrders: number;
     totalRevenue: number;
@@ -60,12 +62,34 @@ export default function SellerEarningsPage() {
     }
 
     loadStats();
+    auth?.currentUser?.getIdToken().then((token) =>
+      fetch('/api/seller/payout-profile', { headers: { Authorization: `Bearer ${token}` } })
+    ).then((response) => response.ok ? response.json() : null)
+      .then((result) => setPayoutStatus(result?.profile?.reviewStatus || 'missing'))
+      .catch(() => setPayoutStatus('missing'));
   }, [user?.uid, refreshKey]);
 
   const pendingPayouts = stats ? Math.max(stats.totalRevenue - stats.paidRevenue, 0) : 0;
   const requestPayout = async () => {
-    try { const token = await auth?.currentUser?.getIdToken(); const response = await fetch('/api/payout-requests', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: Number(payoutAmount) }) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Unable to request payout.'); setPayoutMessage(`Payout request submitted: ${result.status.replace(/_/g, ' ')}.`); setPayoutAmount(''); }
-    catch (e: any) { setPayoutMessage(e.message); }
+    const amount = Number(payoutAmount);
+    if (!Number.isFinite(amount) || amount < 1000) {
+      setPayoutMessage('Enter an amount of at least ₦1,000.');
+      return;
+    }
+    setPayoutBusy(true);
+    try {
+      const token = await auth?.currentUser?.getIdToken();
+      const response = await fetch('/api/payout-requests', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount }) });
+      await response.json();
+      if (!response.ok) {
+        setPayoutMessage(response.status === 409 ? 'This amount is not currently available for payout.' : response.status === 400 ? 'Check the amount and try again.' : 'Your payout request could not be submitted right now.');
+        return;
+      }
+      setPayoutMessage('Payout request submitted for finance review.');
+      setPayoutAmount('');
+    } catch {
+      setPayoutMessage('Your payout request could not be submitted right now.');
+    } finally { setPayoutBusy(false); }
   };
 
   return (
@@ -105,7 +129,7 @@ export default function SellerEarningsPage() {
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-700 dark:bg-red-900 p-6">
-              <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
+              <p className="text-sm text-red-700 dark:text-red-200">Earnings are temporarily unavailable. Your account data has not been changed.</p>
               <button
                 type="button"
                 onClick={() => setRefreshKey((value) => value + 1)}
@@ -142,7 +166,7 @@ export default function SellerEarningsPage() {
               </article>
             </section>
           )}
-          <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800"><h2 className="font-bold text-gray-900 dark:text-white">Request a payout</h2><p className="mt-1 text-sm text-gray-500">Your bank account must be verified and only your available delivered-order balance can be requested.</p><div className="mt-3 flex flex-wrap gap-2"><input type="number" min="1000" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} placeholder="Amount in NGN" className="rounded-lg border px-3 py-2 dark:bg-gray-900"/><button onClick={() => void requestPayout()} className="rounded-lg bg-[#0B6B3A] px-4 py-2 text-sm font-bold text-white">Submit payout request</button></div>{payoutMessage && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{payoutMessage}</p>}</section>
+          <section className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800"><h2 className="font-bold text-gray-900 dark:text-white">Request a payout</h2><p className="mt-1 text-sm text-gray-500">Only your available delivered-order balance can be requested.</p>{payoutStatus !== 'verified' ? <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900"><p className="font-bold">{payoutStatus === 'missing' ? 'Add a payout bank account first.' : 'Your payout account is awaiting verification.'}</p><button onClick={() => router.push('/seller/payout-profile')} className="mt-2 font-bold underline">Open bank account settings</button></div> : <div className="mt-3 flex flex-wrap gap-2"><input aria-label="Payout amount in naira" type="number" min="1000" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} placeholder="Amount in NGN" className="min-h-11 rounded-lg border bg-white px-3 py-2 text-slate-950 dark:bg-white dark:text-slate-950"/><button disabled={payoutBusy} onClick={() => void requestPayout()} className="rounded-lg bg-[#0B6B3A] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{payoutBusy ? 'Submitting…' : 'Submit payout request'}</button></div>}{payoutMessage && <p aria-live="polite" className="mt-2 text-sm text-gray-600 dark:text-gray-300">{payoutMessage}</p>}</section>
         </div>
       </div>
     </ProtectedRoute>

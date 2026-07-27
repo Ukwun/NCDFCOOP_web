@@ -1,10 +1,17 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
 import { USER_ROLES } from "@/lib/constants/database";
-import { getAdminDb } from "@/lib/firebase/admin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
+import { sendTransactionalEmail } from "@/lib/server/emailSender";
 import { hasAnyRole, verifyRequestUser } from "@/lib/server/requestAuth";
 
 const REVIEW_ROLES = [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN];
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
+  })[character] || character);
+}
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -38,7 +45,7 @@ export async function PATCH(request: NextRequest) {
     const db = getAdminDb();
     const productRef = db.collection("products").doc(productId);
     const now = FieldValue.serverTimestamp();
-    await db.runTransaction(async (transaction) => {
+    const review = await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(productRef);
       if (!snapshot.exists) throw new Error("PRODUCT_NOT_FOUND");
       const product = snapshot.data() || {};
@@ -79,11 +86,69 @@ export async function PATCH(request: NextRequest) {
           createdAt: now,
         });
       }
+      return {
+        sellerId: String(product.sellerId || ""),
+        sellerEmail: String(product.sellerEmail || ""),
+        productName: String(product.name || "Your product"),
+      };
     });
+
+    let emailNotification: "sent" | "queued" | "unavailable" = "unavailable";
+    if (review.sellerId) {
+      let recipient = review.sellerEmail;
+      if (!recipient) {
+        const sellerProfile = await db.collection("users").doc(review.sellerId).get();
+        recipient = String(sellerProfile.data()?.email || "");
+      }
+      if (!recipient) {
+        recipient = (await getAdminAuth().getUser(review.sellerId).catch(() => null))?.email || "";
+      }
+
+      if (recipient) {
+        const approved = decision === "approve";
+        const safeName = escapeHtml(review.productName);
+        const productsUrl = `${process.env.URL || process.env.NEXT_PUBLIC_APP_URL || "https://ncdfcoop.netlify.app"}/seller/products`;
+        const subject = approved
+          ? `${review.productName} has been approved`
+          : `Review update for ${review.productName}`;
+        const text = approved
+          ? `${review.productName} has been approved and is now live in the marketplace. View it at ${productsUrl}`
+          : `${review.productName} needs changes before it can go live. Review feedback: ${reason}. View it at ${productsUrl}`;
+        const reviewMessage = approved
+          ? `<strong>${safeName}</strong> has been approved and is now live in the marketplace.`
+          : `<strong>${safeName}</strong> needs changes before it can go live.</p><p>Review feedback: ${escapeHtml(reason)}`;
+        try {
+          await sendTransactionalEmail({
+            to: recipient,
+            subject,
+            text,
+            html: `<p>Hello,</p><p>${reviewMessage}</p><p><a href="${productsUrl}">Open your products</a></p>`,
+          });
+          emailNotification = "sent";
+        } catch (emailError) {
+          console.error("Product review email queued:", emailError instanceof Error ? emailError.message : "provider unavailable");
+          await db.collection("emailOutbox").add({
+            kind: "product_review",
+            to: recipient,
+            subject,
+            text,
+            productId,
+            sellerId: review.sellerId,
+            decision,
+            status: "pending",
+            attempts: 1,
+            lastError: "EMAIL_DELIVERY_PENDING",
+            createdAt: FieldValue.serverTimestamp(),
+          });
+          emailNotification = "queued";
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
       status: decision === "approve" ? "live" : "rejected",
+      emailNotification,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "";

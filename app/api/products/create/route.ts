@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
       images,
       thumbnail: String(body.thumbnail || images[0] || "").slice(0, 2_000),
       sellerId: user.uid,
+      sellerEmail: user.email || "",
       sellerName: String(profile.name || user.email || "Seller").slice(0, 160),
       sellerVerified,
       ownershipType: "seller",

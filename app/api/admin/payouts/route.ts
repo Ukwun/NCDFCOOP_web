@@ -1,13 +1,13 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase/admin';
-import { verifyRequestUser } from '@/lib/server/requestAuth';
+import { hasAnyRole, verifyRequestUser } from '@/lib/server/requestAuth';
 import { USER_ROLES } from '@/lib/constants/database';
 
 export async function PATCH(request: NextRequest) {
   try {
     const user = await verifyRequestUser(request);
-    if (!user?.roles.includes(USER_ROLES.ADMIN)) {
+    if (!hasAnyRole(user, [USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN])) {
       return NextResponse.json({ error: 'Admin access required.' }, { status: 403 });
     }
     const body = await request.json();

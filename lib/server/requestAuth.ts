@@ -15,6 +15,7 @@ export interface VerifiedRequestUser {
 export interface VerifiedRequestIdentity {
   uid: string;
   email?: string;
+  emailVerified: boolean;
   operationalRoles: string[];
 }
 
@@ -51,6 +52,7 @@ export async function verifyRequestIdentity(
   return {
     uid: decoded.uid,
     email: decoded.email,
+    emailVerified: decoded.email_verified === true,
     operationalRoles: Array.isArray(decoded.operationalRoles)
       ? decoded.operationalRoles.filter(
           (role): role is string => typeof role === 'string',

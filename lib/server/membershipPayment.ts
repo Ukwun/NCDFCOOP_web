@@ -37,7 +37,7 @@ export async function completeMembershipPayment(input: {
     const userId = String(payment.userId);
     const membershipTier = normalizeMembershipTier(payment.membershipTier);
     const membershipTierDefinition = getMembershipTier(membershipTier);
-    const membershipCode = `NCDF-${randomBytes(4).toString("hex").toUpperCase()}`;
+    const membershipCode = `COOPX-${randomBytes(4).toString("hex").toUpperCase()}`;
     const now = Timestamp.now();
     transaction.update(paymentRef, {
       status: "completed",
@@ -81,7 +81,7 @@ export async function completeMembershipPayment(input: {
     transaction.set(db.collection("notifications").doc(), {
       userId,
       title: "Membership activated",
-      message: `Your ${membershipTierDefinition.name} NCDF COOP member benefits are now active.`,
+      message: `Your ${membershipTierDefinition.name} CoopX member benefits are now active.`,
       type: "membership",
       read: false,
       data: { membershipCode, membershipTier },

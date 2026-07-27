@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
 import { lazyRouteComponents, preloadRoute, trackCodeSplittingMetrics } from '@/lib/optimization/lazyRoutes';
@@ -21,6 +21,10 @@ export default function Navigation() {
     refreshInterval: 30000,
   });
 
+  useEffect(() => {
+    trackCodeSplittingMetrics();
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -40,7 +44,7 @@ export default function Navigation() {
       <div onClick={() => setShowSignup(false)}>
         <LazyLoginScreen />
         <div className="fixed bottom-4 left-4 right-4 text-center text-sm text-gray-600 dark:text-gray-400">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <button
             onClick={() => setShowSignup(true)}
             className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
@@ -57,30 +61,15 @@ export default function Navigation() {
     { id: 'offer', label: 'Offer', icon: '🎁' },
     { id: 'message', label: 'Message', icon: '💬' },
     { id: 'cart', label: 'Cart', icon: '🛒' },
-    { id: 'profile', label: 'My NCDFCOOP', icon: '👤' },
+    { id: 'profile', label: 'My CoopX', icon: '👤' },
   ];
 
   const renderScreen = () => {
-    const routes = {
-      home: 'home',
-      offer: 'offer',
-      message: 'message',
-      cart: 'cart',
-      profile: 'profile',
-    } as const;
-
-    const routeKey = activeTab as keyof typeof routes;
+    const routeKey = activeTab as keyof typeof lazyRouteComponents;
     const Component = lazyRouteComponents[routeKey] || lazyRouteComponents.home;
     
     return <Component />;
   };
-
-  // Track code splitting metrics
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      trackCodeSplittingMetrics();
-    }
-  });
 
   // Preload routes on hover (optimization)
   const handleTabHover = (tabId: string) => {
@@ -118,7 +107,7 @@ export default function Navigation() {
       <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:top-0 md:bottom-auto md:right-auto md:w-48 md:border-t-0 md:border-r md:h-screen md:flex md:flex-col">
       {/* Top header for desktop */}
         <div className="hidden md:flex items-center justify-between h-16 border-b border-gray-200 dark:border-gray-700 px-4">
-          <img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="h-8 w-auto" style={{ maxHeight: '2rem' }} />
+          <Logo size="small" href="/" />
           <div className="flex items-center gap-2">
             {/* Notification Bell */}
             <button

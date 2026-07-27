@@ -39,12 +39,12 @@ export default function WholesaleProductsPage() {
     }, () => { setNotice('The live catalog could not be synchronized.'); setLoading(false); });
   }, []);
 
-  const suppliers = useMemo(() => Array.from(new Set(products.map((product) => product.sellerName || 'NCDFCOOP Direct'))).sort(), [products]);
+  const suppliers = useMemo(() => Array.from(new Set(products.map((product) => product.sellerName || 'CoopX Direct'))).sort(), [products]);
   const categories = useMemo(() => Array.from(new Set(products.map((product) => product.category).filter(Boolean))).sort(), [products]);
   const filtered = useMemo(() => products.filter((product) => {
     const term = search.toLowerCase().trim();
     return (!term || `${product.name} ${product.description} ${product.sellerName}`.toLowerCase().includes(term))
-      && (supplier === 'all' || (product.sellerName || 'NCDFCOOP Direct') === supplier)
+      && (supplier === 'all' || (product.sellerName || 'CoopX Direct') === supplier)
       && (category === 'all' || product.category === category);
   }), [products, search, supplier, category]);
 
@@ -66,7 +66,7 @@ export default function WholesaleProductsPage() {
     try {
       setBusyId(product.id); setNotice('');
       const quantity = Math.max(1, product.minOrderQuantity || product.minOrder || 1);
-      const inquiryId = await createInquiry({ sellerId: product.sellerId || '', sellerName: product.sellerName || 'NCDFCOOP Direct', buyerId: user.uid,
+      const inquiryId = await createInquiry({ sellerId: product.sellerId || '', sellerName: product.sellerName || 'CoopX Direct', buyerId: user.uid,
         buyerName: user.displayName || user.email || 'Wholesale buyer', productId: product.id, productName: product.name,
         quantity, budget: (product.wholesalePrice || product.price) * quantity,
         message: `RFQ requested for ${quantity} ${product.unit || 'units'} of ${product.name}. Please confirm bulk tiers, compliance documents, and delivery SLA.`, kind: 'inquiry' });
@@ -100,7 +100,7 @@ export default function WholesaleProductsPage() {
             <div className="p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{product.category}</p><Link href={`/products/${product.id}`} className="mt-1 block text-lg font-bold leading-tight hover:text-emerald-700">{product.name}</Link></div><span className="text-right text-lg font-black">₦{price.toLocaleString()}<small className="block text-[10px] font-medium text-slate-400">per {product.unit || 'unit'}</small></span></div>
               {offer && <p className="mt-2 text-xs font-black text-rose-600">{offer.title} · limited-time wholesale deal</p>}<p className="mt-3 line-clamp-2 text-sm text-slate-500">{product.description}</p>
               <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]"><span className="rounded-lg bg-emerald-50 p-2 text-emerald-800"><BadgeCheck size={14}/>{product.sellerVerified ? 'Verified' : 'Review due'}</span><span className="rounded-lg bg-blue-50 p-2 text-blue-800"><Clock3 size={14}/>{product.slaDays || 5}-day SLA</span><span className="rounded-lg bg-violet-50 p-2 text-violet-800"><ShieldCheck size={14}/>{product.certifications?.length || 0} certs</span></div>
-              <p className="mt-3 text-xs text-slate-500">Supplier: <strong className="text-slate-700">{product.sellerName || 'NCDFCOOP Direct'}</strong></p>
+              <p className="mt-3 text-xs text-slate-500">Supplier: <strong className="text-slate-700">{product.sellerName || 'CoopX Direct'}</strong></p>
               {product.bulkPrices?.length ? <div className="mt-3 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">Best tier: ₦{Math.min(...product.bulkPrices.map((tier) => tier.price)).toLocaleString()} from {Math.max(...product.bulkPrices.map((tier) => tier.minQuantity))} units</div> : null}
               <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => void requestQuote(product)} disabled={busyId === product.id} className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-700 px-3 py-2.5 text-sm font-bold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-50"><MessageSquareQuote size={16}/>RFQ</button><button onClick={() => void addMinimumToCart(product)} disabled={busyId === product.id} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800 disabled:opacity-50"><ShoppingCart size={16}/>Add MOQ</button></div>
             </div>

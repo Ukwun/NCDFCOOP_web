@@ -197,7 +197,7 @@ export default function AdminPage() {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">
-                NCDFCOOP Operations
+                CoopX Operations
               </p>
               <h1 className="text-xl font-bold sm:text-2xl">
                 Admin control centre

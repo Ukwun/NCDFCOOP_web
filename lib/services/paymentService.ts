@@ -78,7 +78,7 @@ export async function initiateFlutterwavePayment(
         name: fullName,
       },
       customizations: {
-        title: 'NCDFCOOP Commerce',
+        title: 'CoopX Commerce',
         description: `Order #${orderId}`,
         logo: 'https://ncdfcoop.com/logo.png',
       },
@@ -162,7 +162,7 @@ async function verifyFlutterwavePayment(
  */
 function getBankTransferDetailsLegacy(): BankTransferDetails {
   return {
-    accountName: 'NCDFCOOP Commerce Limited',
+    accountName: 'CoopX Commerce Limited',
     accountNumber: '3136996240',
     bankName: 'First Bank Nigeria',
     sortCode: '011',

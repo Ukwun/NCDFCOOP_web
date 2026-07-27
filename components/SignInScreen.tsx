@@ -168,7 +168,7 @@ export default function SignInScreen() {
                 color: AppColors.textSecondary,
               }}
             >
-              Welcome back to NCDFCOOP
+              Welcome back to CoopX
             </div>
           </div>
 

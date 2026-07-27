@@ -9,7 +9,7 @@ const SLIDES = [
   {
     image: "/images/onboarding/onboardingweb1.jpg",
     title: "Welcome to",
-    titleAccent: "NCDFCOOP",
+    titleAccent: "CoopX",
     subtitle:
       "Nigeria's controlled trade infrastructure for reliable buying and selling",
     features: null,

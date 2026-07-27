@@ -7,13 +7,13 @@ export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: {
-    default: 'NCDFCOOP Commerce',
-    template: '%s | NCDFCOOP Commerce',
+    default: 'CoopX',
+    template: '%s | CoopX',
   },
-  description: 'A role-aware cooperative marketplace for members, sellers, and wholesale buyers.',
+  description: 'CoopX is a role-aware cooperative marketplace for members, sellers, and wholesale buyers.',
   icons: {
-    icon: '/images/logo/NCDFCOOPLOGO.png',
-    shortcut: '/images/logo/NCDFCOOPLOGO.png',
+    icon: '/images/logo/coopx.svg',
+    shortcut: '/images/logo/coopx.svg',
   },
 };
 
@@ -34,8 +34,8 @@ export default function RootLayout({
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-        <link rel="icon" href="/images/logo/NCDFCOOPLOGO.png" />
-        <link rel="shortcut icon" href="/images/logo/NCDFCOOPLOGO.png" />
+        <link rel="icon" href="/images/logo/coopx.svg" />
+        <link rel="shortcut icon" href="/images/logo/coopx.svg" />
       </head>
       <body className="bg-gray-50 dark:bg-gray-900">
         <GlobalSettingsProvider>

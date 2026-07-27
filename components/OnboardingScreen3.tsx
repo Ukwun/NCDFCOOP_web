@@ -21,7 +21,7 @@ export default function OnboardingScreen3() {
   }, [router]);
 
   const features = [
-    '<img src="/images/logo/NCDFCOOPLOGO.png" alt="NCDFCOOP Logo" className="inline h-5 w-auto align-middle mr-1" /> Access to wholesale-priced products',
+    '<img src="/images/logo/coopx.svg" alt="CoopX logo" className="inline h-5 w-auto align-middle mr-1" /> Access to wholesale-priced products',
     "🚚 Dedicated delivery support",
     "💳 Flexible payment terms",
     "📊 Sales analytics & insights",

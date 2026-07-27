@@ -83,12 +83,12 @@ export default function ReferralProgramPage() {
 
   const share = (channel: 'whatsapp' | 'twitter' | 'facebook' | 'email') => {
     if (!referralLink) return;
-    const message = `Join NCDFCOOP with my referral link: ${referralLink}`;
+    const message = `Join CoopX with my referral link: ${referralLink}`;
     const targets = {
       whatsapp: `https://wa.me/?text=${encodeURIComponent(message)}`,
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralLink)}`,
-      email: `mailto:?subject=${encodeURIComponent('Join me on NCDFCOOP')}&body=${encodeURIComponent(message)}`,
+      email: `mailto:?subject=${encodeURIComponent('Join me on CoopX')}&body=${encodeURIComponent(message)}`,
     };
     window.open(targets[channel], '_blank', 'noopener,noreferrer');
   };

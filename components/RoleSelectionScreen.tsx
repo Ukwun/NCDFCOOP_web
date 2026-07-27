@@ -141,8 +141,12 @@ export default function RoleSelectionScreen() {
     try {
       await selectRole(roleId);
       router.push(getRoleLandingPath(roleId));
-    } catch (err: any) {
-      setError(err.message || "Failed to select role. Please try again.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to select role. Please try again.",
+      );
       setIsLoading(false);
       setSelectedRole(null);
     }
@@ -211,7 +215,7 @@ export default function RoleSelectionScreen() {
             color: AppColors.textSecondary,
           }}
         >
-          What's your main purpose on NCDFCOOP?
+          What&apos;s your main purpose on CoopX?
         </div>
       </div>
 
@@ -281,15 +285,15 @@ export default function RoleSelectionScreen() {
               onClick={() => handleSelectRole(role.id)}
               disabled={isLoading || !enabled}
               aria-pressed={selectedRole === role.id}
-              className="text-left outline-none transition duration-200 hover:-translate-y-1 hover:shadow-lg focus:ring-2 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none"
+              className={`group text-left outline-none transition duration-200 hover:-translate-y-1 hover:border-emerald-600 hover:bg-emerald-50 hover:shadow-xl focus-visible:-translate-y-1 focus-visible:border-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-700/25 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 motion-reduce:transform-none dark:hover:bg-emerald-950/30 ${
+                selectedRole === role.id
+                  ? "border-emerald-700 bg-emerald-50 shadow-md dark:bg-emerald-950/30"
+                  : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+              }`}
               style={{
                 padding: AppSpacing.lg,
                 borderRadius: AppSpacing.md,
-                border: `2px solid ${selectedRole === role.id ? role.color : "transparent"}`,
-                backgroundColor:
-                  selectedRole === role.id
-                    ? `${role.color}15`
-                    : AppColors.surface,
+                borderWidth: "2px",
                 cursor: isLoading
                   ? "wait"
                   : enabled
@@ -298,7 +302,7 @@ export default function RoleSelectionScreen() {
                 boxShadow:
                   selectedRole === role.id
                     ? `0 0 0 3px ${role.color}30`
-                    : "none",
+                    : undefined,
               }}
             >
               {/* Icon and Radio */}

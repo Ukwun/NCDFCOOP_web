@@ -40,7 +40,7 @@ export async function sendOrderReceipt(orderId: string): Promise<void> {
 
     await sendTransactionalEmail({
       to: email,
-      subject: `Order ${orderId} received - NCDF COOP`,
+      subject: `Order ${orderId} received - CoopX`,
       html: `
         <!doctype html>
         <html>

@@ -1,6 +1,4 @@
 'use client';
-
-import Image from 'next/image';
 import Link from 'next/link';
 
 interface LogoProps {
@@ -20,19 +18,17 @@ export default function Logo({ size = 'medium', href = '/', className = '' }: Lo
 
   const LogoContent = (
     <div className={`flex items-center gap-2 ${className}`}>
-      <div className="relative" style={{ width: sizeConfig.width, height: sizeConfig.height }}>
-        <img
-          src="/images/logo/NCDFCOOPLOGO.png"
-          alt="NCDFCOOP"
-          className="object-contain"
-          style={{ display: 'inline-block' }}
-        />
+      <div
+        className="flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-700 to-teal-500 font-black text-white shadow-sm"
+        style={{ width: sizeConfig.width, height: sizeConfig.height, fontSize: sizeConfig.width * 0.48 }}
+        aria-hidden="true"
+      >
+        C
       </div>
       {size !== 'small' && (
-        <div className="flex flex-col">
-          <span className="font-bold text-xl text-gray-900 dark:text-white">NCDF</span>
-          <span className="font-bold text-xl text-orange-500">COOP</span>
-        </div>
+        <span className="text-xl font-black tracking-tight text-gray-900 dark:text-white">
+          Coop<span className="text-emerald-700 dark:text-emerald-400">X</span>
+        </span>
       )}
     </div>
   );

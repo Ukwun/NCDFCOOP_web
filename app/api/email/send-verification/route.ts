@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
             </div>
             <div class="content">
               <p>Hello,</p>
-              <p>Thanks for signing up for NCDF COOP! Click the button below to verify your email address:</p>
+              <p>Thanks for signing up for CoopX! Click the button below to verify your email address:</p>
               <a href="${verificationLink}" class="button">Verify Email Address</a>
               <p>This link will expire in 48 hours.</p>
               <p>If you didn't create this account, you can safely ignore this email.</p>
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
               </ul>
             </div>
             <div class="footer">
-              <p>&copy; 2026 NCDF COOP. All rights reserved.</p>
+              <p>&copy; 2026 CoopX. All rights reserved.</p>
               <p>These are automated messages. Do not reply to this email.</p>
             </div>
           </div>
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const text = `
 Verify Your Email Address
 
-Thanks for signing up for NCDF COOP! 
+Thanks for signing up for CoopX!
 Click the link below to verify your email address:
 
 ${verificationLink}
@@ -93,7 +93,7 @@ What's Next?
 
     await sendTransactionalEmail({
       to: user.email,
-      subject: 'Verify Your Email Address - NCDF COOP',
+      subject: 'Verify Your Email Address - CoopX',
       html,
       text,
     });

@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
             Check Your Email
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            If an NCDF COOP account matches that email, a secure password reset
+            If a CoopX account matches that email, a secure password reset
             link is on its way.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">

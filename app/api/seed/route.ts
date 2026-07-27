@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
       },
       {
         title: 'New Member Welcome Bonus - 15% Off',
-        description: 'Welcome to NCDFCOOP! Get 15% off your first order',
+        description: 'Welcome to CoopX! Get 15% off your first order',
         discount: 15,
         status: 'active',
         startDate: now.toISOString(),

@@ -31,7 +31,7 @@ export default function MemberInvestmentsPage() {
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-100">Member purchase portfolio</p>
             <h1 className="mt-2 text-2xl font-black sm:text-3xl">Value created through your cooperative activity</h1>
             <p className="mt-2 max-w-3xl text-sm text-blue-50 sm:text-base">
-              These figures come from your real orders and rewards account. NCDFCOOP does not present unverified investment yields or invented balances.
+              These figures come from your real orders and rewards account. CoopX does not present unverified investment yields or invented balances.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
               <button onClick={() => router.push('/products')} className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-[#0D3D63] transition hover:-translate-y-0.5 hover:bg-blue-50">Build purchase basket</button>

@@ -50,17 +50,11 @@ export default function SplashScreen() {
             backgroundColor: 'white',
           }}
         >
-          <img
-            src="/images/logo/NCDFCOOPLOGO.png"
-            alt="NCDF COOP Logo"
-            width={80}
-            height={80}
-            style={{ width: '80px', height: '80px', objectFit: 'contain' }}
-          />
+          <span style={{ color: '#047857', fontSize: '40px', fontWeight: 900 }} aria-hidden="true">C</span>
         </div>
 
         <h1 style={{ color: AppColors.textPrimary, fontSize: '28px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
-          NCDFCOOP
+          CoopX
         </h1>
         <p style={{ color: AppColors.textSecondary, fontSize: '14px', margin: 0 }}>
           Fair Trade Marketplace

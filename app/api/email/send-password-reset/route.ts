@@ -166,14 +166,14 @@ export async function POST(request: NextRequest) {
             </div>
             <div class="content">
               <p>Hello,</p>
-              <p>We received a request to reset your NCDF COOP password. Use the secure button below to create a new password.</p>
+              <p>We received a request to reset your CoopX password. Use the secure button below to create a new password.</p>
               <a href="${resetLink}" class="button">Reset Your Password</a>
               <p class="note">This link expires automatically. If the button does not work, copy and paste this link into your browser:</p>
               <p class="note">${resetLink}</p>
               <p class="note">If you did not request this, you can ignore this email. Your password will remain unchanged.</p>
             </div>
             <div class="footer">
-              <p>&copy; 2026 NCDF COOP. All rights reserved.</p>
+              <p>&copy; 2026 CoopX. All rights reserved.</p>
               <p>This is an automated security email. Do not reply.</p>
             </div>
           </div>
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     const text = `
 Password Reset Request
 
-We received a request to reset your NCDF COOP password.
+We received a request to reset your CoopX password.
 
 Reset your password here:
 ${resetLink}
@@ -196,7 +196,7 @@ If you did not request this, you can ignore this email.
       try {
         await sendTransactionalEmail({
           to: email,
-          subject: "Password Reset Request - NCDF COOP",
+          subject: "Password Reset Request - CoopX",
           html,
           text,
         });

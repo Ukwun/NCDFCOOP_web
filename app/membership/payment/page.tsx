@@ -358,7 +358,7 @@ export default function MembershipPaymentPage() {
             Complete Membership Payment
           </h1>
           <p className="mt-1 text-sm text-gray-600">
-            Activate your NCDFCOOP member account instantly after successful
+            Activate your CoopX member account instantly after successful
             payment.
           </p>
 
@@ -433,12 +433,12 @@ export default function MembershipPaymentPage() {
               payment_options="card,ussd,banktransfer"
               customer={{
                 email: user.email || "",
-                name: user.displayName || "NCDFCOOP Member",
+                name: user.displayName || "CoopX Member",
               }}
               customizations={{
-                title: "NCDFCOOP Membership Payment",
+                title: "CoopX Membership Payment",
                 description: `Activate ${selectedTierDefinition.name} member benefits`,
-                logo: "/images/logo/NCDFCOOPLOGO.png",
+                logo: "/images/logo/coopx.svg",
               }}
               callback={onPaymentSuccess}
               onClose={() => undefined}

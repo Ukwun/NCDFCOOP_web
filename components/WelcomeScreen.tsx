@@ -74,7 +74,7 @@ export default function WelcomeScreen() {
               marginBottom: AppSpacing.md,
             }}
           >
-            Welcome to NCDFCOOP
+            Welcome to CoopX
           </h1>
 
           <p

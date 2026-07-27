@@ -13,10 +13,10 @@ export function SellerOnboardingStep1({ onNext }: { onNext: () => void }) {
         Start Your Selling Journey
       </h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-        Reach verified buyers in our NCDFCOOP cooperative and start earning money from your products.
+        Reach verified buyers in the CoopX cooperative and start earning money from your products.
       </p>
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-8 max-w-md mx-auto">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Why Sell on NCDFCOOP?</h3>
+        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Why Sell on CoopX?</h3>
         <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2 text-left">
           <li>✓ Reach verified members and bulk buyers</li>
           <li>✓ Competitive seller commission rates</li>

@@ -55,7 +55,7 @@ export default function MyNCDFCOOPScreen() {
   const accountItems = [
     { icon: '⚙️', title: 'Settings', subtitle: 'Preferences', onClick: () => window.location.href = '/member/settings' },
     { icon: '❓', title: 'Help & Support', subtitle: 'Get assistance' },
-    { icon: 'ℹ️', title: 'About NCDFCOOP', subtitle: 'Our mission' },
+    { icon: 'ℹ️', title: 'About CoopX', subtitle: 'Our mission' },
   ];
 
   if (loading) {

@@ -491,7 +491,7 @@ export default function WholesaleBuyerHomeScreen() {
                           onClick={() => openQuoteDialog(product)}
                           className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
                         >
-                          Quote
+                          Add Quote
                         </button>
                         <button
                           onClick={() => onAddToCart(product)}

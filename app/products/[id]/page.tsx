@@ -54,12 +54,12 @@ function getSafeImages(product: Product | null): string[] {
   const images = (product.images || []).filter(Boolean).map(resolveProductImage);
   if (images.length > 0) return images;
   if (product.thumbnail) return [resolveProductImage(product.thumbnail)];
-  return ['/images/logo/coopx.svg'];
+  return ['/images/logo/coopx-mark.png'];
 }
 
 function getImageForIndex(product: Product | null, index: number): string {
   const images = getSafeImages(product);
-  return images[index] || images[0] || '/images/logo/coopx.svg';
+  return images[index] || images[0] || '/images/logo/coopx-mark.png';
 }
 
 function hasValidPrice(product: Product, currentRole?: string): boolean {

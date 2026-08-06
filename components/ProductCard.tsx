@@ -135,7 +135,7 @@ export default function ProductCard({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <span className="rounded-2xl bg-emerald-700 px-5 py-3 text-2xl font-black text-white" aria-label="CoopX">CoopX</span>
+            <Image src="/images/logo/coopx-mark.png" alt="CoopX" width={96} height={96} className="h-20 w-20 rounded-2xl object-cover shadow-sm" />
           </div>
         )}
 
@@ -187,7 +187,7 @@ export default function ProductCard({
               color: AppColors.textSecondary,
             }}
           >
-            <span className="font-black text-emerald-700" aria-hidden="true">C</span>
+            <Image src="/images/logo/coopx-mark.png" alt="" width={18} height={18} className="h-4 w-4 rounded object-cover" aria-hidden="true" />
             {product.sellerName || 'CoopX'}
           </div>
         </div>

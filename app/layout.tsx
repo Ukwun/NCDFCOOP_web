@@ -12,8 +12,8 @@ export const metadata = {
   },
   description: 'CoopX is a role-aware cooperative marketplace for members, sellers, and wholesale buyers.',
   icons: {
-    icon: '/images/logo/coopx.svg',
-    shortcut: '/images/logo/coopx.svg',
+    icon: '/images/logo/coopx-mark.png',
+    shortcut: '/images/logo/coopx-mark.png',
   },
 };
 
@@ -34,8 +34,8 @@ export default function RootLayout({
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-        <link rel="icon" href="/images/logo/coopx.svg" />
-        <link rel="shortcut icon" href="/images/logo/coopx.svg" />
+        <link rel="icon" href="/images/logo/coopx-mark.png" />
+        <link rel="shortcut icon" href="/images/logo/coopx-mark.png" />
       </head>
       <body className="bg-gray-50 dark:bg-gray-900">
         <GlobalSettingsProvider>

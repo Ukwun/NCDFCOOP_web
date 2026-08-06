@@ -438,7 +438,7 @@ export default function MembershipPaymentPage() {
               customizations={{
                 title: "CoopX Membership Payment",
                 description: `Activate ${selectedTierDefinition.name} member benefits`,
-                logo: "/images/logo/coopx.svg",
+                logo: "/images/logo/coopx-mark.png",
               }}
               callback={onPaymentSuccess}
               onClose={() => undefined}

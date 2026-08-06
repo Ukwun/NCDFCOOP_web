@@ -1,4 +1,6 @@
 'use client';
+
+import Image from 'next/image';
 import Link from 'next/link';
 
 interface LogoProps {
@@ -8,33 +10,52 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 'medium', href = '/', className = '' }: LogoProps) {
-  const sizes = {
-    small: { width: 40, height: 40 },
-    medium: { width: 60, height: 60 },
-    large: { width: 120, height: 120 },
+  const variants = {
+    small: {
+      src: '/images/logo/coopx-mark.png',
+      width: 44,
+      height: 44,
+      classes: 'h-10 w-10 rounded-xl object-cover sm:h-11 sm:w-11',
+    },
+    medium: {
+      src: '/images/logo/coopx-logo-nav.jpg',
+      width: 196,
+      height: 50,
+      classes: 'h-auto w-40 object-contain sm:w-48',
+    },
+    large: {
+      src: '/images/logo/coopx-logo-full.jpg',
+      width: 360,
+      height: 131,
+      classes: 'h-auto w-full max-w-[22rem] rounded-2xl object-contain',
+    },
   };
 
-  const sizeConfig = sizes[size];
+  const variant = variants[size];
 
   const LogoContent = (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <div
-        className="flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-700 to-teal-500 font-black text-white shadow-sm"
-        style={{ width: sizeConfig.width, height: sizeConfig.height, fontSize: sizeConfig.width * 0.48 }}
-        aria-hidden="true"
-      >
-        C
-      </div>
-      {size !== 'small' && (
-        <span className="text-xl font-black tracking-tight text-gray-900 dark:text-white">
-          Coop<span className="text-emerald-700 dark:text-emerald-400">X</span>
-        </span>
-      )}
+    <div className={`flex items-center ${className}`}>
+      <Image
+        src={variant.src}
+        alt="CoopX — Powering the Agri Value Chain"
+        width={variant.width}
+        height={variant.height}
+        className={`${variant.classes} bg-white shadow-sm transition duration-300 group-hover:scale-[1.02]`}
+        priority={size === 'large'}
+      />
     </div>
   );
 
   if (href) {
-    return <Link href={href}>{LogoContent}</Link>;
+    return (
+      <Link
+        href={href}
+        className="group inline-flex rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+        aria-label="CoopX home"
+      >
+        {LogoContent}
+      </Link>
+    );
   }
   return LogoContent;
 }

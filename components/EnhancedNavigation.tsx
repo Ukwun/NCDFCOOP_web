@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { BadgeDollarSign, BadgePercent, BarChart3, Boxes, BriefcaseBusiness, Building2, ChevronDown, ClipboardList, Heart, Home, Landmark, LayoutDashboard, LogOut, MessageCircle, PackageSearch, ShieldCheck, ShoppingCart, Timer, UserRound, Users, type LucideIcon } from 'lucide-react';
@@ -464,12 +465,14 @@ export default function EnhancedNavigation() {
               className="group flex h-12 shrink-0 items-center gap-2 rounded-xl px-2 transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 dark:hover:bg-emerald-950/40"
               aria-label="CoopX home"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-700 to-teal-500 text-lg font-black text-white shadow-sm transition-transform duration-300 group-hover:rotate-3 group-hover:scale-105">
-                C
-              </span>
-              <span className="text-xl font-black tracking-tight text-slate-950 dark:text-white">
-                Coop<span className="text-emerald-700 dark:text-emerald-400">X</span>
-              </span>
+              <Image
+                src="/images/logo/coopx-logo-nav.jpg"
+                alt="CoopX"
+                width={176}
+                height={45}
+                className="h-10 w-auto rounded-lg bg-white object-contain transition-transform duration-300 group-hover:scale-[1.025]"
+                priority
+              />
             </Link>
 
             {/* Center Navigation - Hidden on mobile */}

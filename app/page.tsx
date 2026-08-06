@@ -38,5 +38,5 @@ export default function Home() {
     return () => clearTimeout(redirectTimer);
   }, [user, loading, onboardingCompleted, roleSelectionComplete, router]);
 
-  return <SplashScreen />;
+  return <SplashScreen autoNavigate={false} />;
 }

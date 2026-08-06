@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, BarChart3, CreditCard, Truck, UserCircle } from "lucide-react";
@@ -43,14 +44,15 @@ const SLIDES = [
 
 function Brand() {
   return (
-    <div className="flex items-center gap-3" aria-label="CoopX">
-      <svg className="h-10 w-10" viewBox="0 0 48 48" aria-hidden="true">
-        <path d="m24 4 18 10v20L24 44 6 34V14L24 4Z" fill="#FFD447" stroke="#008C73" strokeWidth="3" />
-        <path d="m7 14 17 10 17-10M24 24v20" fill="none" stroke="#008C73" strokeWidth="3" strokeLinejoin="round" />
-      </svg>
-      <span className="text-3xl font-black tracking-[-0.04em] text-slate-950">
-        Coop<span className="text-emerald-600">X</span>
-      </span>
+    <div className="inline-flex rounded-xl bg-white" aria-label="CoopX">
+      <Image
+        src="/images/logo/coopx-logo-nav.jpg"
+        alt="CoopX"
+        width={196}
+        height={50}
+        className="h-auto w-40 object-contain sm:w-48"
+        priority
+      />
     </div>
   );
 }

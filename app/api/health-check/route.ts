@@ -49,6 +49,10 @@ export async function GET(request: NextRequest) {
     process.env.PAYSTACK_SECRET_KEY ||
     process.env.FLUTTERWAVE_SECRET_KEY ||
     '';
+  const resendReady = !!process.env.RESEND_API_KEY &&
+    !!(process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM);
+  const sendGridReady = !!process.env.SENDGRID_API_KEY &&
+    !!(process.env.SENDGRID_FROM_EMAIL || process.env.EMAIL_FROM);
   const dependencies = {
     firebaseClient: clientReady,
     firebaseAdmin: adminReady,
@@ -63,7 +67,8 @@ export async function GET(request: NextRequest) {
     paystackServer: /^sk_(test|live)_/i.test(configuredServerPaymentKey),
     flutterwavePublic: /^FLWPUBK_(TEST|LIVE)-/i.test(configuredPublicPaymentKey),
     flutterwaveServer: /^FLWSECK_(TEST|LIVE)-/i.test(configuredServerPaymentKey),
-    transactionalEmail: !!process.env.SENDGRID_API_KEY && !!process.env.SENDGRID_FROM_EMAIL,
+    transactionalEmail: resendReady || sendGridReady,
+    emailProvider: resendReady ? 'resend' : sendGridReady ? 'sendgrid' : 'unconfigured',
   };
   const commerceReady = clientReady && adminReady;
 

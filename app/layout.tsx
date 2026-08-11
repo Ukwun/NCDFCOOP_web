@@ -11,6 +11,12 @@ export const metadata = {
     template: '%s | CoopX',
   },
   description: 'CoopX is a role-aware cooperative marketplace for members, sellers, and wholesale buyers.',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'CoopX',
+    statusBarStyle: 'black-translucent' as const,
+  },
   icons: {
     icon: '/images/logo/coopx-mark.png',
     shortcut: '/images/logo/coopx-mark.png',

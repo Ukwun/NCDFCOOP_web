@@ -5,11 +5,12 @@ export const dynamic = 'force-dynamic';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
+import { getAuthenticatedLandingPath } from '@/lib/auth/roleRouting';
 import SplashScreen from '@/components/SplashScreen';
 
 export default function Home() {
   const router = useRouter();
-  const { user, loading, onboardingCompleted, roleSelectionComplete } = useAuth();
+  const { user, loading, currentRole, roleSelectionComplete } = useAuth();
 
   // Redirect based on auth state after initial load
   useEffect(() => {
@@ -17,26 +18,18 @@ export default function Home() {
 
     // Small delay to allow splash to show for minimum 3 seconds
     const redirectTimer = setTimeout(() => {
-      // Step 1: Not authenticated yet - show onboarding first
-      if (!user && !onboardingCompleted) {
-        router.push('/onboarding');
+      if (!user) {
+        router.replace('/welcome');
+        return;
       }
-      // Step 2: Saw onboarding but not authenticated yet - go to signup
-      else if (!user && onboardingCompleted) {
-          router.push('/signup');
-      }
-      // Step 3: Authenticated but no role selected - go to role selection
-      else if (user && !roleSelectionComplete) {
-        router.push('/role-selection');
-      }
-      // Step 4: All complete - go to home
-      else if (user && roleSelectionComplete) {
-        router.push('/home');
-      }
+
+      router.replace(
+        getAuthenticatedLandingPath(currentRole, roleSelectionComplete),
+      );
     }, 3000);
 
     return () => clearTimeout(redirectTimer);
-  }, [user, loading, onboardingCompleted, roleSelectionComplete, router]);
+  }, [user, loading, currentRole, roleSelectionComplete, router]);
 
   return <SplashScreen autoNavigate={false} />;
 }

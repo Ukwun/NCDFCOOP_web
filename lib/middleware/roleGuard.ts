@@ -41,7 +41,7 @@ export function getWorkflowStatus(user: AuthUser | null, onboardingCompleted: bo
     isAuthenticated: !!user,
     onboardingCompleted,
     roleSelectionComplete,
-    canAccessApp: !!user && onboardingCompleted && roleSelectionComplete,
+    canAccessApp: !!user && roleSelectionComplete,
   };
 }
 
@@ -55,18 +55,13 @@ export function getNextRoute(
   currentRoute: string
 ): string | null {
   // Public routes that don't require auth
-  const publicRoutes = ['/splash', '/signin', '/signup', '/forgot-password', '/onboarding'];
+  const publicRoutes = ['/splash', '/welcome', '/signin', '/signup', '/forgot-password', '/onboarding', '/onboarding2', '/onboarding3'];
   if (publicRoutes.includes(currentRoute)) {
     return null;
   }
 
-  // Step 1: Not authenticated - must see onboarding first
-  if (!user && !onboardingCompleted) {
-    return '/onboarding';
-  }
-
-  // Step 2: After onboarding, not authenticated - go to signup
-  if (!user && onboardingCompleted) {
+  // Public visitors see the marketplace homepage before authentication.
+  if (!user) {
     return '/signin';
   }
 

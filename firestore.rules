@@ -304,12 +304,13 @@ service cloud.firestore {
     // PRODUCTS - Marketplace inventory
     // ============================================
     match /products/{productId} {
-      // Marketplace users see live inventory; sellers retain access to their
-      // own drafts and admins retain moderation access.
-      allow read: if isAuthenticated() && (
-        resource.data.status == 'live' ||
-        resource.data.sellerId == request.auth.uid ||
-        isAdmin()
+      // Live listings are public marketplace data. Drafts and pending records
+      // remain limited to their seller and trusted moderators.
+      allow read: if resource.data.status == 'live' || (
+        isAuthenticated() && (
+          resource.data.sellerId == request.auth.uid ||
+          isAdmin()
+        )
       );
 
       // Server creation is preferred. This tightly constrained path keeps

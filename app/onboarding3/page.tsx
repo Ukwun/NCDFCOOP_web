@@ -1,9 +1,5 @@
-'use client';
-
-export const dynamic = 'force-dynamic';
-
-import OnboardingScreen3 from '@/components/OnboardingScreen3';
+import { redirect } from 'next/navigation';
 
 export default function Onboarding3Page() {
-  return <OnboardingScreen3 />;
+  redirect('/welcome');
 }

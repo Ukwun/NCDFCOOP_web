@@ -73,12 +73,25 @@ export default function CoopXOnboarding({ initialSlide = 0 }: CoopXOnboardingPro
   const [error, setError] = useState("");
   const touchStartX = useRef<number | null>(null);
   const slide = SLIDES[currentSlide];
+  const AUTO_ADVANCE_MS = 5000;
 
   useEffect(() => {
     router.prefetch("/signin");
     router.prefetch("/signup");
     router.prefetch("/role-selection");
   }, [router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % SLIDES.length);
+    }, AUTO_ADVANCE_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const moveTo = useCallback((index: number) => {
     setCurrentSlide((index + SLIDES.length) % SLIDES.length);

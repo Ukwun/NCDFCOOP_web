@@ -17,7 +17,7 @@ export default function SplashScreen({ autoNavigate = true }: { autoNavigate?: b
 
     const timer = window.setTimeout(() => {
       router.push('/signin');
-    }, 1100);
+    }, 500);
 
     return () => window.clearTimeout(timer);
   }, [autoNavigate, router]);

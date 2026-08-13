@@ -12,5 +12,11 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800"
+    Netlify-CDN-Cache-Control = "public, durable, s-maxage=86400, stale-while-revalidate=604800"
+
 [functions."release-expired-orders"]
   schedule = "*/5 * * * *"

@@ -1,7 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SplashScreen from '@/components/SplashScreen';
@@ -12,7 +10,7 @@ export default function Home() {
     router.prefetch('/welcome');
     const redirectTimer = setTimeout(() => {
       router.replace('/welcome');
-    }, 1100);
+    }, 500);
 
     return () => clearTimeout(redirectTimer);
   }, [router]);

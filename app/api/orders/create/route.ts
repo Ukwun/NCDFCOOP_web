@@ -103,6 +103,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const isMemberBuyer =
+      user.selectedRole === USER_ROLES.MEMBER &&
+      user.roles.includes(USER_ROLES.MEMBER);
+    const isWholesaleBuyer =
+      user.selectedRole === USER_ROLES.INSTITUTIONAL_BUYER &&
+      user.roles.includes(USER_ROLES.INSTITUTIONAL_BUYER);
+    if (!isMemberBuyer && !isWholesaleBuyer) {
+      return NextResponse.json(
+        { error: 'Select an authorized buyer role before checking out.' },
+        { status: 403 },
+      );
+    }
+
     const body = (await request.json()) as CreateOrderPayload;
     const items = Array.isArray(body.items) ? body.items : [];
     const paymentMethod = body.paymentMethod;
@@ -153,9 +166,6 @@ export async function POST(request: NextRequest) {
       })
     );
     const productSnapshots = new Map(productEntries);
-    const isWholesaleBuyer =
-      user.selectedRole === USER_ROLES.INSTITUTIONAL_BUYER &&
-      user.roles.includes(USER_ROLES.INSTITUTIONAL_BUYER);
     const isActiveMember =
       user.selectedRole === USER_ROLES.MEMBER &&
       user.roles.includes(USER_ROLES.MEMBER) &&
@@ -186,7 +196,7 @@ export async function POST(request: NextRequest) {
         isActiveMember ? memberTier.id : undefined
       );
 
-      if (product.isActive === false || stock < quantity) {
+      if (product.status !== 'live' || product.isActive === false || stock < quantity) {
         return NextResponse.json(
           { error: `${product.name || 'A product'} does not have enough stock.` },
           { status: 409 }

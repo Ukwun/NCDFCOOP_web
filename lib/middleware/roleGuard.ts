@@ -3,6 +3,8 @@ import { AuthUser } from '@/lib/auth/authContext';
 // Define required roles for specific routes
 export const ROUTE_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/home': [], // All authenticated users
+  '/cart': ['member', 'institutional_buyer'],
+  '/checkout': ['member', 'institutional_buyer'],
   '/seller': ['seller'],
   '/seller/dashboard': ['seller'],
   '/seller/onboarding': ['seller'],

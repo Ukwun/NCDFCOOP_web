@@ -15,14 +15,21 @@ import { getExperimentVariant } from '@/lib/services/featureFlagsService';
 import RecommendationRail from '@/components/RecommendationRail';
 import { emitGlobalActivity } from '@/components/GlobalActivityTracker';
 import { USER_ROLES } from '@/lib/constants/database';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
-export default function CheckoutPage() {
+type CheckoutPaymentMethod = 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
+
+function readableError(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function CheckoutContent() {
   const router = useRouter();
   const { user, currentRole, loading: authLoading } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'flutterwave' | 'bank_transfer' | 'cash_on_delivery'>('flutterwave');
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('flutterwave');
   const [useWholesalePrepayment, setUseWholesalePrepayment] = useState(false);
 
   const [shippingAddress, setShippingAddress] = useState<Address>({
@@ -252,14 +259,15 @@ export default function CheckoutPage() {
         });
         router.push(`/order-confirmation/${orderId}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Checkout error:', err);
+      const message = readableError(err, 'Checkout failed');
       emitGlobalActivity('purchase_failed', {
         orderTotal: cart?.total || 0,
         paymentMethod,
-        errorMessage: err?.message || 'Checkout failed',
+        errorMessage: message,
       });
-      setError(err.message || 'Checkout failed');
+      setError(message);
       setIsProcessing(false);
     }
   };
@@ -499,7 +507,7 @@ export default function CheckoutPage() {
                     name="payment"
                     value="flutterwave"
                     checked={paymentMethod === 'flutterwave'}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
+                    onChange={(e) => setPaymentMethod(e.target.value as CheckoutPaymentMethod)}
                     className="mr-3"
                   />
                   <div>
@@ -533,7 +541,7 @@ export default function CheckoutPage() {
                     name="payment"
                     value="bank_transfer"
                     checked={paymentMethod === 'bank_transfer'}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
+                    onChange={(e) => setPaymentMethod(e.target.value as CheckoutPaymentMethod)}
                     className="mr-3"
                   />
                   <div>
@@ -567,7 +575,7 @@ export default function CheckoutPage() {
                     name="payment"
                     value="cash_on_delivery"
                     checked={paymentMethod === 'cash_on_delivery'}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
+                    onChange={(e) => setPaymentMethod(e.target.value as CheckoutPaymentMethod)}
                     className="mr-3"
                   />
                   <div>
@@ -678,5 +686,16 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <ProtectedRoute
+      currentPath="/checkout"
+      requiredRoles={[USER_ROLES.MEMBER, USER_ROLES.INSTITUTIONAL_BUYER]}
+    >
+      <CheckoutContent />
+    </ProtectedRoute>
   );
 }

@@ -29,6 +29,11 @@ export function ProtectedRoute({
 
     // Check if user needs to complete workflow steps
     if (nextRoute) {
+      if (nextRoute === '/signin') {
+        router.replace(`/signin?next=${encodeURIComponent(currentPath)}`);
+        return;
+      }
+
       if (nextRoute === '/role-selection' && currentPath !== '/role-selection') {
         const operationalPrefixes = [
           '/wholesale',
@@ -47,19 +52,19 @@ export function ProtectedRoute({
           ? `/role-selection?reason=role_required&from=${encodeURIComponent(currentPath)}`
           : nextRoute;
 
-        router.push(redirectTarget);
+        router.replace(redirectTarget);
         return;
       }
 
-      router.push(nextRoute);
+      router.replace(nextRoute);
       return;
     }
 
     // Check if user has required role for this route
     if (!hasRoleAccess) {
-      router.push('/access-denied');
+      router.replace('/access-denied');
     }
-  }, [loading, nextRoute, hasRoleAccess, router]);
+  }, [currentPath, loading, nextRoute, hasRoleAccess, router]);
 
   if (loading) {
     return (

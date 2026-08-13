@@ -19,6 +19,8 @@
     "bootstrap:super-admin": "node scripts/bootstrap-super-admin.js",
     "reset:owner-test-user": "node scripts/reset-owner-test-user.js",
     "test:all": "npm run test:website && npm run audit:website"
+    ,"test:production-concurrency": "node scripts/production-concurrency-check.js"
+    ,"backfill:product-search": "node scripts/backfill-product-search.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",

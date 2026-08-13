@@ -77,6 +77,11 @@ type ApiResponse = {
   requests?: Payout[];
   sellerCommissionPercent?: number;
   membershipTierPrices?: MembershipTierPrices;
+  bankTransferEnabled?: boolean;
+  cashOnDeliveryEnabled?: boolean;
+  inventoryReservationMinutes?: number;
+  bankTransferReservationHours?: number;
+  bankTransferAccount?: { bankName: string; accountName: string; accountNumber: string; instructions: string } | null;
   staff?: StaffMember[];
   message?: string;
 };
@@ -95,6 +100,16 @@ export default function OperationsPage() {
   const [email, setEmail] = useState("");
   const [staffRole, setStaffRole] = useState("support_agent");
   const [commission, setCommission] = useState("10");
+  const [paymentSettings, setPaymentSettings] = useState({
+    bankTransferEnabled: false,
+    cashOnDeliveryEnabled: false,
+    inventoryReservationMinutes: "30",
+    bankTransferReservationHours: "48",
+    bankName: "",
+    accountName: "",
+    accountNumber: "",
+    instructions: "",
+  });
   const [membershipPrices, setMembershipPrices] = useState<
     Record<MembershipTier, string>
   >({
@@ -179,6 +194,17 @@ export default function OperationsPage() {
     if (isSuper) {
       if (results[2]?.status === "fulfilled" && results[2].value) {
         setCommission(String(results[2].value.sellerCommissionPercent));
+        const commerce = results[2].value;
+        setPaymentSettings({
+          bankTransferEnabled: commerce.bankTransferEnabled === true,
+          cashOnDeliveryEnabled: commerce.cashOnDeliveryEnabled === true,
+          inventoryReservationMinutes: String(commerce.inventoryReservationMinutes || 30),
+          bankTransferReservationHours: String(commerce.bankTransferReservationHours || 48),
+          bankName: commerce.bankTransferAccount?.bankName || "",
+          accountName: commerce.bankTransferAccount?.accountName || "",
+          accountNumber: commerce.bankTransferAccount?.accountNumber || "",
+          instructions: commerce.bankTransferAccount?.instructions || "",
+        });
         const prices =
           results[2].value.membershipTierPrices ||
           DEFAULT_MEMBERSHIP_TIER_PRICES;
@@ -345,6 +371,35 @@ export default function OperationsPage() {
         "Membership prices are live. New payment intents and public tier cards now use these amounts.",
       );
     } catch (operationError: unknown) {
+      setError(errorMessage(operationError));
+    } finally {
+      setWorkingKey("");
+    }
+  };
+
+  const savePaymentSettings = async () => {
+    try {
+      setWorkingKey("payment-settings");
+      setError("");
+      setNotice("");
+      await call("/api/admin/commerce-settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          bankTransferEnabled: paymentSettings.bankTransferEnabled,
+          cashOnDeliveryEnabled: paymentSettings.cashOnDeliveryEnabled,
+          inventoryReservationMinutes: Number(paymentSettings.inventoryReservationMinutes),
+          bankTransferReservationHours: Number(paymentSettings.bankTransferReservationHours),
+          bankTransferAccount: {
+            bankName: paymentSettings.bankName,
+            accountName: paymentSettings.accountName,
+            accountNumber: paymentSettings.accountNumber,
+            instructions: paymentSettings.instructions,
+          },
+        }),
+      });
+      setNotice("Checkout controls are live. New orders now use these verified settings.");
+      await load();
+    } catch (operationError) {
       setError(errorMessage(operationError));
     } finally {
       setWorkingKey("");
@@ -556,6 +611,28 @@ export default function OperationsPage() {
                     : "Publish tier prices"}
                 </button>
               </div>
+            </section>
+          )}
+
+          {isSuper && (
+            <section className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 shadow-xl">
+              <div>
+                <h2 className="font-bold">Checkout, inventory and collection controls</h2>
+                <p className="mt-1 text-sm text-slate-400">Bank transfer remains unavailable until a verified company account is saved. Cash on delivery is disabled by default and should only be enabled when collection and reconciliation operations are active.</p>
+              </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-2">
+                {[
+                  ["Bank name", "bankName"], ["Company account name", "accountName"],
+                  ["10-digit account number", "accountNumber"], ["Buyer transfer instructions", "instructions"],
+                ].map(([label, key]) => <label key={key} className="text-xs font-bold text-slate-300">{label}<input value={paymentSettings[key as keyof typeof paymentSettings] as string} onChange={(event) => setPaymentSettings((current) => ({ ...current, [key]: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-slate-900 px-3 text-sm outline-none focus:border-emerald-400/60" /></label>)}
+                <label className="text-xs font-bold text-slate-300">Online reservation (minutes)<input type="number" min="5" max="180" value={paymentSettings.inventoryReservationMinutes} onChange={(event) => setPaymentSettings((current) => ({ ...current, inventoryReservationMinutes: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-slate-900 px-3" /></label>
+                <label className="text-xs font-bold text-slate-300">Bank-transfer reservation (hours)<input type="number" min="1" max="72" value={paymentSettings.bankTransferReservationHours} onChange={(event) => setPaymentSettings((current) => ({ ...current, bankTransferReservationHours: event.target.value }))} className="mt-1 min-h-11 w-full rounded-xl border border-white/10 bg-slate-900 px-3" /></label>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2"><input type="checkbox" checked={paymentSettings.bankTransferEnabled} onChange={(event) => setPaymentSettings((current) => ({ ...current, bankTransferEnabled: event.target.checked }))} className="h-5 w-5 accent-emerald-500" />Enable verified bank transfer</label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={paymentSettings.cashOnDeliveryEnabled} onChange={(event) => setPaymentSettings((current) => ({ ...current, cashOnDeliveryEnabled: event.target.checked }))} className="h-5 w-5 accent-amber-500" />Enable cash on delivery</label>
+              </div>
+              <button onClick={() => void savePaymentSettings()} disabled={workingKey === "payment-settings"} className="mt-5 min-h-11 rounded-xl bg-emerald-400 px-5 font-bold text-slate-950 transition hover:-translate-y-0.5 disabled:opacity-50">{workingKey === "payment-settings" ? "Publishing…" : "Publish checkout controls"}</button>
             </section>
           )}
 
@@ -850,6 +927,18 @@ export default function OperationsPage() {
                             tone="emerald"
                           />
                         </>
+                      )}
+                      {payout.status === "paid_pending_reconciliation" && (
+                        <ActionButton
+                          label="Reconcile transfer"
+                          working={workingKey === `${payout.id}:reconcile`}
+                          onClick={() => void act(
+                            "/api/payout-requests",
+                            { payoutRequestId: payout.id, action: "reconcile" },
+                            `${payout.id}:reconcile`,
+                          )}
+                          tone="emerald"
+                        />
                       )}
                     </div>
                   </article>

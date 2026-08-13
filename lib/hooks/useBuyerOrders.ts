@@ -5,10 +5,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { COLLECTIONS } from '@/lib/constants/database';
+import { useState, useEffect, useCallback } from 'react';
+import { auth } from '@/lib/firebase/config';
 import { ErrorHandler } from '@/lib/error/errorHandler';
 
 export interface BuyerOrder {
@@ -41,63 +39,67 @@ interface UseBuyerOrdersReturn {
   activeOrders: BuyerOrder[];
   completedOrders: BuyerOrder[];
   totalSpent: number;
+  hasMore: boolean;
+  loadingMore: boolean;
+  loadMore: () => Promise<void>;
 }
 
 export function useBuyerOrders(buyerId: string): UseBuyerOrdersReturn {
   const [orders, setOrders] = useState<BuyerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchPage = useCallback(async (nextCursor?: string | null) => {
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) throw new Error('Your session expired. Sign in again.');
+    const params = new URLSearchParams({ limit: '25' });
+    if (nextCursor) params.set('cursor', nextCursor);
+    const response = await fetch(`/api/orders?${params}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Orders could not be loaded.');
+    return { orders: (payload.orders || []) as BuyerOrder[], cursor: payload.nextCursor || null };
+  }, []);
 
   useEffect(() => {
-    if (!buyerId || !db) {
+    if (!buyerId) {
       setOrders([]);
       setLoading(false);
       return;
     }
 
     try {
-      const ordersQuery = query(
-        collection(db, COLLECTIONS.ORDERS),
-        where('buyerId', '==', buyerId)
-      );
-
-      const unsubscribe = onSnapshot(
-        ordersQuery,
-        (snapshot) => {
-          try {
-            const ordersList: BuyerOrder[] = snapshot.docs
-              .map((doc) => ({ id: doc.id, ...doc.data() } as BuyerOrder))
-              .sort((a, b) => {
-                const toMillis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
-                return toMillis(b.createdAt) - toMillis(a.createdAt);
-              });
-
-            setOrders(ordersList);
-            setError(null);
-            setLoading(false);
-          } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err));
-            ErrorHandler.logError('BUYER_ORDERS_PARSE', error.message, 'error');
-            setError(error);
-            setLoading(false);
-          }
-        },
-        (err) => {
-          const error = err instanceof Error ? err : new Error(String(err));
-          ErrorHandler.logError('BUYER_ORDERS_LISTEN', error.message, 'error');
-          setError(error);
-          setLoading(false);
-        }
-      );
-
-      return () => unsubscribe();
+      void fetchPage().then((page) => {
+        setOrders(page.orders);
+        setCursor(page.cursor);
+        setError(null);
+      }).catch((err) => {
+        const error = err instanceof Error ? err : new Error(String(err));
+        ErrorHandler.logError('BUYER_ORDERS_PAGE', error.message, 'error');
+        setError(error);
+      }).finally(() => setLoading(false));
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       ErrorHandler.logError('BUYER_ORDERS_SETUP', error.message, 'error');
       setError(error);
       setLoading(false);
     }
-  }, [buyerId]);
+  }, [buyerId, fetchPage]);
+
+  const loadMore = useCallback(async () => {
+    if (!cursor || loadingMore) return;
+    try {
+      setLoadingMore(true);
+      const page = await fetchPage(cursor);
+      setOrders((current) => [...current, ...page.orders.filter((order) => !current.some((existing) => existing.id === order.id))]);
+      setCursor(page.cursor);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [cursor, fetchPage, loadingMore]);
 
   const getOrdersByStatus = (status: string): BuyerOrder[] => {
     return orders.filter((order) => order.status === status);
@@ -123,5 +125,8 @@ export function useBuyerOrders(buyerId: string): UseBuyerOrdersReturn {
     activeOrders,
     completedOrders,
     totalSpent,
+    hasMore: Boolean(cursor),
+    loadingMore,
+    loadMore,
   };
 }

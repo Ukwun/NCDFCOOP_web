@@ -45,14 +45,6 @@ export interface BankAccountDetails {
   description: string;
 }
 
-const NCDF_BANK_DETAILS: BankAccountDetails = {
-  bankName: 'First Bank Nigeria',
-  accountName: 'CoopX Commerce Limited',
-  accountNumber: '3136996240',
-  sortCode: '011',
-  description: 'First Bank of Nigeria - Use this account for bank transfers',
-};
-
 const PROOF_VERIFICATION_TIMEOUT = 48 * 60 * 60 * 1000; // 48 hours
 
 /**
@@ -76,8 +68,16 @@ export async function recordBankTransferIntent(
 /**
  * Get bank transfer details
  */
-export function getBankTransferDetails(): BankAccountDetails {
-  return NCDF_BANK_DETAILS;
+export async function getBankTransferDetails(): Promise<BankAccountDetails | null> {
+  const response = await fetch('/api/checkout/settings', { cache: 'no-store' });
+  if (!response.ok) return null;
+  const settings = await response.json();
+  if (!settings.bankTransferEnabled || !settings.bankTransferAccount) return null;
+  return {
+    ...settings.bankTransferAccount,
+    sortCode: '',
+    description: settings.bankTransferAccount.instructions || 'Use the order ID as the transfer narration.',
+  };
 }
 
 /**
@@ -89,16 +89,18 @@ export async function createBankTransferPayment(
   amount: number
 ): Promise<string> {
   try {
-    const paymentId = `BANK-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const configuredAccount = await getBankTransferDetails();
+    if (!configuredAccount) throw new Error('Bank transfer is not currently available.');
+    const paymentId = `BANK-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
     const bankTransferPayment: BankTransferPayment = {
       id: paymentId,
       orderId,
       userId,
       amount,
-      bankName: NCDF_BANK_DETAILS.bankName,
-      accountName: NCDF_BANK_DETAILS.accountName,
-      accountNumber: NCDF_BANK_DETAILS.accountNumber,
+      bankName: configuredAccount.bankName,
+      accountName: configuredAccount.accountName,
+      accountNumber: configuredAccount.accountNumber,
       status: 'pending',
       expiresAt: new Timestamp(
         Timestamp.now().seconds + PROOF_VERIFICATION_TIMEOUT / 1000,

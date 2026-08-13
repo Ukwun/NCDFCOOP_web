@@ -19,6 +19,7 @@ import {
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { Product } from '@/lib/types/product';
+import { buildSearchTokens } from '@/lib/utils/searchTokens';
 
 // Create new product
 export async function createProduct(
@@ -30,6 +31,7 @@ export async function createProduct(
       ...productData,
       sellerId,
       ownershipType: 'seller',
+      searchTokens: buildSearchTokens(productData.name, productData.category, productData.description),
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       rating: 0,
@@ -86,6 +88,9 @@ export async function updateProduct(
   try {
     await updateDoc(doc(db, COLLECTIONS.PRODUCTS, productId), {
       ...updates,
+      ...((updates.name || updates.category || updates.description) ? {
+        searchTokens: buildSearchTokens(updates.name, updates.category, updates.description),
+      } : {}),
       updatedAt: Timestamp.now(),
     });
   } catch (error) {

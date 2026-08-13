@@ -71,6 +71,9 @@ export async function POST(request: NextRequest) {
       providerTransactionId: payment.id,
       providerStatus: payment.status,
     });
+    if (completion.requiresRefund) {
+      return NextResponse.json({ success: false, message: 'This checkout expired before payment completed. Support has been alerted to review your refund.' }, { status: 409 });
+    }
     if (!completion.alreadyCompleted) {
       await sendOrderReceipt(completion.orderId);
     }

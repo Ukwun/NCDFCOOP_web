@@ -11,3 +11,6 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[functions."release-expired-orders"]
+  schedule = "*/5 * * * *"

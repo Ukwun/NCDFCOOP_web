@@ -161,12 +161,7 @@ async function verifyFlutterwavePayment(
  * Kept here for backwards compatibility
  */
 function getBankTransferDetailsLegacy(): BankTransferDetails {
-  return {
-    accountName: 'CoopX Commerce Limited',
-    accountNumber: '3136996240',
-    bankName: 'First Bank Nigeria',
-    sortCode: '011',
-  };
+  throw new Error('Bank details must be loaded from protected commerce settings.');
 }
 
 /**

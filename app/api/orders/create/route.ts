@@ -12,6 +12,8 @@ import { sendOrderReceipt } from '@/lib/server/orderEmail';
 import { resolveProductImage } from '@/lib/utils/productImage';
 import type { Product } from '@/lib/types/product';
 import { applyOfferPrice, getActiveProductOffer } from '@/lib/utils/productOffer';
+import { normalizeCommercePaymentSettings } from '@/lib/commerce/settings';
+import { enforcePersistentRateLimit } from '@/lib/middleware/rateLimiting';
 
 type PaymentMethod = 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
 
@@ -27,12 +29,6 @@ interface CreateOrderPayload {
   clientTotal?: number;
   prepaymentDiscountRequested?: boolean;
 }
-
-const PAYMENT_METHODS: PaymentMethod[] = [
-  'flutterwave',
-  'bank_transfer',
-  'cash_on_delivery',
-];
 
 function money(value: unknown): number {
   const numeric = Number(value);
@@ -115,6 +111,11 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
+    try {
+      await enforcePersistentRateLimit(user.uid, 'payment');
+    } catch {
+      return NextResponse.json({ error: 'Too many checkout attempts. Please wait and try again.' }, { status: 429 });
+    }
 
     const body = (await request.json()) as CreateOrderPayload;
     const items = Array.isArray(body.items) ? body.items : [];
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
       items.length === 0 ||
       items.length > 100 ||
       !paymentMethod ||
-      !PAYMENT_METHODS.includes(paymentMethod) ||
+      !(['flutterwave', 'bank_transfer', 'cash_on_delivery'] as PaymentMethod[]).includes(paymentMethod) ||
       !validateAddress(shippingAddress)
     ) {
       return NextResponse.json(
@@ -154,6 +155,13 @@ export async function POST(request: NextRequest) {
 
     const db = getAdminDb();
     const commerceSettings = await db.collection('global_settings').doc('commerce').get();
+    const paymentSettings = normalizeCommercePaymentSettings(commerceSettings.data());
+    if (paymentMethod === 'bank_transfer' && !paymentSettings.bankTransferEnabled) {
+      return NextResponse.json({ error: 'Bank transfer is not currently available.' }, { status: 409 });
+    }
+    if (paymentMethod === 'cash_on_delivery' && !paymentSettings.cashOnDeliveryEnabled) {
+      return NextResponse.json({ error: 'Cash on delivery is not available. Select online payment.' }, { status: 409 });
+    }
     const configuredCommission = Number(commerceSettings.data()?.sellerCommissionPercent);
     const sellerCommissionPercent =
       Number.isFinite(configuredCommission) && configuredCommission >= 0 && configuredCommission <= 30
@@ -287,6 +295,10 @@ export async function POST(request: NextRequest) {
       )
     );
     const now = Timestamp.now();
+    const reservationDurationMs = paymentMethod === 'bank_transfer'
+      ? paymentSettings.bankTransferReservationHours * 3_600_000
+      : paymentSettings.inventoryReservationMinutes * 60_000;
+    const reservationExpiresAt = Timestamp.fromMillis(now.toMillis() + reservationDurationMs);
     const complianceStatus = isWholesaleBuyer && pricedItems.some((item) => item['sellerVerified'] !== true)
       ? 'awaiting_seller_kyc'
       : 'cleared';
@@ -360,6 +372,8 @@ export async function POST(request: NextRequest) {
         ...(sellerIds.length === 1 ? { sellerId: sellerIds[0] } : {}),
         ...(transactionRef ? { transactionRef } : {}),
         inventoryReserved: true,
+        inventoryReleased: false,
+        reservationExpiresAt,
         createdAt: now,
         updatedAt: now,
         estimatedDelivery: Timestamp.fromMillis(now.toMillis() + 7 * 86_400_000),
@@ -381,12 +395,13 @@ export async function POST(request: NextRequest) {
           paymentMethod,
           createdAt: now,
           updatedAt: now,
+          expiresAt: reservationExpiresAt,
           ...(paymentMethod === 'bank_transfer'
             ? {
-                expiresAt: Timestamp.fromMillis(now.toMillis() + 48 * 3_600_000),
-                bankName: 'First Bank Nigeria',
-                accountName: 'CoopX Commerce Limited',
-                accountNumber: '3136996240',
+                bankName: paymentSettings.bankTransferAccount!.bankName,
+                accountName: paymentSettings.bankTransferAccount!.accountName,
+                accountNumber: paymentSettings.bankTransferAccount!.accountNumber,
+                bankInstructions: paymentSettings.bankTransferAccount!.instructions,
               }
             : {}),
         });

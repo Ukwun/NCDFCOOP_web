@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
               : {}),
           },
           externalReference: data.externalReference || '',
+          reconciliationStatus: data.reconciliationStatus || '',
           rejectionReason: data.rejectionReason || '',
           createdAt: iso(data.createdAt),
           updatedAt: iso(data.updatedAt),
@@ -207,12 +208,17 @@ export async function PATCH(request: NextRequest) {
       } else if (action === 'mark_processing' && payout.status === 'approved') {
         resultingStatus = 'processing';
         transaction.update(ref, { status: 'processing', processingBy: user!.uid, updatedAt: now });
-      } else if (action === 'mark_paid' && payout.status === 'processing' && String(body.externalReference || '').trim()) {
+      } else if (action === 'mark_paid' && payout.status === 'processing' && String(body.externalReference || '').trim().length >= 6) {
+        resultingStatus = 'paid_pending_reconciliation';
+        transaction.update(ref, { status: resultingStatus, reconciliationStatus: 'pending', externalReference: String(body.externalReference).trim().slice(0, 160), transferredBy: user!.uid, transferredAt: now, updatedAt: now });
+        transaction.set(db.collection('payoutTransferRecords').doc(id), { payoutRequestId: id, sellerId: payout.sellerId, amount: Number(payout.amount), currency: payout.currency || 'NGN', transferMethod: 'audited_manual_bank_transfer', externalReference: String(body.externalReference).trim().slice(0, 160), initiatedBy: user!.uid, initiatedAt: now, reconciliationStatus: 'pending' });
+      } else if (action === 'reconcile' && payout.status === 'paid_pending_reconciliation' && payout.transferredBy !== user!.uid) {
         resultingStatus = 'paid';
-        transaction.update(ref, { status: 'paid', externalReference: String(body.externalReference).trim().slice(0, 160), paidBy: user!.uid, paidAt: now, updatedAt: now });
+        transaction.update(ref, { status: 'paid', reconciliationStatus: 'reconciled', reconciledBy: user!.uid, reconciledAt: now, paidAt: now, updatedAt: now });
+        transaction.set(db.collection('payoutTransferRecords').doc(id), { reconciliationStatus: 'reconciled', reconciledBy: user!.uid, reconciledAt: now }, { merge: true });
         transaction.set(db.collection('sellerBalances').doc(payout.sellerId), { pendingPayout: FieldValue.increment(-Number(payout.amount)), lifetimePaid: FieldValue.increment(Number(payout.amount)), updatedAt: now }, { merge: true });
-        transaction.set(db.collection('sellerLedgerEntries').doc(), { sellerId: payout.sellerId, payoutRequestId: id, type: 'payout_paid', amount: Number(payout.amount), externalReference: String(body.externalReference).trim().slice(0, 160), createdAt: now });
-      } else if (action === 'reject' && !['paid', 'rejected'].includes(payout.status)) {
+        transaction.set(db.collection('sellerLedgerEntries').doc(), { sellerId: payout.sellerId, payoutRequestId: id, type: 'payout_paid', amount: Number(payout.amount), externalReference: String(payout.externalReference || ''), reconciledBy: user!.uid, createdAt: now });
+      } else if (action === 'reject' && !['paid', 'paid_pending_reconciliation', 'rejected'].includes(payout.status)) {
         resultingStatus = 'rejected';
         transaction.update(ref, { status: 'rejected', rejectionReason: String(body.reason || '').slice(0, 500), rejectedBy: user!.uid, updatedAt: now });
         transaction.set(db.collection('sellerBalances').doc(payout.sellerId), { pendingPayout: FieldValue.increment(-Number(payout.amount)), available: FieldValue.increment(Number(payout.amount)), updatedAt: now }, { merge: true });
@@ -232,6 +238,10 @@ export async function PATCH(request: NextRequest) {
         processing: {
           title: 'Withdrawal transfer started',
           message: `Your ${payoutAmount} withdrawal is being transferred to your selected bank account.`,
+        },
+        paid_pending_reconciliation: {
+          title: 'Withdrawal transfer submitted',
+          message: `Your ${payoutAmount} bank transfer has been submitted and is undergoing reconciliation.`,
         },
         paid: {
           title: 'Withdrawal paid',

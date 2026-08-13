@@ -3,8 +3,6 @@ import { ClientLayout } from '@/components/ClientLayout';
 import { GlobalSettingsProvider } from '@/lib/context/GlobalSettingsContext';
 import './globals.css';
 
-export const dynamic = 'force-dynamic';
-
 export const metadata = {
   title: {
     default: 'CoopX',

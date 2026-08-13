@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
+import { recordOperationalAlert } from "@/lib/server/operationalAlert";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { verifyRequestIdentity } from "@/lib/server/requestAuth";
 import { USER_ROLES } from "@/lib/constants/database";
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
       tokenRefreshRequired,
     });
   } catch (error) {
-    console.error("Profile provisioning failed:", error);
+    await recordOperationalAlert({ category: 'authentication', severity: 'error', message: 'Authenticated account profile provisioning failed.', error });
     return NextResponse.json(
       { error: "Profile provisioning is temporarily unavailable." },
       { status: 503 },

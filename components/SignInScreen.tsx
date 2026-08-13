@@ -1,15 +1,20 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, LogIn } from "lucide-react";
 import SocialSignInButtons from "@/components/SocialSignInButtons";
 import { useAuth } from "@/lib/auth/authContext";
 import { AppColors, AppSpacing, AppTextStyles } from "@/lib/theme";
 import { getAuthenticatedLandingPath } from "@/lib/auth/roleRouting";
 
+function readableAuthError(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export default function SignInScreen() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     user,
     loading,
@@ -28,11 +33,26 @@ export default function SignInScreen() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
+  const requestedPath = searchParams.get("next");
+  const safeRequestedPath = requestedPath?.startsWith("/") &&
+    !requestedPath.startsWith("//")
+    ? requestedPath
+    : null;
+
+  const resolveDestination = useCallback(
+    (roleDestination: string) =>
+      safeRequestedPath && roleDestination !== "/role-selection"
+        ? safeRequestedPath
+        : roleDestination,
+    [safeRequestedPath],
+  );
 
   useEffect(() => {
     if (!loading && user && !isLoading && !socialLoading) {
       router.replace(
-        getAuthenticatedLandingPath(currentRole, roleSelectionComplete),
+        resolveDestination(
+          getAuthenticatedLandingPath(currentRole, roleSelectionComplete),
+        ),
       );
     }
   }, [
@@ -43,6 +63,7 @@ export default function SignInScreen() {
     router,
     socialLoading,
     user,
+    resolveDestination,
   ]);
 
   const handleGoogleSignIn = async () => {
@@ -50,9 +71,9 @@ export default function SignInScreen() {
     setSocialLoading(true);
     try {
       const destination = await signInWithGoogle();
-      if (destination) router.replace(destination);
-    } catch (err: any) {
-      setError(err?.message || "Google sign-in failed.");
+      if (destination) router.replace(resolveDestination(destination));
+    } catch (err: unknown) {
+      setError(readableAuthError(err, "Google sign-in failed."));
     } finally {
       setSocialLoading(false);
     }
@@ -60,15 +81,15 @@ export default function SignInScreen() {
 
   const handleFacebookSignIn = async () => {
     setError(""); setSocialLoading(true);
-    try { const destination = await signInWithFacebook(); if (destination) router.replace(destination); }
-    catch (err: any) { setError(err?.message || "Facebook sign-in failed."); }
+    try { const destination = await signInWithFacebook(); if (destination) router.replace(resolveDestination(destination)); }
+    catch (err: unknown) { setError(readableAuthError(err, "Facebook sign-in failed.")); }
     finally { setSocialLoading(false); }
   };
 
   const handleAppleSignIn = async () => {
     setError(""); setSocialLoading(true);
-    try { const destination = await signInWithApple(); if (destination) router.replace(destination); }
-    catch (err: any) { setError(err?.message || "Apple sign-in failed."); }
+    try { const destination = await signInWithApple(); if (destination) router.replace(resolveDestination(destination)); }
+    catch (err: unknown) { setError(readableAuthError(err, "Apple sign-in failed.")); }
     finally { setSocialLoading(false); }
   };
 
@@ -92,10 +113,10 @@ export default function SignInScreen() {
       }
 
       const destination = await login(email, password, rememberMe);
-      router.replace(destination);
-    } catch (err: any) {
+      router.replace(resolveDestination(destination));
+    } catch (err: unknown) {
       setError(
-        err.message || "Failed to sign in. Please check your credentials.",
+        readableAuthError(err, "Failed to sign in. Please check your credentials."),
       );
       setIsLoading(false);
     }

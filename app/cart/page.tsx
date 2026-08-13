@@ -16,8 +16,9 @@ import { getExperimentVariant } from '@/lib/services/featureFlagsService';
 import RecommendationRail from '@/components/RecommendationRail';
 import { USER_ROLES } from '@/lib/constants/database';
 import { saveWholesaleQuoteDraft } from '@/lib/services/wholesaleService';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
-export default function CartPage() {
+function CartContent() {
   const router = useRouter();
   const { user, currentRole, loading: authLoading } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
@@ -639,5 +640,16 @@ export default function CartPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CartPage() {
+  return (
+    <ProtectedRoute
+      currentPath="/cart"
+      requiredRoles={[USER_ROLES.MEMBER, USER_ROLES.INSTITUTIONAL_BUYER]}
+    >
+      <CartContent />
+    </ProtectedRoute>
   );
 }

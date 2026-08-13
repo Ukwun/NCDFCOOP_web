@@ -390,17 +390,17 @@ export default function WelcomeScreen() {
           <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
             <div>
               <Image src="/images/logo/coopx-logo-full.jpg" alt="CoopX" width={360} height={150} className="h-20 w-auto rounded-lg object-contain" />
-              <p className="mt-5 max-w-md text-sm leading-7 text-emerald-50/65">CoopX is a role-aware cooperative commerce platform connecting members, wholesale buyers and sellers through controlled product discovery, communication, ordering and settlement workflows.</p>
+              <p className="mt-5 max-w-md text-sm leading-7 text-white">CoopX is a role-aware cooperative commerce platform connecting members, wholesale buyers and sellers through controlled product discovery, communication, ordering and settlement workflows.</p>
               <a href="mailto:support@ncdfcoop.com" className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-amber-300 hover:text-amber-200"><Headphones size={17} /> support@ncdfcoop.com</a>
             </div>
-            <div><h3 className="font-black text-white">Marketplace</h3><div className="mt-4 grid gap-3 text-sm text-emerald-50/65"><a href="#marketplace" className="hover:text-white">Browse products</a><a href="#for-everyone" className="hover:text-white">For members</a><a href="#for-everyone" className="hover:text-white">For wholesale buyers</a><a href="#for-everyone" className="hover:text-white">For sellers</a></div></div>
-            <div><h3 className="font-black text-white">Platform</h3><div className="mt-4 grid gap-3 text-sm text-emerald-50/65"><a href="#how-it-works" className="hover:text-white">How it works</a><a href="#trust" className="hover:text-white">Trust and controls</a><Link href="/signin" className="hover:text-white">Sign in</Link><Link href="/signup" className="hover:text-white">Create account</Link></div></div>
-            <div><h3 className="font-black text-white">Legal & support</h3><div className="mt-4 grid gap-3 text-sm text-emerald-50/65"><Link href="/privacy" className="hover:text-white">Privacy policy</Link><Link href="/terms" className="hover:text-white">Terms of service</Link><a href="mailto:support@ncdfcoop.com" className="hover:text-white">Contact support</a><Link href="/forgot-password" className="hover:text-white">Recover account</Link></div></div>
+            <div><h3 className="font-black text-white">Marketplace</h3><div className="mt-4 grid gap-3 text-sm text-white"><a href="#marketplace" className="hover:text-amber-200">Browse products</a><a href="#for-everyone" className="hover:text-amber-200">For members</a><a href="#for-everyone" className="hover:text-amber-200">For wholesale buyers</a><a href="#for-everyone" className="hover:text-amber-200">For sellers</a></div></div>
+            <div><h3 className="font-black text-white">Platform</h3><div className="mt-4 grid gap-3 text-sm text-white"><a href="#how-it-works" className="hover:text-amber-200">How it works</a><a href="#trust" className="hover:text-amber-200">Trust and controls</a><Link href="/signin" className="hover:text-amber-200">Sign in</Link><Link href="/signup" className="hover:text-amber-200">Create account</Link></div></div>
+            <div><h3 className="font-black text-white">Legal & support</h3><div className="mt-4 grid gap-3 text-sm text-white"><Link href="/privacy" className="hover:text-amber-200">Privacy policy</Link><Link href="/terms" className="hover:text-amber-200">Terms of service</Link><a href="mailto:support@ncdfcoop.com" className="hover:text-amber-200">Contact support</a><Link href="/forgot-password" className="hover:text-amber-200">Recover account</Link></div></div>
           </div>
           <div className="mt-12 flex flex-col gap-6 border-t border-white/10 pt-7 sm:flex-row sm:items-end sm:justify-between">
-            <div className="text-xs text-emerald-50/50"><p>© {new Date().getFullYear()} CoopX. All rights reserved.</p><p className="mt-2">Powering the agri value chain.</p></div>
+            <div className="text-xs text-white"><p>© {new Date().getFullYear()} CoopX. All rights reserved.</p><p className="mt-2">Powering the agri value chain.</p></div>
             <div className="sm:text-right">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-200/70">Take CoopX with you</p>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white">Take CoopX with you</p>
               <InstallAppButton />
             </div>
           </div>

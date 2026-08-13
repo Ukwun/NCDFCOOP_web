@@ -34,8 +34,11 @@ export default function MemberProductsPage() {
       if (sort === 'price-low') return a.price - b.price;
       if (sort === 'price-high') return b.price - a.price;
       if (sort === 'discount') return (b.discount || 0) - (a.discount || 0);
-      const millis = (value: Product['createdAt']) =>
-        value instanceof Date ? value.getTime() : value?.toMillis() || 0;
+      const millis = (value: Product['createdAt'] | string) => {
+        if (value instanceof Date) return value.getTime();
+        if (typeof value === 'string') return Date.parse(value) || 0;
+        return typeof value?.toMillis === 'function' ? value.toMillis() : 0;
+      };
       return millis(b.createdAt) - millis(a.createdAt);
     }), [category, products, sort]);
 

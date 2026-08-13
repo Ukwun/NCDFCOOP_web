@@ -17,8 +17,9 @@ export default function ProductsPage() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
-  const [category, setCategory] = useState(searchParams.get('category') || 'All');
+  const searchQuery = searchParams.get('q')?.trim() || '';
+  const category = searchParams.get('category') || 'All';
+  const [searchTerm, setSearchTerm] = useState(searchQuery);
   const [error, setError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -34,7 +35,7 @@ export default function ProductsPage() {
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await getProductPage({ limit: 24, type: productViewType, search: searchParams.get('q') || '', category });
+      const result = await getProductPage({ limit: 24, type: productViewType, search: searchQuery, category });
       setProducts(result.products);
       setNextCursor(result.nextCursor);
     } catch (err) {
@@ -43,11 +44,15 @@ export default function ProductsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [searchParams, productViewType, category]);
+  }, [searchQuery, productViewType, category]);
 
   useEffect(() => {
-    fetchInitialData();
+    void fetchInitialData();
   }, [fetchInitialData]);
+
+  useEffect(() => {
+    setSearchTerm(searchQuery);
+  }, [searchQuery]);
 
   const filteredProducts = products;
 
@@ -62,7 +67,7 @@ export default function ProductsPage() {
     if (!nextCursor) return;
     try {
       setLoadingMore(true);
-      const result = await getProductPage({ limit: 24, type: productViewType, search: searchParams.get('q') || '', category, cursor: nextCursor });
+      const result = await getProductPage({ limit: 24, type: productViewType, search: searchQuery, category, cursor: nextCursor });
       setProducts((current) => [...current, ...result.products.filter((item) => !current.some((existing) => existing.id === item.id))]);
       setNextCursor(result.nextCursor);
     } catch (loadError) {

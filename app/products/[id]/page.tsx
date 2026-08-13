@@ -249,6 +249,7 @@ export default function ProductDetailPage() {
     : currentRole === USER_ROLES.INSTITUTIONAL_BUYER
       ? '/wholesale/products'
       : '/member-products';
+  const returnToCatalog = () => router.replace(productListPath);
 
   useEffect(() => {
     setSelectedImage(0);
@@ -660,7 +661,7 @@ export default function ProductDetailPage() {
             The detail view is unavailable. Return to the catalog and open another product.
           </p>
           <button
-            onClick={() => router.push(productListPath)}
+            onClick={returnToCatalog}
             className="px-6 py-3 rounded-lg text-white font-semibold"
             style={{ backgroundColor: AppColors.primary }}
           >
@@ -680,7 +681,7 @@ export default function ProductDetailPage() {
               Home
             </button>
             <span>/</span>
-            <button onClick={() => router.push(productListPath)} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            <button onClick={returnToCatalog} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               Products
             </button>
             <span>/</span>
@@ -689,13 +690,13 @@ export default function ProductDetailPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => router.push(productListPath)}
+              onClick={returnToCatalog}
               className="px-4 py-2 rounded-full border text-sm font-semibold text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
             >
               Back
             </button>
             <button
-              onClick={() => router.push(productListPath)}
+              onClick={returnToCatalog}
               className="px-4 py-2 rounded-full text-sm font-semibold text-white transition-colors"
               style={{ backgroundColor: AppColors.primary }}
             >

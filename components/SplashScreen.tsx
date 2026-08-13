@@ -17,14 +17,14 @@ export default function SplashScreen({ autoNavigate = true }: { autoNavigate?: b
 
     const timer = window.setTimeout(() => {
       router.push('/signin');
-    }, 3000);
+    }, 1100);
 
     return () => window.clearTimeout(timer);
   }, [autoNavigate, router]);
 
   return (
     <main
-      className={`relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#052E21] px-5 transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+      className={`relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#052E21] px-5 transition-opacity duration-200 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
       aria-label="CoopX is loading"
     >
       <div className="pointer-events-none absolute -left-32 top-1/2 h-80 w-80 -translate-y-1/2 rounded-full bg-lime-400/15 blur-3xl" />
@@ -65,10 +65,10 @@ export default function SplashScreen({ autoNavigate = true }: { autoNavigate?: b
           70%, 100% { transform: translateX(470%) skewX(-18deg); opacity: 0; }
         }
         .coopx-logo-intro {
-          animation: coopxLogoEnter 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation: coopxLogoEnter 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
         }
         .coopx-logo-sheen {
-          animation: coopxLogoSheen 2400ms ease-in-out 500ms both;
+          animation: coopxLogoSheen 800ms ease-out 200ms both;
         }
         @media (prefers-reduced-motion: reduce) {
           .coopx-logo-intro,

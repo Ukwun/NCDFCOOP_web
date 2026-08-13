@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { releaseExpiredOrderInventory } from '@/lib/server/orderInventory';
 import { createHmac, timingSafeEqual } from 'crypto';
+import { recordOperationalAlert } from '@/lib/server/operationalAlert';
 
 function signingKey() {
   if (process.env.COMMERCE_INTELLIGENCE_CRON_TOKEN) return process.env.COMMERCE_INTELLIGENCE_CRON_TOKEN;
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
     const result = await releaseExpiredOrderInventory(100);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
-    console.error('Expired inventory release failed:', error);
+    await recordOperationalAlert({ category: 'inventory', severity: 'critical', message: 'Scheduled expired-order inventory release failed.', error });
     return NextResponse.json({ error: 'Inventory release job failed.' }, { status: 500 });
   }
 }

@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { hasRole, verifyRequestUser } from '@/lib/server/requestAuth';
 import { canOperateFinance } from '@/lib/operations/access';
 import { USER_ROLES } from '@/lib/constants/database';
+import { recordOperationalAlert } from '@/lib/server/operationalAlert';
 
 const LARGE_PAYOUT_NGN = Number(process.env.LARGE_PAYOUT_NGN || 500000);
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
       );
     return NextResponse.json({ requests });
   } catch (error) {
-    console.error('Payout request read failed:', error);
+    await recordOperationalAlert({ category: 'payout', severity: 'error', message: 'Payout request queue read failed.', error });
     return NextResponse.json({ error: 'Payout requests are temporarily unavailable.' }, { status: 500 });
   }
 }
@@ -179,7 +180,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === 'INSUFFICIENT_BALANCE') {
       return NextResponse.json({ error: 'The requested amount exceeds your available balance.' }, { status: 409 });
     }
-    console.error('Payout request creation failed:', error);
+    await recordOperationalAlert({ category: 'payout', severity: 'error', message: 'Seller payout request creation failed.', error });
     return NextResponse.json({ error: 'The payout request could not be submitted.' }, { status: 500 });
   }
 }
@@ -270,7 +271,7 @@ export async function PATCH(request: NextRequest) {
     const message = error instanceof Error ? error.message : '';
     if (message === 'NOT_FOUND') return NextResponse.json({ error: 'Payout request not found.' }, { status: 404 });
     if (message === 'INVALID_ACTION') return NextResponse.json({ error: 'This payout action is not valid for the current status.' }, { status: 409 });
-    console.error('Payout operation failed:', error);
+    await recordOperationalAlert({ category: 'payout', severity: 'critical', message: 'Finance payout operation failed.', error });
     return NextResponse.json({ error: 'The payout action could not be completed.' }, { status: 500 });
   }
 }

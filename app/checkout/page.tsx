@@ -16,8 +16,10 @@ import RecommendationRail from '@/components/RecommendationRail';
 import { emitGlobalActivity } from '@/components/GlobalActivityTracker';
 import { USER_ROLES } from '@/lib/constants/database';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { auth } from '@/lib/firebase/config';
 
 type CheckoutPaymentMethod = 'flutterwave' | 'bank_transfer' | 'cash_on_delivery';
+type CheckoutSettings = { bankTransferEnabled: boolean; cashOnDeliveryEnabled: boolean };
 
 function readableError(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -31,6 +33,10 @@ function CheckoutContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('flutterwave');
   const [useWholesalePrepayment, setUseWholesalePrepayment] = useState(false);
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings>({
+    bankTransferEnabled: false,
+    cashOnDeliveryEnabled: false,
+  });
 
   const [shippingAddress, setShippingAddress] = useState<Address>({
     firstName: '',
@@ -56,6 +62,16 @@ function CheckoutContent() {
     : 'control';
 
   // Fetch cart on mount
+  useEffect(() => {
+    fetch('/api/checkout/settings', { cache: 'no-store' })
+      .then(async (response) => response.ok ? response.json() : Promise.reject(new Error('settings unavailable')))
+      .then((settings) => setCheckoutSettings({
+        bankTransferEnabled: settings.bankTransferEnabled === true,
+        cashOnDeliveryEnabled: settings.cashOnDeliveryEnabled === true,
+      }))
+      .catch(() => setCheckoutSettings({ bankTransferEnabled: false, cashOnDeliveryEnabled: false }));
+  }, []);
+
   useEffect(() => {
     const fetchCart = async () => {
       if (!user) return;
@@ -238,6 +254,10 @@ function CheckoutContent() {
             });
             setError(error);
             setIsProcessing(false);
+            void auth?.currentUser?.getIdToken().then((token) => fetch(`/api/orders/${encodeURIComponent(orderId)}/release-reservation`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            })).catch(() => undefined);
           }
         );
       } else if (paymentMethod === 'bank_transfer') {
@@ -530,7 +550,7 @@ function CheckoutContent() {
                   </div>
                 </label>
 
-                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer"
+                {checkoutSettings.bankTransferEnabled && <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer"
                   style={{
                     borderColor: paymentMethod === 'bank_transfer' ? AppColors.primary : AppColors.border,
                     backgroundColor: paymentMethod === 'bank_transfer' ? `${AppColors.primary}10` : 'transparent',
@@ -562,9 +582,9 @@ function CheckoutContent() {
                       Transfer funds to our account
                     </p>
                   </div>
-                </label>
+                </label>}
 
-                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer"
+                {checkoutSettings.cashOnDeliveryEnabled && <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer"
                   style={{
                     borderColor: paymentMethod === 'cash_on_delivery' ? AppColors.primary : AppColors.border,
                     backgroundColor: paymentMethod === 'cash_on_delivery' ? `${AppColors.primary}10` : 'transparent',
@@ -596,7 +616,7 @@ function CheckoutContent() {
                       Pay when your order arrives
                     </p>
                   </div>
-                </label>
+                </label>}
               </div>
               {currentRole === USER_ROLES.INSTITUTIONAL_BUYER && (
                 <label className={`mt-4 flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition ${useWholesalePrepayment ? 'border-emerald-600 bg-emerald-50' : 'border-gray-200'}`}>

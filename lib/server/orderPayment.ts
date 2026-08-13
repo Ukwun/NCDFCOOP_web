@@ -15,7 +15,7 @@ export async function completeOrderPayment(input: {
   transactionRef: string;
   providerTransactionId: string | number;
   providerStatus: string;
-}): Promise<{ orderId: string; userId: string; alreadyCompleted: boolean }> {
+}): Promise<{ orderId: string; userId: string; alreadyCompleted: boolean; requiresRefund?: boolean }> {
   const db = getAdminDb();
   const transactionRef = db
     .collection("transactions")
@@ -45,6 +45,33 @@ export async function completeOrderPayment(input: {
     if (order.paymentStatus === "completed") {
       return { orderId, userId, alreadyCompleted: true };
     }
+    const now = Timestamp.now();
+    if (order.inventoryReleased === true || order.paymentStatus === 'expired') {
+      transaction.update(transactionRef, {
+        status: 'paid_exception',
+        providerTransactionId: String(input.providerTransactionId),
+        providerStatus: input.providerStatus,
+        exceptionReason: 'payment_received_after_inventory_release',
+        updatedAt: now,
+      });
+      transaction.update(orderRef, {
+        paymentStatus: 'refund_required',
+        status: 'cancelled',
+        refundReason: 'payment_received_after_inventory_release',
+        updatedAt: now,
+      });
+      transaction.set(db.collection('anomalyAlerts').doc(), {
+        category: 'payment', severity: 'critical', status: 'open',
+        message: 'Payment received after reserved inventory was released; refund required.',
+        context: { orderId, transactionRef: input.transactionRef }, createdAt: now,
+      });
+      transaction.set(db.collection('notifications').doc(), {
+        userId, title: 'Payment requires review',
+        message: `Payment for order #${orderId} arrived after the checkout expired. Support has been alerted to arrange a refund.`,
+        type: 'payment', read: false, data: { orderId, status: 'refund_required' }, createdAt: now,
+      });
+      return { orderId, userId, alreadyCompleted: false, requiresRefund: true };
+    }
 
     const attributionRef = db.collection("referralAttributions").doc(userId);
     const attributionSnapshot = await transaction.get(attributionRef);
@@ -62,7 +89,6 @@ export async function completeOrderPayment(input: {
       : null;
     if (referrerMemberRef) await transaction.get(referrerMemberRef);
 
-    const now = Timestamp.now();
     transaction.update(transactionRef, {
       status: "completed",
       providerTransactionId: String(input.providerTransactionId),
@@ -73,6 +99,7 @@ export async function completeOrderPayment(input: {
     transaction.update(orderRef, {
       paymentStatus: "completed",
       status: "confirmed",
+      inventoryReserved: false,
       transactionRef: input.transactionRef,
       paidAt: now,
       updatedAt: now,
@@ -245,7 +272,9 @@ export async function failOrderPayment(input: {
     transaction.update(orderRef, {
       paymentStatus: "failed",
       status: "cancelled",
+      inventoryReserved: false,
       inventoryReleased: true,
+      inventoryReleasedAt: now,
       failureReason: input.reason || "Payment failed",
       updatedAt: now,
     });

@@ -537,6 +537,14 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin() && docId != 'commerce';
     }
 
+    match /rateLimits/{bucketId} {
+      allow read, write: if false;
+    }
+
+    match /payoutTransferRecords/{recordId} {
+      allow read, write: if false;
+    }
+
     // ============================================
     // DEFAULT DENY
     // ============================================

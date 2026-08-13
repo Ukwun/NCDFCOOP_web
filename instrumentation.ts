@@ -1,9 +1,4 @@
-/**
- * Sentry Instrumentation
- * Currently disabled in development - enable in production only
- */
-
 export async function register() {
-  // Disabled for now - Sentry will be configured in production
-  // with explicit environment variables and auth token
+  if (process.env.NEXT_RUNTIME === 'nodejs') await import('./sentry.server.config');
+  if (process.env.NEXT_RUNTIME === 'edge') await import('./sentry.edge.config');
 }

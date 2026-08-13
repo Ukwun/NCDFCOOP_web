@@ -10,6 +10,10 @@
  * - API endpoints: 100 per hour per user
  */
 
+import { createHash } from 'crypto';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase/admin';
+
 interface RateLimitEntry {
   count: number;
   resetTime: number;
@@ -175,29 +179,10 @@ export function createRateLimiter(
   limitType: keyof typeof rateLimitConfigs
 ) {
   const config = rateLimitConfigs[limitType];
-  let cache: LRUCache;
-
-  switch (limitType) {
-    case 'email':
-      cache = emailLimiter;
-      break;
-    case 'auth':
-      cache = authLimiter;
-      break;
-    case 'payment':
-      cache = paymentLimiter;
-      break;
-    case 'search':
-      cache = searchLimiter;
-      break;
-    case 'api':
-    default:
-      cache = apiLimiter;
-  }
 
   return async (req: any) => {
     const id = identifier(req);
-    const result = checkRateLimit(id, cache, config);
+    const result = await checkPersistentRateLimit(String(id || 'anonymous'), limitType, config);
 
     // Add rate limit info to response headers
     const headers = {
@@ -215,6 +200,49 @@ export function createRateLimiter(
 
     return { headers };
   };
+}
+
+async function checkPersistentRateLimit(
+  identifier: string,
+  limitType: keyof typeof rateLimitConfigs,
+  config: RateLimitConfig,
+): Promise<{ isAllowed: boolean; remaining: number; resetTime: number }> {
+  const now = Date.now();
+  const bucket = Math.floor(now / config.windowMs);
+  const digest = createHash('sha256')
+    .update(`${limitType}:${identifier}:${bucket}`)
+    .digest('hex');
+  const ref = getAdminDb().collection('rateLimits').doc(digest);
+  return getAdminDb().runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const count = Number(snapshot.data()?.count || 0) + 1;
+    const resetTime = (bucket + 1) * config.windowMs;
+    transaction.set(ref, {
+      type: limitType,
+      count,
+      resetAt: Timestamp.fromMillis(resetTime),
+      expiresAt: Timestamp.fromMillis(resetTime + 24 * 60 * 60 * 1000),
+      updatedAt: Timestamp.now(),
+    }, { merge: true });
+    return {
+      isAllowed: count <= config.maxRequests,
+      remaining: Math.max(0, config.maxRequests - count),
+      resetTime,
+    };
+  });
+}
+
+export async function enforcePersistentRateLimit(
+  identifier: string,
+  limitType: keyof typeof rateLimitConfigs,
+) {
+  const result = await checkPersistentRateLimit(identifier, limitType, rateLimitConfigs[limitType]);
+  if (!result.isAllowed) {
+    const error = new Error('Too Many Requests');
+    (error as Error & { status?: number }).status = 429;
+    throw error;
+  }
+  return result;
 }
 
 /**

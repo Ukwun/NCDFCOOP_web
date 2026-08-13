@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth/authContext';
-import { getProducts, searchProducts } from '@/lib/services/productService';
+import { getProductPage } from '@/lib/services/productService';
 import ProductList from '@/components/ProductList';
 import { Product } from '@/lib/types/product';
 import { USER_ROLES } from '@/lib/constants/database';
@@ -20,6 +20,8 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const [category, setCategory] = useState(searchParams.get('category') || 'All');
   const [error, setError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Intelligence: Determine if we should show wholesale or retail listings
   const productViewType = useMemo(() => {
@@ -32,32 +34,43 @@ export default function ProductsPage() {
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const queryTerm = searchParams.get('q')?.trim();
-      let result;
-      if (queryTerm) {
-        result = await searchProducts(queryTerm, productViewType);
-      } else {
-        result = await getProducts(100, productViewType);
-      }
-      setProducts(result);
+      const result = await getProductPage({ limit: 24, type: productViewType, search: searchParams.get('q') || '', category });
+      setProducts(result.products);
+      setNextCursor(result.nextCursor);
     } catch (err) {
       console.error('Error fetching products:', err);
       setError('Failed to load products');
     } finally {
       setIsLoading(false);
     }
-  }, [searchParams, productViewType]);
+  }, [searchParams, productViewType, category]);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchesCategory = category === 'All' || p.category === category;
-      return matchesCategory;
-    });
-  }, [products, category]);
+  const filteredProducts = products;
+
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+    if (searchTerm.trim()) params.set('q', searchTerm.trim()); else params.delete('q');
+    router.push(`/products${params.toString() ? `?${params}` : ''}`);
+  };
+
+  const loadMore = async () => {
+    if (!nextCursor) return;
+    try {
+      setLoadingMore(true);
+      const result = await getProductPage({ limit: 24, type: productViewType, search: searchParams.get('q') || '', category, cursor: nextCursor });
+      setProducts((current) => [...current, ...result.products.filter((item) => !current.some((existing) => existing.id === item.id))]);
+      setNextCursor(result.nextCursor);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'More products could not be loaded.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const stats = useMemo(() => {
     const ncdf = products.filter((p) => resolveProductOwnership(p) === 'ncdf').length;
@@ -100,11 +113,17 @@ export default function ProductsPage() {
           </div>
         )}
 
+        <form onSubmit={submitSearch} className="mb-6 flex gap-2 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+          <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search the live marketplace" aria-label="Search products" className="min-h-11 flex-1 rounded-xl px-4 text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500" />
+          <button className="rounded-xl bg-emerald-700 px-5 font-bold text-white transition hover:-translate-y-0.5 hover:bg-emerald-800">Search</button>
+        </form>
+
         <ProductList 
           products={filteredProducts} 
           isLoading={isLoading} 
           onViewDetails={(id) => router.push(`/products/${id}`)}
         />
+        {nextCursor && <button onClick={() => void loadMore()} disabled={loadingMore} className="mx-auto mt-8 block min-h-11 rounded-xl border border-emerald-700 bg-white px-6 font-bold text-emerald-800 transition hover:-translate-y-0.5 hover:bg-emerald-50 disabled:opacity-50">{loadingMore ? 'Loading…' : 'Load more products'}</button>}
       </div>
     </div>
   );

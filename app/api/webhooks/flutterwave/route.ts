@@ -9,6 +9,7 @@ import { completeOrderPayment, failOrderPayment } from '@/lib/server/orderPaymen
 import { sendOrderReceipt } from '@/lib/server/orderEmail';
 import { completeMembershipPayment } from '@/lib/server/membershipPayment';
 import { Timestamp } from 'firebase-admin/firestore';
+import { recordOperationalAlert } from '@/lib/server/operationalAlert';
 
 function safeEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left);
@@ -42,12 +43,13 @@ export async function POST(request: NextRequest) {
   const secretHash =
     process.env.FLUTTERWAVE_WEBHOOK_SECRET || process.env.FLW_SECRET_HASH;
   if (!secretHash) {
-    console.error('Flutterwave webhook secret is not configured.');
+    await recordOperationalAlert({ category: 'webhook', severity: 'critical', message: 'Flutterwave webhook secret is not configured.' });
     return NextResponse.json({ success: false }, { status: 503 });
   }
 
   const rawBody = await request.text();
   if (!hasValidSignature(request, rawBody, secretHash)) {
+    await recordOperationalAlert({ category: 'webhook', severity: 'warning', message: 'Flutterwave webhook signature validation failed.' });
     return NextResponse.json({ success: false }, { status: 401 });
   }
 
@@ -82,6 +84,7 @@ export async function POST(request: NextRequest) {
           currency: String(expected.currency || 'NGN'),
         })
       ) {
+        await recordOperationalAlert({ category: 'payment', severity: 'critical', message: 'Verified Flutterwave payment did not match the expected order amount or reference.', context: { transactionRef } });
         return NextResponse.json({ success: false }, { status: 409 });
       }
 
@@ -97,7 +100,7 @@ export async function POST(request: NextRequest) {
           providerTransactionId: verified.id,
           providerStatus: verified.status,
         });
-        if (!completion.alreadyCompleted) {
+        if (!completion.alreadyCompleted && !completion.requiresRefund) {
           await sendOrderReceipt(completion.orderId);
         }
       }
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Flutterwave webhook processing failed:', error?.message);
+    await recordOperationalAlert({ category: 'webhook', severity: 'critical', message: 'Flutterwave webhook processing failed.', error });
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }

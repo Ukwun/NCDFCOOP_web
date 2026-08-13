@@ -81,31 +81,7 @@ export async function getOffersForTier(tier: string): Promise<Offer[]> {
  */
 export async function getProducts(limitNumber: number = 20, type?: 'retail' | 'wholesale'): Promise<Product[]> {
   try {
-    if (!db) {
-      return [];
-    }
-
-    // The status constraint is both the visibility boundary enforced by
-    // Firestore rules and the scalable public catalog query.
-    const liveProductsQuery = query(
-      collection(db, COLLECTIONS.PRODUCTS),
-      where('status', '==', 'live'),
-      limit(Math.max(limitNumber, 100))
-    );
-    const snapshot = await getDocs(liveProductsQuery);
-    const products = snapshot.docs
-      .map((document) => ({
-        id: document.id,
-        ...(document.data() as any),
-      } as Product))
-      .filter((product) => !type || product.type === type || product.type === 'both')
-      .sort((a, b) => {
-        const toMillis = (value: any) => value?.toMillis?.() || value?.getTime?.() || 0;
-        return toMillis(b.createdAt) - toMillis(a.createdAt);
-      })
-      .slice(0, limitNumber);
-
-    return products;
+    return (await getProductPage({ limit: limitNumber, type })).products;
   } catch (error) {
     console.error('Error fetching products:', error);
     throw error;
@@ -156,17 +132,29 @@ export async function getProductsByCategory(category: string, type?: 'retail' | 
  */
 export async function searchProducts(searchTerm: string, type?: 'retail' | 'wholesale'): Promise<Product[]> {
   try {
-    const products = await getProducts(100, type);
-    const term = searchTerm.toLowerCase();
-
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(term) ||
-        p.description.toLowerCase().includes(term) ||
-        p.category.toLowerCase().includes(term)
-    );
+    return (await getProductPage({ limit: 50, type, search: searchTerm })).products;
   } catch (error) {
     console.error('Error searching products:', error);
     throw error;
   }
+}
+
+export async function getProductPage(options: {
+  limit?: number;
+  type?: 'retail' | 'wholesale';
+  search?: string;
+  category?: string;
+  cursor?: string | null;
+}): Promise<{ products: Product[]; nextCursor: string | null }> {
+  const params = new URLSearchParams({
+    limit: String(Math.min(Math.max(options.limit || 24, 1), 50)),
+    type: options.type || 'retail',
+  });
+  if (options.search?.trim()) params.set('q', options.search.trim());
+  if (options.category && options.category !== 'All') params.set('category', options.category);
+  if (options.cursor) params.set('cursor', options.cursor);
+  const response = await fetch(`/api/catalog/products?${params.toString()}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || 'Failed to load products');
+  return { products: payload.products || [], nextCursor: payload.nextCursor || null };
 }

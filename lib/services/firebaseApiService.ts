@@ -23,6 +23,7 @@ import {
 import { db } from '@/lib/firebase/config';
 import { COLLECTIONS } from '@/lib/constants/database';
 import { ErrorHandler } from '@/lib/error/errorHandler';
+import { buildSearchTokens } from '@/lib/utils/searchTokens';
 
 /**
  * Member Services
@@ -168,6 +169,7 @@ export const productService = {
       const docRef = await addDoc(collection(db, COLLECTIONS.PRODUCTS), {
         ...productData,
         sellerId,
+        searchTokens: buildSearchTokens(productData.name, productData.category, productData.description),
         status: 'pending', // pending approval
         rating: 0,
         reviews: [],

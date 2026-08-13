@@ -7,6 +7,7 @@ import {
   normalizeMembershipTierPrices,
   validateMembershipTierPrices,
 } from "@/lib/membership/pricing";
+import { normalizeCommercePaymentSettings } from "@/lib/commerce/settings";
 
 const DEFAULT_COMMISSION_PERCENT = 10;
 
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest) {
     membershipTierPrices: normalizeMembershipTierPrices(
       snapshot.data()?.membershipTierPrices,
     ),
+    ...normalizeCommercePaymentSettings(snapshot.data()),
   });
 }
 
@@ -86,6 +88,57 @@ export async function PUT(request: NextRequest) {
     logData.membershipTierPrices = membershipTierPrices;
   }
 
+  if ("bankTransferAccount" in payload || "bankTransferEnabled" in payload) {
+    const account = payload.bankTransferAccount || {};
+    const bankName = String(account.bankName || '').trim().slice(0, 120);
+    const accountName = String(account.accountName || '').trim().slice(0, 120);
+    const accountNumber = String(account.accountNumber || '').replace(/\s+/g, '');
+    if (payload.bankTransferEnabled === true &&
+        (bankName.length < 2 || accountName.length < 2 || !/^\d{10}$/.test(accountNumber))) {
+      return NextResponse.json(
+        { error: 'A verified Nigerian bank, account name and 10-digit account number are required before bank transfer can be enabled.' },
+        { status: 400 },
+      );
+    }
+    if (bankName || accountName || accountNumber) {
+      if (bankName.length < 2 || accountName.length < 2 || !/^\d{10}$/.test(accountNumber)) {
+        return NextResponse.json({ error: 'Enter complete, valid company bank details.' }, { status: 400 });
+      }
+      updates.bankTransferAccount = {
+        bankName,
+        accountName,
+        accountNumber,
+        instructions: String(account.instructions || '').trim().slice(0, 500),
+        verifiedBy: user.uid,
+        verifiedAt: FieldValue.serverTimestamp(),
+      };
+      logData.bankTransferAccountLast4 = accountNumber.slice(-4);
+    }
+    if ("bankTransferEnabled" in payload) {
+      updates.bankTransferEnabled = payload.bankTransferEnabled === true;
+      logData.bankTransferEnabled = updates.bankTransferEnabled;
+    }
+  }
+
+  if ("cashOnDeliveryEnabled" in payload) {
+    updates.cashOnDeliveryEnabled = payload.cashOnDeliveryEnabled === true;
+    logData.cashOnDeliveryEnabled = updates.cashOnDeliveryEnabled;
+  }
+
+  for (const [field, fallback, min, max] of [
+    ['inventoryReservationMinutes', 30, 5, 180],
+    ['bankTransferReservationHours', 48, 1, 72],
+  ] as const) {
+    if (field in payload) {
+      const value = Number(payload[field]);
+      if (!Number.isInteger(value) || value < min || value > max) {
+        return NextResponse.json({ error: `${field} must be between ${min} and ${max}.` }, { status: 400 });
+      }
+      updates[field] = value || fallback;
+      logData[field] = value;
+    }
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(
       { error: "Provide a commerce setting to update." },
@@ -100,10 +153,7 @@ export async function PUT(request: NextRequest) {
     .set({ ...updates, updatedAt: now, updatedBy: user!.uid }, { merge: true });
   await db.collection("activityLogs").add({
     userId: user!.uid,
-    action:
-      "membershipTierPrices" in updates
-        ? "membership_tier_prices_updated"
-        : "seller_commission_updated",
+    action: "commerce_settings_updated",
     ...logData,
     createdAt: now,
   });
@@ -115,5 +165,6 @@ export async function PUT(request: NextRequest) {
     membershipTierPrices: normalizeMembershipTierPrices(
       snapshot.data()?.membershipTierPrices,
     ),
+    ...normalizeCommercePaymentSettings(snapshot.data()),
   });
 }

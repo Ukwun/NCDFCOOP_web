@@ -79,8 +79,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const LOCAL_ONBOARDING_KEY = "ncdfcoop_onboarding_completed";
 const LOCAL_ROLE_OVERRIDE_KEY = "selectedRoleOverride";
+const LOCAL_SESSION_EXPIRED_KEY = "coopx_session_expired";
 const PENDING_ROLE = "pending_role";
 const PROFILE_REQUEST_TIMEOUT_MS = 12_000;
+const AUTH_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const AUTH_SESSION_CHECK_INTERVAL_MS = 60 * 1000;
 const profileProvisioningRequests = new Map<string, Promise<boolean>>();
 
 function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
@@ -220,6 +223,18 @@ function setLocalOnboardingCompleted(): void {
 function clearLocalOnboardingCompleted(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(LOCAL_ONBOARDING_KEY);
+}
+
+function setSessionExpiredNotice(): void {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(LOCAL_SESSION_EXPIRED_KEY, "true");
+}
+
+async function isFirebaseSessionExpired(currentUser: User): Promise<boolean> {
+  const tokenResult = await currentUser.getIdTokenResult();
+  const authTimeMs = Date.parse(tokenResult.authTime);
+  if (!Number.isFinite(authTimeMs)) return false;
+  return Date.now() - authTimeMs > AUTH_SESSION_MAX_AGE_MS;
 }
 
 function getRoleOverrideFromStorage(activeRoles: string[]): string | null {
@@ -381,6 +396,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        if (await isFirebaseSessionExpired(currentUser)) {
+          setSessionExpiredNotice();
+          await signOut(auth);
+          setUser(null);
+          setCurrentRole(null);
+          setRoleSelectionComplete(false);
+          setOnboardingCompleted(getLocalOnboardingCompleted());
+          return;
+        }
+
         const pendingReferral = typeof window !== "undefined"
           ? window.sessionStorage.getItem("pendingReferralCode") || undefined
           : undefined;
@@ -397,6 +422,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!auth || typeof window === "undefined") return;
+
+    const checkCurrentSession = async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      try {
+        if (await isFirebaseSessionExpired(currentUser)) {
+          setSessionExpiredNotice();
+          await signOut(auth);
+          setUser(null);
+          setCurrentRole(null);
+          setRoleSelectionComplete(false);
+          setOnboardingCompleted(getLocalOnboardingCompleted());
+        }
+      } catch (sessionError) {
+        console.warn("Session freshness check failed:", sessionError);
+      }
+    };
+
+    const interval = window.setInterval(checkCurrentSession, AUTH_SESSION_CHECK_INTERVAL_MS);
+    window.addEventListener("focus", checkCurrentSession);
+    document.addEventListener("visibilitychange", checkCurrentSession);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", checkCurrentSession);
+      document.removeEventListener("visibilitychange", checkCurrentSession);
+    };
   }, []);
 
   useEffect(() => {
@@ -624,6 +680,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.localStorage.removeItem("userEmail");
         window.localStorage.removeItem("userRole");
         window.localStorage.removeItem("displayName");
+        window.sessionStorage.removeItem(LOCAL_SESSION_EXPIRED_KEY);
       }
       setUser(null);
       setCurrentRole(null);

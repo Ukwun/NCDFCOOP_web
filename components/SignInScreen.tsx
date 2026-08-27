@@ -39,8 +39,20 @@ export default function SignInScreen() {
     !requestedPath.startsWith("//")
     ? requestedPath
     : null;
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
+
+  useEffect(() => {
+    const expired = window.sessionStorage.getItem("coopx_session_expired") === "true";
+    if (expired) {
+      window.sessionStorage.removeItem("coopx_session_expired");
+      setSessionExpiredNotice(true);
+    }
+  }, []);
+
   const authNotice =
-    reason === "marketplace_auth_required" || reason === "cart"
+    sessionExpiredNotice
+      ? "For your security, CoopX sessions expire after 24 hours. Please sign in again to continue."
+      : reason === "marketplace_auth_required" || reason === "cart"
       ? "Please sign in or create an account to view product details, add items to your cart, and continue checkout."
       : reason === "checkout"
         ? "Please sign in or create an account before continuing to checkout."
@@ -371,7 +383,7 @@ export default function SignInScreen() {
                     accentColor: AppColors.primary,
                   }}
                 />
-                Remember me
+                Keep me signed in today
               </label>
               <button
                 type="button"

@@ -864,56 +864,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!auth.currentUser) throw new Error("No authenticated user available");
       if (!user) throw new Error("User context is not available");
 
-      const existingRoles = user.roles || [];
-      const isInitialRoleSelection =
-        !user.roleSelectionComplete && existingRoles.length === 0;
-      if (!isInitialRoleSelection && !existingRoles.includes(normalizedRole)) {
-        throw new Error(
-          "This role is not active on your account yet. Complete its onboarding approval first.",
-        );
-      }
-      const nextRoles = isInitialRoleSelection
-        ? [normalizedRole]
-        : existingRoles;
-      const updateData: Record<string, unknown> = {
-        selectedRole: normalizedRole,
-        roleSelectionComplete: true,
-        updatedAt: Timestamp.now(),
-      };
-
-      if (isInitialRoleSelection) {
-        updateData.roles = nextRoles;
-        updateData.membershipType = normalizedRole;
-        updateData.membershipStatus =
-          normalizedRole === USER_ROLES.MEMBER ? "pending" : "inactive";
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch("/api/auth/select-role", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: normalizedRole }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "We could not save your selected role.");
       }
 
-      // Attempt to update Firestore with retry logic to handle transient network issues
-      let lastError: any;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          await setDoc(
-            doc(db, COLLECTIONS.USERS, auth.currentUser.uid),
-            updateData,
-            { merge: true },
-          );
-          lastError = null;
-          break; // Success, exit retry loop
-        } catch (err: any) {
-          lastError = err;
-          if (attempt < 2) {
-            // Wait before retrying (exponential backoff: 300ms, 600ms)
-            await new Promise((resolve) =>
-              setTimeout(resolve, 300 * (attempt + 1)),
-            );
-          }
-        }
-      }
-
-      // If all retries failed, throw the error
-      if (lastError) {
-        throw lastError;
-      }
+      const nextRoles = Array.isArray(payload?.profile?.roles)
+        ? payload.profile.roles
+        : user.roles || [normalizedRole];
+      const isInitialRoleSelection = !(user.roles || []).length;
 
       // Only store in localStorage AFTER Firestore write succeeds
       if (typeof window !== "undefined") {
@@ -927,11 +895,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         selectedRole: normalizedRole,
         currentRole: normalizedRole,
         roleSelectionComplete: true,
-        membershipStatus: isInitialRoleSelection
-          ? normalizedRole === USER_ROLES.MEMBER
-            ? "pending"
-            : "inactive"
-          : user.membershipStatus,
+        membershipStatus: payload?.profile?.membershipStatus ||
+          (isInitialRoleSelection
+            ? normalizedRole === USER_ROLES.MEMBER ? "pending" : "inactive"
+            : user.membershipStatus),
         roles: nextRoles,
       });
       void logActivity(auth.currentUser.uid, "role_changed", {

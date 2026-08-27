@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   BadgeCheck,
@@ -71,6 +72,7 @@ function priceFor(product: Product) {
 }
 
 export default function WelcomeScreen() {
+  const router = useRouter();
   const { user, currentRole, roleSelectionComplete, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -152,6 +154,17 @@ export default function WelcomeScreen() {
   const openMarketplace = (event: FormEvent) => {
     event.preventDefault();
     marketplaceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const requireAccountForProduct = (
+    event: MouseEvent<HTMLAnchorElement>,
+    productId: string,
+  ) => {
+    if (user || authLoading) return;
+    event.preventDefault();
+    router.push(
+      `/signin?next=${encodeURIComponent(`/products/${productId}`)}&reason=marketplace_auth_required`,
+    );
   };
 
   const accountHref = user && !authLoading
@@ -249,7 +262,7 @@ export default function WelcomeScreen() {
                     <p className="mt-2 text-sm text-white/80">{boardProduct.category} · {boardProduct.sellerName || "CoopX marketplace"}</p>
                     <div className="mt-5 flex items-center justify-between gap-3">
                       <span className="text-xl font-black">{priceFor(boardProduct) > 0 ? naira.format(priceFor(boardProduct)) : "Request pricing"}</span>
-                      <Link href={`/products/${boardProduct.id}`} className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-4 py-2.5 text-sm font-black text-emerald-950 transition hover:bg-amber-300">View listing <ChevronRight size={17} /></Link>
+                      <Link href={`/products/${boardProduct.id}`} onClick={(event) => requireAccountForProduct(event, boardProduct.id)} className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-4 py-2.5 text-sm font-black text-emerald-950 transition hover:bg-amber-300">View listing <ChevronRight size={17} /></Link>
                     </div>
                   </>
                 ) : (
@@ -308,7 +321,7 @@ export default function WelcomeScreen() {
               <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {filteredProducts.slice(0, 8).map((product) => {
                   const offer = getActiveProductOffer(product);
-                  return <Link href={`/products/${product.id}`} key={product.id} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-emerald-700 motion-reduce:transform-none">
+                  return <Link href={`/products/${product.id}`} onClick={(event) => requireAccountForProduct(event, product.id)} key={product.id} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-emerald-300 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-emerald-700 motion-reduce:transform-none">
                     <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
                       <Image src={resolveProductImage(product.thumbnail || product.images?.[0])} alt={product.name} fill className="object-cover transition duration-500 group-hover:scale-105 motion-reduce:transform-none" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" />
                       {offer && <span className="absolute left-3 top-3 rounded-full bg-rose-600 px-2.5 py-1 text-xs font-black text-white">{offer.discountPercentage}% off</span>}

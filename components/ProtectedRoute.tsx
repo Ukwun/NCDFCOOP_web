@@ -30,7 +30,8 @@ export function ProtectedRoute({
     // Check if user needs to complete workflow steps
     if (nextRoute) {
       if (nextRoute === '/signin') {
-        router.replace(`/signin?next=${encodeURIComponent(currentPath)}`);
+        const reason = currentPath.startsWith('/checkout') ? '&reason=checkout' : '';
+        router.replace(`/signin?next=${encodeURIComponent(currentPath)}${reason}`);
         return;
       }
 

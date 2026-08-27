@@ -91,7 +91,7 @@ function RatingBars({ rating, reviews }: { rating: number; reviews: number }) {
 export default function ProductDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const { user, currentRole } = useAuth();
+  const { user, currentRole, loading: authLoading } = useAuth();
   const getEffectivePrice = (targetProduct: Product, role?: string) => {
     const basePrice = getBaseEffectivePrice(targetProduct, role);
     const offer = getActiveProductOffer(targetProduct, role);
@@ -362,8 +362,12 @@ export default function ProductDetailPage() {
   };
 
   const addProductToCart = async (targetProduct: Product, targetQuantity: number) => {
+    if (!user?.uid) {
+      throw new Error('Please sign in before adding products to your cart.');
+    }
+
     const safePrice = getEffectivePriceForQuantity(targetProduct, currentRole, targetQuantity);
-    const cartUserId = user?.uid || 'guest';
+    const cartUserId = user.uid;
 
     await addToCart(
       cartUserId,
@@ -392,6 +396,15 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = async () => {
     if (!product) return;
+    if (authLoading) {
+      toast.warning('Checking your account. Please try again in a moment.');
+      return;
+    }
+    if (!user) {
+      toast.warning('Please sign in or create an account before adding products to your cart.');
+      router.push(`/signin?next=${encodeURIComponent(`/products/${String(params?.id || product.id)}`)}&reason=cart`);
+      return;
+    }
     if (isWholesaleUnavailable) {
       toast.warning('This retail-only product is not available for institutional checkout. Request it from the seller instead.');
       return;
@@ -413,6 +426,15 @@ export default function ProductDetailPage() {
 
   const handleBuyNow = async () => {
     if (!product) return;
+    if (authLoading) {
+      toast.warning('Checking your account. Please try again in a moment.');
+      return;
+    }
+    if (!user) {
+      toast.warning('Please sign in or create an account before starting checkout.');
+      router.push(`/signin?next=${encodeURIComponent(`/products/${String(params?.id || product.id)}`)}&reason=cart`);
+      return;
+    }
     if (isWholesaleUnavailable) {
       toast.warning('This retail-only product cannot enter a wholesale checkout. Send a sourcing request instead.');
       return;
@@ -450,6 +472,15 @@ export default function ProductDetailPage() {
 
   const handleAddFrequentlyBoughtToCart = async () => {
     if (!product) return;
+    if (authLoading) {
+      toast.warning('Checking your account. Please try again in a moment.');
+      return;
+    }
+    if (!user) {
+      toast.warning('Please sign in or create an account before adding products to your cart.');
+      router.push(`/signin?next=${encodeURIComponent(`/products/${String(params?.id || product.id)}`)}&reason=cart`);
+      return;
+    }
 
     const targets = [product, ...frequentlyBoughtSelection];
     if (targets.length === 0) return;
@@ -1255,14 +1286,23 @@ export default function ProductDetailPage() {
                     </button>
                     <button
                       onClick={async () => {
+                        if (authLoading) {
+                          toast.warning('Checking your account. Please try again in a moment.');
+                          return;
+                        }
+                        if (!user) {
+                          toast.warning('Please sign in or create an account before adding products to your cart.');
+                          router.push(`/signin?next=${encodeURIComponent(`/products/${String(params?.id || product.id)}`)}&reason=cart`);
+                          return;
+                        }
                         try {
                           const quantity = getMinimumCartQuantity(related);
                           const added = await addProductToCart(related, quantity);
                           if (!added) return;
-                          alert(`${related.name} added to cart`);
+                          toast.success(`${related.name} added to cart`);
                         } catch (err) {
                           console.error('Error adding related product to cart:', err);
-                          alert('Failed to add to cart');
+                          toast.error('Failed to add to cart');
                         }
                       }}
                       className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold text-white bg-[#0E4B78] hover:bg-[#0A3B5F] transition-colors"
@@ -1326,14 +1366,23 @@ export default function ProductDetailPage() {
                     </button>
                     <button
                       onClick={async () => {
+                        if (authLoading) {
+                          toast.warning('Checking your account. Please try again in a moment.');
+                          return;
+                        }
+                        if (!user) {
+                          toast.warning('Please sign in or create an account before adding products to your cart.');
+                          router.push(`/signin?next=${encodeURIComponent(`/products/${String(params?.id || product.id)}`)}&reason=cart`);
+                          return;
+                        }
                         try {
                           const quantity = getMinimumCartQuantity(popular);
                           const added = await addProductToCart(popular, quantity);
                           if (!added) return;
-                          alert(`${popular.name} added to cart`);
+                          toast.success(`${popular.name} added to cart`);
                         } catch (err) {
                           console.error('Error adding popular product to cart:', err);
-                          alert('Failed to add to cart');
+                          toast.error('Failed to add to cart');
                         }
                       }}
                       className="flex-1 rounded-xl px-3 py-2 text-xs font-semibold text-white bg-[#0B6B3A] hover:bg-[#095234] transition-colors"

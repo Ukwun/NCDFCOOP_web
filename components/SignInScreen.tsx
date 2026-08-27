@@ -34,10 +34,17 @@ export default function SignInScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
   const requestedPath = searchParams.get("next");
+  const reason = searchParams.get("reason");
   const safeRequestedPath = requestedPath?.startsWith("/") &&
     !requestedPath.startsWith("//")
     ? requestedPath
     : null;
+  const authNotice =
+    reason === "marketplace_auth_required" || reason === "cart"
+      ? "Please sign in or create an account to view product details, add items to your cart, and continue checkout."
+      : reason === "checkout"
+        ? "Please sign in or create an account before continuing to checkout."
+        : "";
 
   const resolveDestination = useCallback(
     (roleDestination: string) =>
@@ -194,6 +201,24 @@ export default function SignInScreen() {
           </div>
 
           {/* Social Auth Buttons */}
+          {authNotice && (
+            <div
+              role="status"
+              style={{
+                padding: AppSpacing.md,
+                border: `1px solid ${AppColors.primary}`,
+                borderRadius: "8px",
+                marginBottom: AppSpacing.lg,
+                ...AppTextStyles.bodySmall,
+                backgroundColor: "#ecfdf5",
+                color: AppColors.primary,
+                lineHeight: 1.5,
+              }}
+            >
+              {authNotice}
+            </div>
+          )}
+
           <SocialSignInButtons
             onGoogleSignIn={handleGoogleSignIn}
             onFacebookSignIn={handleFacebookSignIn}
